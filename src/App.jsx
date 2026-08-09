@@ -11,7 +11,7 @@ import Profile from './components/Profile';
 import Settings from './components/Settings';
 import RightPanel from './components/RightPanel';
 
-import { Home, Compass, MessageCircle, LogOut, Clapperboard } from 'lucide-react';
+import { Home, Compass, MessageCircle, Clapperboard, Bell } from 'lucide-react';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -62,14 +62,13 @@ export default function App() {
     return <Auth />;
   }
 
-  // Check if current tab should hide the Right Panel (e.g. Messages & Reels)
   const isFullWidthPage = activeTab === 'messages' || activeTab === 'reels';
 
   return (
     <div className={`min-h-screen flex justify-center transition-colors ${isDarkMode ? 'dark bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
       <div className="w-full max-w-7xl flex">
         
-        {/* Sidebar Left */}
+        {/* Sidebar Left (Desktop Only) */}
         <Sidebar 
           activeTab={activeTab} 
           setActiveTab={setActiveTab} 
@@ -77,24 +76,26 @@ export default function App() {
           onLogout={handleLogout} 
         />
 
-        {/* Main Content Area - Full width if Messages/Reels, else normal width */}
-        <main className={`flex-1 min-h-screen pb-20 md:pb-6 transition-all ${
+        {/* Main Content Area */}
+        <main className={`flex-1 min-h-screen pb-24 md:pb-6 transition-all ${
           isFullWidthPage ? 'max-w-full' : 'max-w-2xl border-r'
         } ${
           isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'
         }`}>
           
-          {/* Mobile Header */}
-          <header className={`md:hidden flex justify-between items-center p-4 border-b sticky top-0 backdrop-blur-md z-20 ${
-            isDarkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-100 bg-white/80'
+          {/* CLEAN MOBILE HEADER */}
+          <header className={`md:hidden flex justify-between items-center px-4 py-3 border-b sticky top-0 backdrop-blur-md z-20 ${
+            isDarkMode ? 'border-slate-800 bg-slate-900/90' : 'border-slate-100 bg-white/90'
           }`}>
-            <h1 className="text-2xl font-black text-purple-600">Auragram</h1>
+            <h1 className="text-2xl font-black text-purple-600 tracking-tight">Auragram</h1>
+            
             <div className="flex space-x-2 items-center">
-              <button onClick={() => setActiveTab(activeTab === 'messages' ? 'feed' : 'messages')} className="p-2 rounded-full bg-slate-100 dark:bg-slate-800">
-                <MessageCircle className="w-5 h-5 text-slate-700 dark:text-slate-200" />
-              </button>
-              <button onClick={handleLogout} className="p-2 rounded-full bg-rose-50 text-rose-600">
-                <LogOut className="w-5 h-5" />
+              {/* Quick Notification Icon */}
+              <button 
+                onClick={() => setActiveTab('notifications')} 
+                className={`p-2 rounded-full transition ${activeTab === 'notifications' ? 'bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}
+              >
+                <Bell className="w-5 h-5" />
               </button>
             </div>
           </header>
@@ -116,7 +117,7 @@ export default function App() {
           
         </main>
 
-        {/* Right Panel - Hidden conditionally on Messages & Reels, also hidden on small screens */}
+        {/* Right Panel (Desktop Only) */}
         {!isFullWidthPage && (
           <div className="hidden lg:block">
             <RightPanel session={session} />
@@ -125,21 +126,36 @@ export default function App() {
 
       </div>
 
-      {/* Mobile Bottom Navigation */}
-      <nav className={`md:hidden fixed bottom-0 left-0 right-0 border-t px-6 py-2 flex justify-between items-center z-30 ${
-        isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+      {/* PRO MOBILE BOTTOM NAVIGATION */}
+      <nav className={`md:hidden fixed bottom-0 left-0 right-0 border-t px-6 py-2.5 flex justify-between items-center z-30 shadow-lg ${
+        isDarkMode ? 'bg-slate-900/95 border-slate-800 backdrop-blur-md' : 'bg-white/95 border-slate-200 backdrop-blur-md'
       }`}>
-        <button onClick={() => setActiveTab('feed')} className={`p-2 rounded-xl ${activeTab === 'feed' ? 'bg-purple-600 text-white' : 'text-slate-500'}`}>
-          <Home className="w-6 h-6" />
+        <button 
+          onClick={() => setActiveTab('feed')} 
+          className={`p-2.5 rounded-2xl transition ${activeTab === 'feed' ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30' : 'text-slate-500 dark:text-slate-400'}`}
+        >
+          <Home className="w-5 h-5" />
         </button>
-        <button onClick={() => setActiveTab('explore')} className={`p-2 rounded-xl ${activeTab === 'explore' ? 'bg-purple-600 text-white' : 'text-slate-500'}`}>
-          <Compass className="w-6 h-6" />
+
+        <button 
+          onClick={() => setActiveTab('explore')} 
+          className={`p-2.5 rounded-2xl transition ${activeTab === 'explore' ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30' : 'text-slate-500 dark:text-slate-400'}`}
+        >
+          <Compass className="w-5 h-5" />
         </button>
-        <button onClick={() => setActiveTab('reels')} className={`p-2 rounded-xl ${activeTab === 'reels' ? 'bg-purple-600 text-white' : 'text-slate-500'}`}>
-          <Clapperboard className="w-6 h-6" />
+
+        <button 
+          onClick={() => setActiveTab('reels')} 
+          className={`p-2.5 rounded-2xl transition ${activeTab === 'reels' ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30' : 'text-slate-500 dark:text-slate-400'}`}
+        >
+          <Clapperboard className="w-5 h-5" />
         </button>
-        <button onClick={() => setActiveTab('messages')} className={`p-2 rounded-xl ${activeTab === 'messages' ? 'bg-purple-600 text-white' : 'text-slate-500'}`}>
-          <MessageCircle className="w-6 h-6" />
+
+        <button 
+          onClick={() => setActiveTab('messages')} 
+          className={`p-2.5 rounded-2xl transition ${activeTab === 'messages' ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30' : 'text-slate-500 dark:text-slate-400'}`}
+        >
+          <MessageCircle className="w-5 h-5" />
         </button>
       </nav>
     </div>
