@@ -222,47 +222,52 @@ export default function Profile({ session }) {
   const reelPosts = posts.filter(p => p.media_url && p.media_type === 'video');
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-2xl mx-auto pb-20">
+    <div className="w-full max-w-2xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 pb-20 box-border overflow-x-hidden">
       {/* Profile Header Card */}
       {profile && (
-        <div className="bg-slate-50 border border-slate-100 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-3xl space-y-4 shadow-sm">
-          <div className="flex items-center space-x-5">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-extrabold flex items-center justify-center text-2xl shadow-md overflow-hidden flex-shrink-0">
-              {profile.avatar_url ? (
-                <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-              ) : (
-                (profile.full_name || profile.username || 'U')[0].toUpperCase()
-              )}
+        <div className="bg-slate-50 border border-slate-100 dark:bg-slate-900 dark:border-slate-800 p-4 sm:p-6 rounded-3xl space-y-4 shadow-sm w-full box-border">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            
+            {/* Avatar & Info */}
+            <div className="flex items-center space-x-3 min-w-0 flex-1">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-extrabold flex items-center justify-center text-xl sm:text-2xl shadow-md overflow-hidden flex-shrink-0">
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                ) : (
+                  (profile.full_name || profile.username || 'U')[0].toUpperCase()
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <h2 className="text-base sm:text-xl font-black text-slate-800 dark:text-white truncate">
+                  {profile.full_name || profile.username || 'User'}
+                </h2>
+                <p className="text-xs font-bold text-purple-600 dark:text-purple-400 truncate">@{profile.username || 'username'}</p>
+                {profile.bio && <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-0.5 line-clamp-2">{profile.bio}</p>}
+              </div>
             </div>
 
-            <div className="flex-1 min-w-0">
-              {/* Display Name + Unique Username */}
-              <h2 className="text-xl font-black text-slate-800 dark:text-white truncate">
-                {profile.full_name || profile.username || 'User'}
-              </h2>
-              <p className="text-xs font-bold text-purple-600 dark:text-purple-400">@{profile.username || 'username'}</p>
-              {profile.bio && <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-1">{profile.bio}</p>}
-            </div>
-
+            {/* Edit Button */}
             <button 
               onClick={() => setIsEditing(true)}
-              className="flex items-center space-x-1.5 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-purple-300 rounded-full text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm transition"
+              className="flex items-center space-x-1 sm:space-x-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-purple-300 rounded-full text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm transition flex-shrink-0"
             >
               <Edit3 className="w-3.5 h-3.5 text-purple-600" />
               <span>Edit</span>
             </button>
           </div>
 
-          <div className="flex space-x-6 border-t border-slate-200/60 dark:border-slate-800 pt-3 text-xs font-extrabold text-slate-600 dark:text-slate-400">
-            <div><span className="text-purple-600">{posts.length}</span> Posts</div>
-            <div><span className="text-purple-600">{textPosts.length}</span> Thoughts</div>
-            <div><span className="text-purple-600">{photoPosts.length + reelPosts.length}</span> Media</div>
+          {/* Stats Bar */}
+          <div className="flex justify-around items-center border-t border-slate-200/60 dark:border-slate-800 pt-3 text-xs font-extrabold text-slate-600 dark:text-slate-400 text-center">
+            <div><span className="text-purple-600 font-black block sm:inline sm:mr-1">{posts.length}</span> Posts</div>
+            <div><span className="text-purple-600 font-black block sm:inline sm:mr-1">{textPosts.length}</span> Thoughts</div>
+            <div><span className="text-purple-600 font-black block sm:inline sm:mr-1">{photoPosts.length + reelPosts.length}</span> Media</div>
           </div>
         </div>
       )}
 
       {/* TABS HEADER: Text | Photos | Reels */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800">
+      <div className="w-full flex border-b border-slate-200 dark:border-slate-800 text-xs font-bold">
         {[
           { id: 'text', label: 'Text', icon: FileText, count: textPosts.length },
           { id: 'photos', label: 'Photos', icon: ImageIcon, count: photoPosts.length },
@@ -274,7 +279,7 @@ export default function Profile({ session }) {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-3 flex items-center justify-center space-x-2 border-b-2 text-xs font-bold transition ${
+              className={`flex-1 py-3 flex items-center justify-center space-x-1.5 border-b-2 transition ${
                 isActive 
                   ? 'border-purple-600 text-purple-600' 
                   : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -303,9 +308,9 @@ export default function Profile({ session }) {
               <p className="text-center text-xs text-slate-400 py-12 font-medium">No text thoughts posted yet.</p>
             ) : (
               textPosts.map(post => (
-                <div key={post.id} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-5 shadow-sm space-y-3">
+                <div key={post.id} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm space-y-3">
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden">
+                    <div className="w-8 h-8 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
                       {profile?.avatar_url ? (
                         <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
                       ) : (
@@ -318,7 +323,7 @@ export default function Profile({ session }) {
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-line">
+                  <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-line">
                     {post.content}
                   </p>
 
@@ -346,7 +351,7 @@ export default function Profile({ session }) {
             photoPosts.length === 0 ? (
               <p className="text-center text-xs text-slate-400 py-12 font-medium">No photo posts found.</p>
             ) : (
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {photoPosts.map(post => (
                   <div 
                     key={post.id} 
@@ -368,7 +373,7 @@ export default function Profile({ session }) {
             reelPosts.length === 0 ? (
               <p className="text-center text-xs text-slate-400 py-12 font-medium">No video reels uploaded.</p>
             ) : (
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {reelPosts.map(post => (
                   <div 
                     key={post.id} 
@@ -389,8 +394,8 @@ export default function Profile({ session }) {
 
       {/* POPUP MODAL FOR TAP TO VIEW MEDIA/REELS */}
       {selectedPost && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl overflow-hidden max-w-2xl w-full max-h-[85vh] flex flex-col md:flex-row relative shadow-2xl">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl overflow-hidden max-w-2xl w-full max-h-[90vh] flex flex-col md:flex-row relative shadow-2xl my-auto">
             {/* Close Button */}
             <button 
               onClick={() => setSelectedPost(null)}
@@ -400,20 +405,20 @@ export default function Profile({ session }) {
             </button>
 
             {/* Left Side: Media */}
-            <div className="md:w-1/2 bg-black flex items-center justify-center min-h-[280px] max-h-[85vh] relative overflow-hidden">
+            <div className="md:w-1/2 bg-black flex items-center justify-center min-h-[220px] sm:min-h-[280px] max-h-[50vh] md:max-h-[85vh] relative overflow-hidden">
               {selectedPost.media_type === 'video' ? (
-                <video src={selectedPost.media_url} controls autoPlay className="w-full max-h-[85vh] object-contain" />
+                <video src={selectedPost.media_url} controls autoPlay className="w-full h-full max-h-[50vh] md:max-h-[85vh] object-contain" />
               ) : (
-                <img src={selectedPost.media_url} alt="post" className="w-full max-h-[85vh] object-contain" />
+                <img src={selectedPost.media_url} alt="post" className="w-full h-full max-h-[50vh] md:max-h-[85vh] object-contain" />
               )}
             </div>
 
             {/* Right Side: Details & Comments */}
-            <div className="md:w-1/2 p-4 flex flex-col justify-between h-[380px] md:h-auto bg-white dark:bg-slate-900">
+            <div className="md:w-1/2 p-4 flex flex-col justify-between h-[320px] md:h-auto bg-white dark:bg-slate-900">
               <div className="space-y-3 overflow-hidden flex-1 flex flex-col">
                 {/* User Info Header */}
                 <div className="flex items-center space-x-2.5 border-b border-slate-100 dark:border-slate-800 pb-3 flex-shrink-0">
-                  <div className="w-8 h-8 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden">
+                  <div className="w-8 h-8 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
                     {profile?.avatar_url ? (
                       <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
                     ) : (
@@ -480,7 +485,7 @@ export default function Profile({ session }) {
       {/* EDIT PROFILE MODAL (WITH DP & UNIQUE USERNAME) */}
       {isEditing && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md space-y-4 relative shadow-2xl border border-slate-100 dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 w-full max-w-md space-y-4 relative shadow-2xl border border-slate-100 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
             <button onClick={() => setIsEditing(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
               <X className="w-5 h-5" />
             </button>
