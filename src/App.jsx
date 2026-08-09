@@ -11,7 +11,7 @@ import Profile from './components/Profile';
 import Settings from './components/Settings';
 import RightPanel from './components/RightPanel';
 
-import { Home, Compass, MessageCircle, Clapperboard, Bell } from 'lucide-react';
+import { Home, Compass, MessageCircle, Clapperboard, Bell, Settings as SettingsIcon, User } from 'lucide-react';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -83,19 +83,27 @@ export default function App() {
           isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'
         }`}>
           
-          {/* CLEAN MOBILE HEADER */}
+          {/* MOBILE HEADER */}
           <header className={`md:hidden flex justify-between items-center px-4 py-3 border-b sticky top-0 backdrop-blur-md z-20 ${
             isDarkMode ? 'border-slate-800 bg-slate-900/90' : 'border-slate-100 bg-white/90'
           }`}>
             <h1 className="text-2xl font-black text-purple-600 tracking-tight">Auragram</h1>
             
             <div className="flex space-x-2 items-center">
-              {/* Quick Notification Icon */}
+              {/* Notification Icon */}
               <button 
                 onClick={() => setActiveTab('notifications')} 
                 className={`p-2 rounded-full transition ${activeTab === 'notifications' ? 'bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}
               >
                 <Bell className="w-5 h-5" />
+              </button>
+
+              {/* Settings Icon (Notification ke right side) */}
+              <button 
+                onClick={() => setActiveTab('settings')} 
+                className={`p-2 rounded-full transition ${activeTab === 'settings' ? 'bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}
+              >
+                <SettingsIcon className="w-5 h-5" />
               </button>
             </div>
           </header>
@@ -126,8 +134,8 @@ export default function App() {
 
       </div>
 
-      {/* PRO MOBILE BOTTOM NAVIGATION */}
-      <nav className={`md:hidden fixed bottom-0 left-0 right-0 border-t px-6 py-2.5 flex justify-between items-center z-30 shadow-lg ${
+      {/* MOBILE BOTTOM NAVIGATION */}
+      <nav className={`md:hidden fixed bottom-0 left-0 right-0 border-t px-4 py-2 flex justify-between items-center z-30 shadow-lg ${
         isDarkMode ? 'bg-slate-900/95 border-slate-800 backdrop-blur-md' : 'bg-white/95 border-slate-200 backdrop-blur-md'
       }`}>
         <button 
@@ -156,6 +164,14 @@ export default function App() {
           className={`p-2.5 rounded-2xl transition ${activeTab === 'messages' ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30' : 'text-slate-500 dark:text-slate-400'}`}
         >
           <MessageCircle className="w-5 h-5" />
+        </button>
+
+        {/* Profile Icon (Message ke right side) */}
+        <button 
+          onClick={() => setActiveTab('profile')} 
+          className={`p-2.5 rounded-2xl transition ${activeTab === 'profile' ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30' : 'text-slate-500 dark:text-slate-400'}`}
+        >
+          <User className="w-5 h-5" />
         </button>
       </nav>
     </div>
