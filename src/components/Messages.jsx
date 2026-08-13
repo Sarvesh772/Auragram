@@ -183,10 +183,11 @@ export default function Messages({ session }) {
   }
 
   return (
-    <div className="w-full h-[calc(100vh-2rem)] p-2 sm:p-4 grid grid-cols-1 md:grid-cols-12 gap-4">
+    <div className="w-full h-[100dvh] overflow-hidden bg-slate-50 dark:bg-slate-950 md:p-2">
+      <div className="h-full grid grid-cols-1 md:grid-cols-12 gap-0 md:gap-4">
       {/* ================= INBOX SIDEBAR (3.5 / 12 Cols) ================= */}
       <div
-        className={`md:col-span-4 lg:col-span-3 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden ${
+        className={`md:col-span-4 lg:col-span-3 bg-white dark:bg-slate-900 md:rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden min-h-0 ${
           activeUser ? 'hidden md:flex' : 'flex'
         }`}
       >
@@ -207,7 +208,7 @@ export default function Messages({ session }) {
         </div>
 
         {/* SEARCH RESULTS OR RECENT CHATS */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1">
           {searchQuery.trim() ? (
             searchResults.length === 0 ? (
               <p className="text-xs text-slate-400 text-center py-6 font-medium">No users found</p>
@@ -284,7 +285,7 @@ export default function Messages({ session }) {
 
       {/* ================= FULL EXPANDED CHAT WINDOW (8.5 / 12 Cols) ================= */}
       <div
-        className={`md:col-span-8 lg:col-span-9 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden ${
+        className={`md:col-span-8 lg:col-span-9 bg-white dark:bg-slate-900 md:rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden min-h-0 ${
           !activeUser ? 'hidden md:flex' : 'flex'
         }`}
       >
@@ -320,7 +321,7 @@ export default function Messages({ session }) {
             </div>
 
             {/* MESSAGES FEED */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50 dark:bg-slate-950/40">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-slate-50/50 dark:bg-slate-950/40">
               {messages.length === 0 ? (
                 <div className="text-center py-20 space-y-2">
                   <MessageSquare className="w-8 h-8 text-purple-300 dark:text-purple-800 mx-auto" />
@@ -379,6 +380,7 @@ export default function Messages({ session }) {
             <p className="text-xs font-semibold">Select or search a user from the left inbox to start chatting!</p>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

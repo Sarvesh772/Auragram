@@ -63,6 +63,7 @@ export default function App() {
   }
 
   const isFullWidthPage = activeTab === 'messages' || activeTab === 'reels';
+  const showMobileTopBar = activeTab !== 'messages';
 
   return (
     <div className={`min-h-screen flex justify-center transition-colors ${isDarkMode ? 'dark bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
@@ -84,29 +85,29 @@ export default function App() {
         }`}>
           
           {/* MOBILE HEADER */}
-          <header className={`md:hidden flex justify-between items-center px-4 py-3 border-b sticky top-0 backdrop-blur-md z-20 ${
-            isDarkMode ? 'border-slate-800 bg-slate-900/90' : 'border-slate-100 bg-white/90'
-          }`}>
-            <h1 className="text-2xl font-black text-purple-600 tracking-tight">Auragram</h1>
-            
-            <div className="flex space-x-2 items-center">
-              {/* Notification Icon */}
-              <button 
-                onClick={() => setActiveTab('notifications')} 
-                className={`p-2 rounded-full transition ${activeTab === 'notifications' ? 'bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}
-              >
-                <Bell className="w-5 h-5" />
-              </button>
+          {showMobileTopBar && (
+            <header className={`md:hidden flex justify-between items-center px-4 py-3 border-b sticky top-0 backdrop-blur-md z-20 ${
+              isDarkMode ? 'border-slate-800 bg-slate-900/90' : 'border-slate-100 bg-white/90'
+            }`}>
+              <h1 className="text-2xl font-black text-purple-600 tracking-tight">Auragram</h1>
+              
+              <div className="flex space-x-2 items-center">
+                <button 
+                  onClick={() => setActiveTab('notifications')} 
+                  className={`p-2 rounded-full transition ${activeTab === 'notifications' ? 'bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}
+                >
+                  <Bell className="w-5 h-5" />
+                </button>
 
-              {/* Settings Icon (Notification ke right side) */}
-              <button 
-                onClick={() => setActiveTab('settings')} 
-                className={`p-2 rounded-full transition ${activeTab === 'settings' ? 'bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}
-              >
-                <SettingsIcon className="w-5 h-5" />
-              </button>
-            </div>
-          </header>
+                <button 
+                  onClick={() => setActiveTab('settings')} 
+                  className={`p-2 rounded-full transition ${activeTab === 'settings' ? 'bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}
+                >
+                  <SettingsIcon className="w-5 h-5" />
+                </button>
+              </div>
+            </header>
+          )}
 
           {/* Views Conditional Rendering */}
           {activeTab === 'feed' && <Feed session={session} />}
