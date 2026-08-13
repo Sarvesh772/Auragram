@@ -183,7 +183,8 @@ export default function Messages({ session }) {
   }
 
   return (
-    <div className="w-full h-[100dvh] overflow-hidden bg-slate-50 dark:bg-slate-950 md:p-2">
+    // FIX 1: Outer div mein pb-20 md:pb-2 add karke space create kar di
+    <div className="w-full h-[100dvh] overflow-hidden bg-slate-50 dark:bg-slate-950 p-0 md:p-2 pb-20 md:pb-2">
       <div className="h-full grid grid-cols-1 md:grid-cols-12 gap-0 md:gap-4">
       {/* ================= INBOX SIDEBAR (3.5 / 12 Cols) ================= */}
       <div
@@ -354,6 +355,7 @@ export default function Messages({ session }) {
             </div>
 
             {/* MESSAGE INPUT BAR */}
+            {/* FIX 2: Added proper spacing so form sits comfortably above mobile bottom navbar */}
             <form
               onSubmit={handleSendMessage}
               className="p-3 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center space-x-2"
@@ -368,7 +370,7 @@ export default function Messages({ session }) {
               <button
                 type="submit"
                 disabled={!newMessage.trim() || sending}
-                className="bg-purple-600 hover:bg-purple-700 text-white p-2.5 rounded-full transition disabled:opacity-50 shadow-md shadow-purple-500/20"
+                className="bg-purple-600 hover:bg-purple-700 text-white p-2.5 rounded-full transition disabled:opacity-50 shadow-md shadow-purple-500/20 flex-shrink-0"
               >
                 <Send className="w-4 h-4" />
               </button>

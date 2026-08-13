@@ -78,8 +78,8 @@ export default function App() {
         />
 
         {/* Main Content Area */}
-        <main className={`flex-1 min-h-screen pb-24 md:pb-6 transition-all ${
-          isFullWidthPage ? 'max-w-full' : 'max-w-2xl border-r'
+        <main className={`flex-1 transition-all ${
+          isFullWidthPage ? 'max-w-full h-[100dvh] overflow-hidden pb-0' : 'min-h-screen pb-24 md:pb-6 max-w-2xl border-r'
         } ${
           isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'
         }`}>
