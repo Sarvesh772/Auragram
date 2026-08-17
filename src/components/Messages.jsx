@@ -17,8 +17,12 @@ export default function Messages({ session }) {
   const [sending, setSending] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  // New Features States
+  // Active Status & Typing States
   const [isTyping, setIsTyping] = useState(false);
+  const [isOnline, setIsOnline] = useState(false);
+  const [lastSeen, setLastSeen] = useState(null);
+
+  // New Features States
   const [selectedImageModal, setSelectedImageModal] = useState(null);
   const [activeHoverMessage, setActiveHoverMessage] = useState(null);
 
@@ -27,8 +31,8 @@ export default function Messages({ session }) {
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [showChatSearch, setShowChatSearch] = useState(false);
   
-  // Custom Modals (Replacing native browser popups)
-  const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm }
+  // Custom Modals
+  const [confirmModal, setConfirmModal] = useState(null);
 
   // Block & Pin States
   const [iBlockedUser, setIBlockedUser] = useState(false);
@@ -58,10 +62,13 @@ export default function Messages({ session }) {
     localStorage.setItem('auragram_pinned_chats', JSON.stringify(pinnedChats));
   }, [pinnedChats]);
 
-  // Check Block Status whenever Active User changes
+  // Check Block Status & Last Seen
   useEffect(() => {
     if (activeUser && session?.user?.id) {
       checkBlockStatus();
+      if (activeUser.last_seen) {
+        setLastSeen(activeUser.last_seen);
+      }
     }
   }, [activeUser?.id, session?.user?.id]);
 
@@ -87,7 +94,7 @@ export default function Messages({ session }) {
     setUserBlockedMe(blockedMe);
   }
 
-  // Format Date
+  // Format Date for Chat Headers
   const formatDateHeader = (dateString) => {
     const date = new Date(dateString);
     const today = new Date();
@@ -99,24 +106,69 @@ export default function Messages({ session }) {
     return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  // 1. TYPING INDICATOR VIA PRESENCE
+  // Format Last Seen Time
+  const formatLastSeen = (timestamp) => {
+    if (!timestamp) return 'Offline';
+    const date = new Date(timestamp);
+    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const today = new Date();
+    
+    if (date.toDateString() === today.toDateString()) {
+      return `Last seen today at ${timeStr}`;
+    }
+    return `Last seen ${date.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${timeStr}`;
+  };
+
+  // REALTIME PRESENCE (ACTIVE STATUS & TYPING)
   useEffect(() => {
     if (!activeUser || !session?.user?.id) return;
 
+    setIsOnline(false);
+    setIsTyping(false);
+
     const roomId = [session.user.id, activeUser.id].sort().join('_');
-    const channel = supabase.channel(`typing_${roomId}`, {
+    const channel = supabase.channel(`presence_${roomId}`, {
       config: { presence: { key: session.user.id } },
     });
 
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
-        const otherUserTyping = Object.keys(state).some(
-          (key) => key === activeUser.id && state[key]?.[0]?.isTyping
-        );
-        setIsTyping(otherUserTyping);
+        const activePresenceKeys = Object.keys(state);
+        
+        // Active user status check
+        const isUserActiveInRoom = activePresenceKeys.some(key => key === activeUser.id);
+        setIsOnline(isUserActiveInRoom);
+
+        if (isUserActiveInRoom && state[activeUser.id]?.[0]) {
+          const userState = state[activeUser.id][0];
+          setIsTyping(Boolean(userState.isTyping));
+        } else {
+          setIsTyping(false);
+        }
       })
-      .subscribe();
+      .on('presence', { event: 'leave' }, ({ key }) => {
+        if (key === activeUser.id) {
+          setIsOnline(false);
+          setIsTyping(false);
+          const nowStr = new Date().toISOString();
+          setLastSeen(nowStr);
+
+          // Optionally update last seen in Database
+          supabase
+            .from('profiles')
+            .update({ last_seen: nowStr })
+            .eq('id', activeUser.id);
+        }
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({
+            online_at: new Date().toISOString(),
+            isTyping: false
+          });
+        }
+      });
 
     presenceChannelRef.current = channel;
 
@@ -129,12 +181,18 @@ export default function Messages({ session }) {
     setNewMessage(e.target.value);
 
     if (presenceChannelRef.current) {
-      presenceChannelRef.current.track({ isTyping: true });
+      presenceChannelRef.current.track({
+        online_at: new Date().toISOString(),
+        isTyping: true
+      });
 
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
       typingTimeoutRef.current = setTimeout(() => {
-        presenceChannelRef.current.track({ isTyping: false });
+        presenceChannelRef.current.track({
+          online_at: new Date().toISOString(),
+          isTyping: false
+        });
       }, 1500);
     }
   };
@@ -189,7 +247,6 @@ export default function Messages({ session }) {
     };
   }, [activeUser?.id, session?.user?.id]);
 
-  // Mark messages read
   async function markMessagesAsRead(otherUserId) {
     await supabase
       .from('messages')
@@ -199,7 +256,7 @@ export default function Messages({ session }) {
       .eq('is_read', false);
   }
 
-  // Search User in Inbox
+  // Search Users
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -222,7 +279,7 @@ export default function Messages({ session }) {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Fetch Conversations + Unread Count
+  // Fetch Conversations
   async function fetchRecentConversations() {
     setLoading(true);
 
@@ -269,7 +326,6 @@ export default function Messages({ session }) {
           };
         });
 
-        // Sort by Pinned First, then Time
         enrichedConversations.sort((a, b) => {
           const aPinned = pinnedChats.includes(a.id);
           const bPinned = pinnedChats.includes(b.id);
@@ -290,7 +346,6 @@ export default function Messages({ session }) {
     setLoading(false);
   }
 
-  // Fetch Messages History
   async function fetchMessages(otherUserId) {
     const { data, error } = await supabase
       .from('messages')
@@ -305,7 +360,7 @@ export default function Messages({ session }) {
     }
   }
 
-  // Send Text Message
+  // Send Message
   async function handleSendMessage(e) {
     if (e) e.preventDefault();
     if (!newMessage.trim() || !activeUser || sending || iBlockedUser || userBlockedMe) return;
@@ -315,7 +370,10 @@ export default function Messages({ session }) {
     setSending(true);
 
     if (presenceChannelRef.current) {
-      presenceChannelRef.current.track({ isTyping: false });
+      presenceChannelRef.current.track({
+        online_at: new Date().toISOString(),
+        isTyping: false
+      });
     }
 
     const { data, error } = await supabase
@@ -340,7 +398,7 @@ export default function Messages({ session }) {
     }
   }
 
-  // Reactions
+  // Reactions & Modals Handlers
   const handleAddReaction = async (msgId, emoji) => {
     const targetMsg = messages.find((m) => m.id === msgId);
     if (!targetMsg) return;
@@ -356,7 +414,6 @@ export default function Messages({ session }) {
     setActiveHoverMessage(null);
   };
 
-  // Delete Single Message Custom Modal
   const handleDeleteMessage = (msgId) => {
     setConfirmModal({
       title: 'Delete Message?',
@@ -370,7 +427,6 @@ export default function Messages({ session }) {
     });
   };
 
-  // Clear Entire Chat Modal
   const handleClearChat = () => {
     setShowMenu(false);
     setConfirmModal({
@@ -389,11 +445,9 @@ export default function Messages({ session }) {
     });
   };
 
-  // Block / Unblock User Logic
   const handleToggleBlock = () => {
     setShowMenu(false);
     if (iBlockedUser) {
-      // Unblock
       setConfirmModal({
         title: `Unblock @${activeUser.username}?`,
         message: 'They will be able to send you messages again.',
@@ -409,7 +463,6 @@ export default function Messages({ session }) {
         },
       });
     } else {
-      // Block
       setConfirmModal({
         title: `Block @${activeUser.username}?`,
         message: 'Blocked users cannot send you messages or view your updates.',
@@ -425,7 +478,6 @@ export default function Messages({ session }) {
     }
   };
 
-  // Toggle Pin Chat
   const togglePinChat = (userId, e) => {
     e.stopPropagation();
     setPinnedChats((prev) => {
@@ -436,7 +488,6 @@ export default function Messages({ session }) {
     });
   };
 
-  // Image Upload Handler
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file || !activeUser || iBlockedUser || userBlockedMe) return;
@@ -495,7 +546,6 @@ export default function Messages({ session }) {
     setChatSearchQuery('');
   }
 
-  // Filter messages based on in-chat search query
   const filteredMessages = chatSearchQuery.trim()
     ? messages.filter((m) =>
         m.content.toLowerCase().includes(chatSearchQuery.toLowerCase().trim())
@@ -506,7 +556,7 @@ export default function Messages({ session }) {
     <div className="w-full h-[100dvh] overflow-hidden bg-slate-50 dark:bg-slate-950 md:p-2 pb-14 md:pb-2 font-sans">
       <div className="h-full grid grid-cols-1 md:grid-cols-12 gap-0 md:gap-4">
         
-        {/* ================= INBOX SIDEBAR ================= */}
+        {/* INBOX SIDEBAR */}
         <div
           className={`md:col-span-4 lg:col-span-3 bg-white dark:bg-slate-900 md:rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden min-h-0 ${
             activeUser ? 'hidden md:flex' : 'flex'
@@ -619,7 +669,6 @@ export default function Messages({ session }) {
                       </div>
                     </div>
 
-                    {/* Pin/Unpin Action Button on Hover */}
                     <button
                       onClick={(e) => togglePinChat(user.id, e)}
                       title={isPinned ? 'Unpin Chat' : 'Pin Chat'}
@@ -634,7 +683,7 @@ export default function Messages({ session }) {
           </div>
         </div>
 
-        {/* ================= CHAT WINDOW ================= */}
+        {/* CHAT WINDOW */}
         <div
           className={`md:col-span-8 lg:col-span-9 bg-white dark:bg-slate-900 md:rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden min-h-0 relative ${
             !activeUser ? 'hidden md:flex' : 'flex'
@@ -652,11 +701,17 @@ export default function Messages({ session }) {
                     <ArrowLeft className="w-5 h-5" />
                   </button>
 
-                  <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
-                    {activeUser.avatar_url ? (
-                      <img src={activeUser.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      (activeUser.full_name || activeUser.username || 'U')[0].toUpperCase()
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
+                      {activeUser.avatar_url ? (
+                        <img src={activeUser.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        (activeUser.full_name || activeUser.username || 'U')[0].toUpperCase()
+                      )}
+                    </div>
+                    {/* Live Online Badge on Avatar */}
+                    {isOnline && !iBlockedUser && !userBlockedMe && (
+                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full"></span>
                     )}
                   </div>
 
@@ -672,15 +727,19 @@ export default function Messages({ session }) {
                       <span className="text-[10px] text-purple-600 font-bold animate-pulse flex items-center gap-1">
                         typing...
                       </span>
-                    ) : (
+                    ) : isOnline ? (
                       <span className="text-[10px] text-emerald-500 font-bold flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Active
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Active Now
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        {formatLastSeen(lastSeen)}
                       </span>
                     )}
                   </div>
                 </div>
 
-                {/* 3-DOTS HEADER MENU */}
+                {/* 3-DOTS MENU */}
                 <div className="relative">
                   <button
                     onClick={() => setShowMenu(!showMenu)}
@@ -781,7 +840,6 @@ export default function Messages({ session }) {
                           onMouseEnter={() => setActiveHoverMessage(msg.id)}
                           onMouseLeave={() => setActiveHoverMessage(null)}
                         >
-                          {/* Hover Menu Options (Reactions & Delete) */}
                           {activeHoverMessage === msg.id && !iBlockedUser && !userBlockedMe && (
                             <div
                               className={`absolute -top-7 ${
@@ -831,7 +889,6 @@ export default function Messages({ session }) {
                                 {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
 
-                              {/* Read Receipts Checkmarks */}
                               {isMe && (
                                 <span>
                                   {msg.is_read ? (
@@ -843,7 +900,6 @@ export default function Messages({ session }) {
                               )}
                             </div>
 
-                            {/* Applied Reactions Badge */}
                             {reactionsList.length > 0 && (
                               <div
                                 className={`absolute -bottom-2 ${
@@ -959,7 +1015,7 @@ export default function Messages({ session }) {
         </div>
       )}
 
-      {/* CUSTOM CONFIRMATION MODAL (Replaces Native Browser Alerts) */}
+      {/* CUSTOM CONFIRMATION MODAL */}
       {confirmModal && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
