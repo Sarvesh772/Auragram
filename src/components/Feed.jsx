@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Image as ImageIcon, Video, Plus, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, Eye } from 'lucide-react';
+import Story from './Story';
+import { Image as ImageIcon, Video, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2 } from 'lucide-react';
 
 export default function Feed({ session }) {
   const [posts, setPosts] = useState([]);
@@ -12,12 +13,6 @@ export default function Feed({ session }) {
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [postError, setPostError] = useState('');
-
-  // Stories State
-  const [storiesGrouped, setStoriesGrouped] = useState([]);
-  const [activeStoryGroup, setActiveStoryGroup] = useState(null);
-  const [storyUploading, setStoryUploading] = useState(false);
-  const storyFileInputRef = useRef(null);
 
   // Comments State
   const [activeCommentPostId, setActiveCommentPostId] = useState(null);
@@ -33,7 +28,6 @@ export default function Feed({ session }) {
   useEffect(() => {
     fetchPosts();
     fetchBookmarks();
-    fetchActiveStories();
   }, []);
 
   async function fetchBookmarks() {
@@ -45,62 +39,6 @@ export default function Feed({ session }) {
     if (data) {
       setBookmarkedPostIds(new Set(data.map(b => b.post_id)));
     }
-  }
-
-  async function fetchActiveStories() {
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    
-    const { data: storiesData } = await supabase
-      .from('stories')
-      .select('*')
-      .gt('created_at', twentyFourHoursAgo)
-      .order('created_at', { ascending: false });
-
-    if (!storiesData || storiesData.length === 0) {
-      setStoriesGrouped([]);
-      return;
-    }
-
-    const userIds = [...new Set(storiesData.map(s => s.user_id))];
-    const { data: profiles } = await supabase.from('profiles').select('*').in('id', userIds);
-    const profilesMap = (profiles || []).reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
-
-    const grouped = userIds.map(uid => ({
-      userId: uid,
-      profile: profilesMap[uid] || null,
-      stories: storiesData.filter(s => s.user_id === uid)
-    }));
-
-    setStoriesGrouped(grouped);
-  }
-
-  async function handleStoryUpload(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setStoryUploading(true);
-    const isVideo = file.type.startsWith('video');
-    const mediaType = isVideo ? 'video' : 'image';
-    const fileExt = file.name.split('.').pop();
-    const filePath = `stories/${session.user.id}_${Date.now()}.${fileExt}`;
-
-    const { error: uploadErr } = await supabase.storage.from('media').upload(filePath, file);
-    if (uploadErr) {
-      alert('Story upload failed: ' + uploadErr.message);
-      setStoryUploading(false);
-      return;
-    }
-
-    const { data: urlData } = supabase.storage.from('media').getPublicUrl(filePath);
-
-    await supabase.from('stories').insert([{
-      user_id: session.user.id,
-      media_url: urlData.publicUrl,
-      media_type: mediaType
-    }]);
-
-    setStoryUploading(false);
-    fetchActiveStories();
   }
 
   async function handleToggleBookmark(postId) {
@@ -319,81 +257,9 @@ export default function Feed({ session }) {
     <div className="p-4 space-y-6">
       <input type="file" accept="image/*" ref={imageInputRef} onChange={(e) => handleFileSelect(e, 'image')} className="hidden" />
       <input type="file" accept="video/*" ref={videoInputRef} onChange={(e) => handleFileSelect(e, 'video')} className="hidden" />
-      <input type="file" accept="image/*,video/*" ref={storyFileInputRef} onChange={handleStoryUpload} className="hidden" />
 
-      {/* Stories Carousel */}
-      <div className="flex space-x-4 overflow-x-auto pb-2 scrollbar-none items-center">
-        {/* Upload Story Button */}
-        <div 
-          onClick={() => storyFileInputRef.current?.click()}
-          className="flex flex-col items-center flex-shrink-0 cursor-pointer group"
-        >
-          <div className="w-16 h-16 rounded-full border-2 border-dashed border-purple-500 flex items-center justify-center bg-purple-50 group-hover:bg-purple-100 transition relative">
-            {storyUploading ? (
-              <Loader2 className="w-6 h-6 text-purple-600 animate-spin" />
-            ) : (
-              <Plus className="w-6 h-6 text-purple-600" />
-            )}
-          </div>
-          <span className="text-xs mt-1 text-slate-500 font-medium">Your Story</span>
-        </div>
-
-        {/* Active Stories List */}
-        {storiesGrouped.map((group) => (
-          <div 
-            key={group.userId} 
-            onClick={() => setActiveStoryGroup(group)}
-            className="flex flex-col items-center flex-shrink-0 cursor-pointer"
-          >
-            <div className="w-16 h-16 rounded-full p-[2px] bg-gradient-to-tr from-amber-500 via-purple-600 to-pink-500">
-              {group.profile?.avatar_url ? (
-                <img src={group.profile.avatar_url} className="w-full h-full rounded-full object-cover border-2 border-white" alt="story" />
-              ) : (
-                <div className="w-full h-full rounded-full bg-purple-100 text-purple-700 font-bold flex items-center justify-center text-sm border-2 border-white">
-                  {(group.profile?.username || 'U')[0].toUpperCase()}
-                </div>
-              )}
-            </div>
-            <span className="text-xs mt-1 text-slate-600 font-medium truncate w-16 text-center">
-              {group.profile?.username || 'User'}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Full-screen Story Modal */}
-      {activeStoryGroup && (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
-          <button 
-            onClick={() => setActiveStoryGroup(null)}
-            className="absolute top-4 right-4 bg-white/20 text-white p-2 rounded-full hover:bg-white/40 transition z-50"
-          >
-            <X className="w-6 h-6" />
-          </button>
-
-          <div className="relative max-w-sm w-full bg-slate-900 rounded-3xl overflow-hidden shadow-2xl border border-slate-800">
-            {/* Header */}
-            <div className="p-4 flex items-center space-x-3 bg-gradient-to-b from-black/80 to-transparent absolute top-0 left-0 right-0 z-10">
-              <div className="w-9 h-9 rounded-full bg-purple-500 text-white font-bold flex items-center justify-center text-xs">
-                {(activeStoryGroup.profile?.username || 'U')[0].toUpperCase()}
-              </div>
-              <div>
-                <p className="text-white text-xs font-bold">{activeStoryGroup.profile?.username || 'User'}</p>
-                <p className="text-[10px] text-slate-300">24h Story</p>
-              </div>
-            </div>
-
-            {/* Media */}
-            <div className="h-[500px] flex items-center justify-center bg-black">
-              {activeStoryGroup.stories[0]?.media_type === 'video' ? (
-                <video src={activeStoryGroup.stories[0]?.media_url} controls autoPlay className="max-h-full w-full object-contain" />
-              ) : (
-                <img src={activeStoryGroup.stories[0]?.media_url} alt="Story" className="max-h-full w-full object-contain" />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Stories Section */}
+      <Story session={session} />
 
       {/* Create Post Input */}
       <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">

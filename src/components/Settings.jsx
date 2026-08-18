@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
   Moon, Sun, Lock, User, LogOut, CheckCircle2, AlertCircle, 
-  Loader2, ChevronRight, ArrowLeft, Palette, Bookmark, Trash2 
+  Loader2, ChevronRight, ArrowLeft, Palette, Bookmark, Trash2, X, Eye 
 } from 'lucide-react';
 
 export default function Settings({ session, isDarkMode, setIsDarkMode }) {
@@ -17,6 +17,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode }) {
   // Saved Posts State
   const [savedPosts, setSavedPosts] = useState([]);
   const [loadingSaved, setLoadingSaved] = useState(false);
+  const [previewPost, setPreviewPost] = useState(null); // Full Preview Modal State
 
   useEffect(() => {
     getProfile();
@@ -79,7 +80,8 @@ export default function Settings({ session, isDarkMode, setIsDarkMode }) {
     setLoadingSaved(false);
   }
 
-  async function handleRemoveBookmark(postId) {
+  async function handleRemoveBookmark(e, postId) {
+    e.stopPropagation(); // Modal open hone se roke
     const { error } = await supabase
       .from('bookmarks')
       .delete()
@@ -88,6 +90,9 @@ export default function Settings({ session, isDarkMode, setIsDarkMode }) {
 
     if (!error) {
       setSavedPosts(prev => prev.filter(p => p.id !== postId));
+      if (previewPost?.id === postId) {
+        setPreviewPost(null);
+      }
     }
   }
 
@@ -285,30 +290,52 @@ export default function Settings({ session, isDarkMode, setIsDarkMode }) {
           ) : savedPosts.length === 0 ? (
             <p className="text-xs text-slate-400 text-center py-8">No saved posts yet.</p>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {savedPosts.map(post => (
-                <div key={post.id} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl flex justify-between items-center">
-                  <div className="flex space-x-3 items-center">
+                <div 
+                  key={post.id} 
+                  onClick={() => setPreviewPost(post)}
+                  className="p-3 bg-slate-50 dark:bg-slate-800/80 hover:bg-purple-50/50 dark:hover:bg-slate-800 rounded-2xl flex justify-between items-center cursor-pointer transition border border-transparent hover:border-purple-200 dark:hover:border-slate-700"
+                >
+                  <div className="flex space-x-3 items-center min-w-0">
                     {post.media_url ? (
-                      <img src={post.media_url} className="w-12 h-12 rounded-xl object-cover" alt="saved" />
+                      post.media_type === 'video' ? (
+                        <video src={post.media_url} className="w-12 h-12 rounded-xl object-cover bg-black" />
+                      ) : (
+                        <img 
+                          src={post.media_url} 
+                          className="w-12 h-12 rounded-xl object-cover bg-slate-200" 
+                          alt="saved" 
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      )
                     ) : (
-                      <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center font-bold text-xs">
+                      <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300 rounded-xl flex items-center justify-center font-bold text-xs flex-shrink-0">
                         TXT
                       </div>
                     )}
-                    <div>
-                      <span className="font-bold text-xs text-slate-800 dark:text-white block">@{post.profiles?.username || 'User'}</span>
-                      <p className="text-xs text-slate-500 line-clamp-1">{post.content || 'Media post'}</p>
+                    <div className="min-w-0">
+                      <span className="font-bold text-xs text-slate-800 dark:text-white block truncate">
+                        @{post.profiles?.username || 'User'}
+                      </span>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[220px] md:max-w-[320px]">
+                        {post.content || 'Media post'}
+                      </p>
                     </div>
                   </div>
 
-                  <button 
-                    onClick={() => handleRemoveBookmark(post.id)}
-                    className="p-2 text-slate-400 hover:text-rose-500 transition"
-                    title="Unsave"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center space-x-2">
+                    <button className="p-2 text-slate-400 hover:text-purple-600 transition" title="Preview">
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={(e) => handleRemoveBookmark(e, post.id)}
+                      className="p-2 text-slate-400 hover:text-rose-500 transition"
+                      title="Unsave"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -316,7 +343,71 @@ export default function Settings({ session, isDarkMode, setIsDarkMode }) {
         </div>
       )}
 
-      {/* 3. SUB PAGE: EDIT PROFILE */}
+      {/* FULL SAVED POST PREVIEW MODAL */}
+      {previewPost && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 max-w-lg w-full rounded-3xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 relative">
+            
+            {/* Modal Header */}
+            <div className="p-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center space-x-3">
+                {previewPost.profiles?.avatar_url ? (
+                  <img src={previewPost.profiles.avatar_url} className="w-9 h-9 rounded-full object-cover" alt="avatar" />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-purple-100 text-purple-600 font-bold flex items-center justify-center text-xs">
+                    {(previewPost.profiles?.username || 'U')[0].toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <p className="font-bold text-sm text-slate-800 dark:text-white">@{previewPost.profiles?.username || 'User'}</p>
+                  <p className="text-[10px] text-slate-400">{new Date(previewPost.created_at).toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setPreviewPost(null)}
+                className="p-2 text-slate-400 hover:text-slate-800 dark:hover:text-white transition rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-4 space-y-3 max-h-[70vh] overflow-y-auto">
+              {previewPost.content && (
+                <p className="text-sm text-slate-700 dark:text-slate-200">{previewPost.content}</p>
+              )}
+
+              {previewPost.media_url && (
+                previewPost.media_type === 'video' ? (
+                  <video src={previewPost.media_url} controls className="w-full rounded-2xl max-h-80 bg-black" />
+                ) : (
+                  <img src={previewPost.media_url} className="w-full rounded-2xl max-h-80 object-cover" alt="Saved Preview" />
+                )
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
+              <span className="text-xs text-purple-600 font-medium flex items-center space-x-1">
+                <Bookmark className="w-4 h-4 fill-purple-600" />
+                <span>Saved Post</span>
+              </span>
+
+              <button
+                onClick={(e) => handleRemoveBookmark(e, previewPost.id)}
+                className="bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-400 px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Remove Bookmark</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 3. EDIT PROFILE SUB PAGE */}
       {activeSubTab === 'profile' && (
         <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-xs">
           <RenderHeader title="Edit Profile" />
@@ -354,7 +445,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode }) {
         </div>
       )}
 
-      {/* 4. SUB PAGE: SECURITY */}
+      {/* 4. SECURITY SUB PAGE */}
       {activeSubTab === 'security' && (
         <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-xs">
           <RenderHeader title="Security & Password" />
@@ -383,7 +474,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode }) {
         </div>
       )}
 
-      {/* 5. SUB PAGE: APPEARANCE */}
+      {/* 5. APPEARANCE SUB PAGE */}
       {activeSubTab === 'appearance' && (
         <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-xs">
           <RenderHeader title="Appearance" />
