@@ -7,7 +7,7 @@ import {
   Paperclip, FileText, ExternalLink, SmilePlus
 } from 'lucide-react';
 
-export default function Messages({ session }) {
+export default function Messages({ session, onViewProfile }) {
   const [conversations, setConversations] = useState([]);
   const [activeUser, setActiveUser] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -795,13 +795,13 @@ export default function Messages({ session }) {
                   </button>
 
                   <div className="relative">
-                    <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
+                    <button onClick={() => onViewProfile?.(activeUser.id)} className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
                       {activeUser.avatar_url ? (
                         <img src={activeUser.avatar_url} alt="avatar" className="w-full h-full object-cover" />
                       ) : (
                         getDisplayName(activeUser)[0].toUpperCase()
                       )}
-                    </div>
+                    </button>
                     {isOnline && !iBlockedUser && !userBlockedMe && (
                       <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full"></span>
                     )}

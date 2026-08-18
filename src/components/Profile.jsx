@@ -5,7 +5,9 @@ import {
   Send, Bookmark, Edit3, X, Sparkles, Loader2, Camera, AlertCircle, CheckCircle2 
 } from 'lucide-react';
 
-export default function Profile({ session }) {
+export default function Profile({ session, profileUserId }) {
+  const viewedUserId = profileUserId || session.user.id;
+  const isOwnProfile = viewedUserId === session.user.id;
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [activeTab, setActiveTab] = useState('text'); // 'text', 'photos', 'reels'
@@ -31,7 +33,7 @@ export default function Profile({ session }) {
 
   useEffect(() => {
     fetchProfileAndPosts();
-  }, [session]);
+  }, [session, viewedUserId]);
 
   async function fetchProfileAndPosts() {
     setLoading(true);
@@ -40,7 +42,7 @@ export default function Profile({ session }) {
     const { data: profileData } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', session.user.id)
+      .eq('id', viewedUserId)
       .single();
 
     if (profileData) {
@@ -55,7 +57,7 @@ export default function Profile({ session }) {
     const { data: postsData } = await supabase
       .from('posts')
       .select('*')
-      .eq('user_id', session.user.id)
+      .eq('user_id', viewedUserId)
       .order('created_at', { ascending: false });
 
     // Fetch Likes and Comments for user posts
@@ -248,13 +250,13 @@ export default function Profile({ session }) {
             </div>
 
             {/* Edit Button */}
-            <button 
-              onClick={() => setIsEditing(true)}
+              {isOwnProfile && <button 
+                onClick={() => setIsEditing(true)}
               className="flex items-center space-x-1 sm:space-x-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-purple-300 rounded-full text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm transition flex-shrink-0"
             >
               <Edit3 className="w-3.5 h-3.5 text-purple-600" />
               <span>Edit</span>
-            </button>
+            </button>}
           </div>
 
           {/* Stats Bar */}

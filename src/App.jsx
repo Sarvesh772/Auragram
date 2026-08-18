@@ -17,6 +17,8 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [activeTab, setActiveTab] = useState('feed');
+  const [profileUserId, setProfileUserId] = useState(null);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('auragram_theme') === 'dark';
@@ -31,6 +33,17 @@ export default function App() {
       localStorage.setItem('auragram_theme', 'light');
     }
   }, [isDarkMode]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return undefined;
+    const loadUnread = async () => {
+      const { count } = await supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('recipient_id', session.user.id).eq('is_read', false);
+      setUnreadNotifications(count || 0);
+    };
+    loadUnread();
+    const channel = supabase.channel('notification-badge').on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${session.user.id}` }, loadUnread).subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [session?.user?.id]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -94,9 +107,10 @@ export default function App() {
               <div className="flex space-x-2 items-center">
                 <button 
                   onClick={() => setActiveTab('notifications')} 
-                  className={`p-2 rounded-full transition ${activeTab === 'notifications' ? 'bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}
+                  className={`relative p-2 rounded-full transition ${activeTab === 'notifications' ? 'bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}
                 >
                   <Bell className="w-5 h-5" />
+                  {unreadNotifications > 0 && <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>}
                 </button>
 
                 <button 
@@ -110,11 +124,11 @@ export default function App() {
           )}
 
           {/* Views Conditional Rendering */}
-          {activeTab === 'feed' && <Feed session={session} />}
-          {activeTab === 'messages' && <Messages session={session} />}
-          {activeTab === 'profile' && <Profile session={session} />}
-          {activeTab === 'reels' && <Reels session={session} />}
-          {activeTab === 'explore' && <Explore session={session} />}
+          {activeTab === 'feed' && <Feed session={session} onViewProfile={(id) => { setProfileUserId(id); setActiveTab('profile'); }} />}
+          {activeTab === 'messages' && <Messages session={session} onViewProfile={(id) => { setProfileUserId(id); setActiveTab('profile'); }} />}
+          {activeTab === 'profile' && <Profile session={session} profileUserId={profileUserId} />}
+          {activeTab === 'reels' && <Reels session={session} onViewProfile={(userId) => { setProfileUserId(userId); setActiveTab('profile'); }} />}
+          {activeTab === 'explore' && <Explore session={session} onViewProfile={(id) => { setProfileUserId(id); setActiveTab('profile'); }} />}
           {activeTab === 'notifications' && <Notifications session={session} />}
           {activeTab === 'settings' && (
             <Settings 

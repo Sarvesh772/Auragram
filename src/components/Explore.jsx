@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Search, Heart, MessageCircle, Loader2, X, Send, FileText, Sparkles } from 'lucide-react';
 
-export default function Explore({ session }) {
+export default function Explore({ session, onViewProfile }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'users', 'media', 'text'
   const [users, setUsers] = useState([]);
@@ -168,7 +168,7 @@ export default function Explore({ session }) {
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {filteredUsers.map(user => (
-                    <div key={user.id} className="flex items-center space-x-3 p-3 rounded-2xl bg-slate-50 border border-slate-100 hover:border-purple-200 transition">
+                    <button onClick={() => onViewProfile?.(user.id)} key={user.id} className="flex items-center space-x-3 p-3 rounded-2xl bg-slate-50 border border-slate-100 hover:border-purple-200 transition text-left">
                       <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
                         {user.avatar_url ? (
                           <img src={user.avatar_url} alt="avatar" className="w-full h-full object-cover" />
@@ -180,7 +180,7 @@ export default function Explore({ session }) {
                         <p className="text-xs font-bold text-slate-800 truncate">{user.username || 'User'}</p>
                         <p className="text-[10px] text-slate-400 truncate">{user.full_name || `@${user.username}`}</p>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}

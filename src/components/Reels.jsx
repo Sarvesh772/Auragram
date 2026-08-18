@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Heart, MessageCircle, Send, Bookmark, Music2, Volume2, VolumeX, Trash2, X, Loader2, ChevronLeft } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, Music2, Volume2, VolumeX, Trash2, X, Loader2, ChevronLeft, MoreVertical } from 'lucide-react';
 
-export default function Reels({ session }) {
+export default function Reels({ session, onViewProfile }) {
   const [reels, setReels] = useState([]);
   const [loading, setLoading] = useState(true);
   // Start muted so autoplay works reliably across browsers.
   const [isMuted, setIsMuted] = useState(true);
+  const [bookmarkedReelIds, setBookmarkedReelIds] = useState(new Set());
+  const [menuReelId, setMenuReelId] = useState(null);
+  const [editingReel, setEditingReel] = useState(null);
+  const [editText, setEditText] = useState('');
 
   // Active Comments Drawer State
   const [activeReelId, setActiveReelId] = useState(null);
@@ -19,7 +23,37 @@ export default function Reels({ session }) {
 
   useEffect(() => {
     fetchReels();
+    fetchBookmarks();
   }, []);
+
+  async function fetchBookmarks() {
+    const { data } = await supabase.from('bookmarks').select('post_id').eq('user_id', session.user.id);
+    setBookmarkedReelIds(new Set((data || []).map((item) => item.post_id)));
+  }
+
+  async function handleToggleBookmark(reelId) {
+    const saved = bookmarkedReelIds.has(reelId);
+    setBookmarkedReelIds((prev) => {
+      const next = new Set(prev);
+      saved ? next.delete(reelId) : next.add(reelId);
+      return next;
+    });
+    if (saved) await supabase.from('bookmarks').delete().eq('user_id', session.user.id).eq('post_id', reelId);
+    else await supabase.from('bookmarks').insert([{ user_id: session.user.id, post_id: reelId }]);
+  }
+
+  async function handleDeleteReel(reelId) {
+    const { error } = await supabase.from('posts').delete().eq('id', reelId).eq('user_id', session.user.id);
+    if (!error) setReels((prev) => prev.filter((reel) => reel.id !== reelId));
+    setMenuReelId(null);
+  }
+
+  async function handleEditReel() {
+    if (!editingReel) return;
+    const { error } = await supabase.from('posts').update({ content: editText.trim() }).eq('id', editingReel.id).eq('user_id', session.user.id);
+    if (!error) setReels((prev) => prev.map((reel) => reel.id === editingReel.id ? { ...reel, content: editText.trim() } : reel));
+    setEditingReel(null);
+  }
 
   // HELPER FUNCTION FOR NOTIFICATIONS
   async function sendNotification({ recipientId, actorId, type, postId = null }) {
@@ -234,7 +268,7 @@ export default function Reels({ session }) {
   }, [reels]);
 
   return (
-    <div className="w-full h-[100dvh] bg-black text-white overflow-hidden">
+    <div className="w-full h-[calc(100dvh-124px)] md:h-[100dvh] bg-black text-white overflow-hidden">
       {loading ? (
         <div className="flex flex-col items-center justify-center h-full space-y-4">
           <Loader2 className="w-10 h-10 animate-spin text-rose-500" />
@@ -251,6 +285,8 @@ export default function Reels({ session }) {
       ) : (
         <div className="w-full h-full overflow-y-scroll snap-y snap-mandatory no-scrollbar scroll-smooth">
           {reels.map((reel) => {
+            const isOwnReel = reel.user_id === session.user.id ||
+              (reel.profiles?.username && reel.profiles.username === session.user.user_metadata?.username);
             const isLikedByMe = reel.likes?.some(l => l.user_id === session.user.id);
             const likesCount = reel.likes?.length || 0;
             const commentsCount = reel.comments?.length || 0;
@@ -258,7 +294,7 @@ export default function Reels({ session }) {
             return (
               <div 
                 key={reel.id} 
-                className="w-full h-[100dvh] snap-start snap-always relative flex-shrink-0 flex items-center justify-center bg-black"
+                className="w-full h-[calc(100dvh-124px)] md:h-[100dvh] snap-start snap-always relative flex-shrink-0 flex items-center justify-center bg-black"
               >
                 {/* Video Player */}
                 <video
@@ -298,17 +334,14 @@ export default function Reels({ session }) {
                 {/* Left Bottom User Info Overlay */}
                 <div className="absolute bottom-6 left-4 right-16 text-white space-y-3 z-10">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-rose-500 to-amber-500 border-2 border-white/80 flex items-center justify-center overflow-hidden font-bold text-sm flex-shrink-0 shadow-lg">
+                    <button onClick={() => onViewProfile?.(reel.user_id)} className="w-10 h-10 rounded-full bg-gradient-to-br from-rose-500 to-amber-500 border-2 border-white/80 flex items-center justify-center overflow-hidden font-bold text-sm flex-shrink-0 shadow-lg">
                       {reel.profiles?.avatar_url ? (
                         <img src={reel.profiles.avatar_url} alt="avatar" className="w-full h-full object-cover" />
                       ) : (
                         (reel.profiles?.username || 'U')[0].toUpperCase()
                       )}
-                    </div>
-                    <span className="font-bold text-sm tracking-wide">@{reel.profiles?.username || 'user'}</span>
-                    <button className="text-[10px] bg-white/20 hover:bg-white/30 active:scale-95 backdrop-blur-sm px-3 py-1.5 rounded-full font-semibold border border-white/30 transition-all duration-200 hover:border-white/50">
-                      Follow
                     </button>
+                    <button onClick={() => onViewProfile?.(reel.user_id)} className="font-bold text-sm tracking-wide text-left">{reel.profiles?.full_name || reel.profiles?.username || 'User'}</button>
                   </div>
 
                   {reel.content && (
@@ -317,10 +350,6 @@ export default function Reels({ session }) {
                     </p>
                   )}
 
-                  <div className="flex items-center space-x-2 text-[11px] text-white/70 font-medium">
-                    <Music2 className="w-3.5 h-3.5 animate-spin-slow" />
-                    <span className="truncate">Original Audio - @{reel.profiles?.username || 'user'}</span>
-                  </div>
                 </div>
 
                 {/* Right Floating Action Bar */}
@@ -359,11 +388,29 @@ export default function Reels({ session }) {
                   </button>
 
                   {/* Bookmark Button */}
-                  <button onClick={() => navigator.clipboard?.writeText(reel.media_url)} className="flex flex-col items-center space-y-1 group" title="Copy reel link">
+                  <button onClick={() => handleToggleBookmark(reel.id)} className="flex flex-col items-center space-y-1 group" title="Bookmark reel">
                     <div className="bg-black/40 backdrop-blur-md p-3 rounded-full group-hover:bg-black/60 transition-all duration-200 hover:scale-110 active:scale-90">
-                      <Bookmark className="w-6 h-6 text-white" />
+                      <Bookmark className={`w-6 h-6 ${bookmarkedReelIds.has(reel.id) ? 'fill-amber-400 text-amber-400' : 'text-white'}`} />
                     </div>
                   </button>
+
+                  {/* More actions: placed directly below bookmark */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setMenuReelId(menuReelId === reel.id ? null : reel.id)}
+                      className="bg-black/40 backdrop-blur-md p-3 rounded-full text-white hover:bg-black/60 transition-all duration-200 hover:scale-110 active:scale-90"
+                      title="More options"
+                      aria-label="More options"
+                    >
+                      <MoreVertical className="w-6 h-6" />
+                    </button>
+                    {menuReelId === reel.id && isOwnReel && (
+                      <div className="absolute right-0 bottom-14 min-w-28 flex flex-col gap-1 bg-slate-950/95 p-1.5 rounded-xl shadow-2xl border border-white/20">
+                        <button onClick={() => { setEditingReel(reel); setEditText(reel.content || ''); setMenuReelId(null); }} className="text-left text-white hover:bg-white/15 px-3 py-2 rounded-lg text-xs font-semibold">Edit</button>
+                        <button onClick={() => handleDeleteReel(reel.id)} className="text-left text-rose-300 hover:bg-rose-500/20 px-3 py-2 rounded-lg text-xs font-semibold">Delete</button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Bottom Comments Drawer Modal */}
@@ -449,6 +496,16 @@ export default function Reels({ session }) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {editingReel && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-2xl p-4 w-full max-w-sm space-y-3">
+            <h3 className="font-bold">Edit Reel</h3>
+            <textarea value={editText} onChange={(e) => setEditText(e.target.value)} className="w-full rounded-xl bg-white/10 p-3 text-sm outline-none" rows={3} />
+            <div className="flex justify-end gap-2"><button onClick={() => setEditingReel(null)} className="px-3 py-2 text-sm">Cancel</button><button onClick={handleEditReel} className="bg-rose-600 px-4 py-2 rounded-xl text-sm font-bold">Save</button></div>
+          </div>
         </div>
       )}
 

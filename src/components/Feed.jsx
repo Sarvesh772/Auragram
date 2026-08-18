@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import Story from './Story';
 import { Image as ImageIcon, Video, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2 } from 'lucide-react';
 
-export default function Feed({ session }) {
+export default function Feed({ session, onViewProfile }) {
   const [posts, setPosts] = useState([]);
   const [bookmarkedPostIds, setBookmarkedPostIds] = useState(new Set());
   const [newContent, setNewContent] = useState('');
@@ -325,7 +325,7 @@ export default function Feed({ session }) {
           return (
             <div key={post.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
               <div className="flex items-center justify-between p-4">
-                <div className="flex items-center space-x-3">
+                <button onClick={() => onViewProfile?.(post.user_id)} className="flex items-center space-x-3 text-left">
                   {post.profiles?.avatar_url ? (
                     <img src={post.profiles.avatar_url} className="w-10 h-10 rounded-full object-cover" alt="avatar" />
                   ) : (
@@ -334,10 +334,10 @@ export default function Feed({ session }) {
                     </div>
                   )}
                   <div>
-                    <p className="font-bold text-sm text-slate-800">{post.profiles?.username || 'User'}</p>
+                    <p className="font-bold text-sm text-slate-800">{post.profiles?.full_name || post.profiles?.username || 'User'}</p>
                     <p className="text-xs text-slate-400">{new Date(post.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                   </div>
-                </div>
+                </button>
               </div>
               
               {post.content && <div className="px-4 pb-3"><p className="text-slate-700 text-sm">{post.content}</p></div>}
