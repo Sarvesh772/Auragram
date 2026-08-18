@@ -5,7 +5,8 @@ import { Heart, MessageCircle, Send, Bookmark, Music2, Volume2, VolumeX, Trash2,
 export default function Reels({ session }) {
   const [reels, setReels] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isMuted, setIsMuted] = useState(false);
+  // Start muted so autoplay works reliably across browsers.
+  const [isMuted, setIsMuted] = useState(true);
 
   // Active Comments Drawer State
   const [activeReelId, setActiveReelId] = useState(null);
@@ -197,6 +198,16 @@ export default function Reels({ session }) {
     }
   }
 
+  async function handleShareReel(reel) {
+    const shareData = { title: 'Auragram Reel', text: reel.content || 'Check out this reel on Auragram', url: window.location.href };
+    try {
+      if (navigator.share) await navigator.share(shareData);
+      else await navigator.clipboard.writeText(window.location.href);
+    } catch (error) {
+      if (error?.name !== 'AbortError') console.error('Share failed:', error);
+    }
+  }
+
   // Handle video visibility for autoplay
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -341,14 +352,14 @@ export default function Reels({ session }) {
                   </button>
 
                   {/* Share Button */}
-                  <button className="flex flex-col items-center space-y-1 group">
+                  <button onClick={() => handleShareReel(reel)} className="flex flex-col items-center space-y-1 group" title="Share reel">
                     <div className="bg-black/40 backdrop-blur-md p-3 rounded-full group-hover:bg-black/60 transition-all duration-200 hover:scale-110 active:scale-90">
                       <Send className="w-6 h-6 text-white" />
                     </div>
                   </button>
 
                   {/* Bookmark Button */}
-                  <button className="flex flex-col items-center space-y-1 group">
+                  <button onClick={() => navigator.clipboard?.writeText(reel.media_url)} className="flex flex-col items-center space-y-1 group" title="Copy reel link">
                     <div className="bg-black/40 backdrop-blur-md p-3 rounded-full group-hover:bg-black/60 transition-all duration-200 hover:scale-110 active:scale-90">
                       <Bookmark className="w-6 h-6 text-white" />
                     </div>
