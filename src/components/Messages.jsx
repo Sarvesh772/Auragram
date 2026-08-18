@@ -377,6 +377,7 @@ export default function Messages({ session }) {
     if (!newMessage.trim() || !activeUser || sending || iBlockedUser || userBlockedMe) return;
 
     const text = newMessage.trim();
+    // Change: sender_name me hardcoded 'You' ki jagah sender_id save kar rahe hain
     const replyData = replyToMessage
       ? {
           id: replyToMessage.id,
@@ -419,7 +420,7 @@ export default function Messages({ session }) {
     }
   }
 
-  // Handle Multiple Images Upload
+  // Handle Multiple Images Upload (Grid & Carousel support)
   const handleMultipleImagesUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length || !activeUser || iBlockedUser || userBlockedMe) return;
@@ -454,7 +455,7 @@ export default function Messages({ session }) {
             sender_id: session.user.id,
             receiver_id: activeUser.id,
             content: formattedContent,
-            reply_to: replyToMessage
+           reply_to: replyToMessage
               ? {
                   id: replyToMessage.id,
                   sender_id: replyToMessage.sender_id,
@@ -506,7 +507,7 @@ export default function Messages({ session }) {
       title: 'Delete Message?',
       message: 'This message will be deleted for everyone in this chat.',
       confirmText: 'Delete',
-      confirmBg: 'bg-rose-600 hover:bg-rose-700',
+      confirmBg: 'bg-red-600 hover:bg-red-700',
       onConfirm: async () => {
         await supabase.from('messages').delete().eq('id', msgId);
         setActiveHoverMessage(null);
@@ -520,7 +521,7 @@ export default function Messages({ session }) {
       title: 'Clear entire chat?',
       message: `Are you sure you want to delete all messages with ${getDisplayName(activeUser)}? This cannot be undone.`,
       confirmText: 'Clear Chat',
-      confirmBg: 'bg-rose-600 hover:bg-rose-700',
+      confirmBg: 'bg-red-600 hover:bg-red-700',
       onConfirm: async () => {
         await supabase
           .from('messages')
@@ -539,7 +540,7 @@ export default function Messages({ session }) {
         title: `Unblock ${getDisplayName(activeUser)}?`,
         message: 'They will be able to send you messages again.',
         confirmText: 'Unblock',
-        confirmBg: 'bg-emerald-600 hover:bg-emerald-700',
+        confirmBg: 'bg-purple-600 hover:bg-purple-700',
         onConfirm: async () => {
           await supabase
             .from('blocks')
@@ -554,7 +555,7 @@ export default function Messages({ session }) {
         title: `Block ${getDisplayName(activeUser)}?`,
         message: 'Blocked users cannot send you messages or view your updates.',
         confirmText: 'Block User',
-        confirmBg: 'bg-rose-600 hover:bg-rose-700',
+        confirmBg: 'bg-red-600 hover:bg-red-700',
         onConfirm: async () => {
           await supabase
             .from('blocks')
@@ -597,6 +598,7 @@ export default function Messages({ session }) {
     const deltaX = currentX - dragStartX.current;
     const isMe = msg.sender_id === session.user.id;
 
+    // Others: Pull Left (negative delta) | Mine: Pull Right (positive delta)
     if (!isMe && deltaX < 0) {
       setDragOffset(Math.max(deltaX, -80));
     } else if (isMe && deltaX > 0) {
@@ -614,6 +616,7 @@ export default function Messages({ session }) {
     setDragOffset(0);
   };
 
+  // Helper parser for image URLs
   const parseImageUrls = (content) => {
     if (!content) return [];
     if (content.startsWith('[IMAGES]:')) {
@@ -641,53 +644,41 @@ export default function Messages({ session }) {
     : messages;
 
   return (
-    <div className="w-full h-[100dvh] overflow-hidden bg-slate-100/60 md:p-3 pb-16 md:pb-3 font-sans antialiased text-slate-800">
-      <div className="h-full grid grid-cols-1 md:grid-cols-12 gap-0 md:gap-3 max-w-7xl mx-auto">
+    <div className="w-full h-[100dvh] overflow-hidden bg-slate-50 dark:bg-slate-950 md:p-2 pb-14 md:pb-2 font-sans select-none">
+      <div className="h-full grid grid-cols-1 md:grid-cols-12 gap-0 md:gap-4">
         
         {/* INBOX SIDEBAR */}
         <div
-          className={`md:col-span-4 lg:col-span-3 bg-white md:rounded-3xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden min-h-0 transition-all duration-300 ${
+          className={`md:col-span-4 lg:col-span-3 bg-white dark:bg-slate-900 md:rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden min-h-0 ${
             activeUser ? 'hidden md:flex' : 'flex'
           }`}
         >
-          <div className="p-4 border-b border-slate-100 space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-slate-800 tracking-tight">
-                Messages
-              </h2>
-              <span className="text-xs font-semibold text-purple-600 bg-purple-50 px-2.5 py-1 rounded-full border border-purple-100">
-                {conversations.length} chats
-              </span>
-            </div>
+          <div className="p-4 border-b border-slate-100 dark:border-slate-800 space-y-3">
+            <h2 className="text-xl font-black text-slate-800 dark:text-white">Messages</h2>
             <div className="relative">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search className="w-4 h-4 absolute left-3.5 top-2.5 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search messages or users..."
+                placeholder="Search display name or username..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-50 text-sm pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 placeholder-slate-400 transition-all"
+                className="w-full bg-slate-50 dark:bg-slate-800 text-xs pl-9 pr-3 py-2.5 rounded-2xl text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500 placeholder-slate-400"
               />
             </div>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+          <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1">
             {searchQuery.trim() ? (
               searchResults.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mb-2">
-                    <Search className="w-5 h-5 text-slate-400" />
-                  </div>
-                  <p className="text-xs font-medium text-slate-500">No users found</p>
-                </div>
+                <p className="text-xs text-slate-400 text-center py-6 font-medium">No users found</p>
               ) : (
                 searchResults.map((user) => (
                   <div
                     key={user.id}
                     onClick={() => handleSelectUser(user)}
-                    className="flex items-center space-x-3 p-3 rounded-2xl cursor-pointer hover:bg-slate-50 transition-all group"
+                    className="flex items-center space-x-3 p-3 rounded-2xl cursor-pointer hover:bg-purple-50 dark:hover:bg-slate-800/60 transition"
                   >
-                    <div className="relative w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
                       {user.avatar_url ? (
                         <img src={user.avatar_url} alt="avatar" className="w-full h-full object-cover" />
                       ) : (
@@ -695,10 +686,10 @@ export default function Messages({ session }) {
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-800 truncate group-hover:text-purple-600 transition-colors">
+                      <p className="text-xs font-bold text-slate-800 dark:text-white truncate">
                         {getDisplayName(user)}
                       </p>
-                      <p className="text-xs text-slate-400 truncate">
+                      <p className="text-[10px] text-slate-400 truncate">
                         @{user.username}
                       </p>
                     </div>
@@ -706,16 +697,13 @@ export default function Messages({ session }) {
                 ))
               )
             ) : loading ? (
-              <div className="flex justify-center py-16">
-                <div className="w-6 h-6 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+              <div className="flex justify-center py-10">
+                <Loader2 className="w-5 h-5 animate-spin text-purple-600" />
               </div>
             ) : conversations.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-                <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center mb-3">
-                  <MessageSquare className="w-6 h-6 text-purple-500" />
-                </div>
-                <p className="text-sm font-semibold text-slate-700">No recent chats</p>
-                <p className="text-xs text-slate-400 mt-1">Search someone above to start chatting!</p>
+              <div className="text-center py-12 px-4 space-y-1">
+                <p className="text-xs font-bold text-slate-600 dark:text-slate-300">No recent chats</p>
+                <p className="text-[11px] text-slate-400">Search someone above to start chatting!</p>
               </div>
             ) : (
               conversations.map((user) => {
@@ -726,20 +714,17 @@ export default function Messages({ session }) {
                   <div
                     key={user.id}
                     onClick={() => handleSelectUser(user)}
-                    className={`group relative flex items-center space-x-3 p-3 rounded-2xl cursor-pointer transition-all ${
+                    className={`group relative flex items-center space-x-3 p-3 rounded-2xl cursor-pointer transition ${
                       isActive
-                        ? 'bg-purple-50/80 border border-purple-200/60 shadow-sm'
-                        : 'hover:bg-slate-50'
+                        ? 'bg-purple-50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/50'
+                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
                     }`}
                   >
-                    <div className="relative w-11 h-11 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold flex items-center justify-center text-sm overflow-hidden flex-shrink-0 shadow-sm">
+                    <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0 relative">
                       {user.avatar_url ? (
                         <img src={user.avatar_url} alt="avatar" className="w-full h-full object-cover" />
                       ) : (
                         getDisplayName(user)[0].toUpperCase()
-                      )}
-                      {user.online && (
-                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"></span>
                       )}
                     </div>
 
@@ -747,28 +732,28 @@ export default function Messages({ session }) {
                       <div className="flex justify-between items-baseline">
                         <div className="flex items-center gap-1 min-w-0">
                           <p
-                            className={`text-sm font-semibold truncate ${
-                              isActive ? 'text-purple-900' : 'text-slate-800'
+                            className={`text-xs font-bold truncate ${
+                              isActive ? 'text-purple-700 dark:text-purple-300' : 'text-slate-800 dark:text-white'
                             }`}
                           >
                             {getDisplayName(user)}
                           </p>
-                          {isPinned && <Pin className="w-3 h-3 text-purple-600 fill-purple-600 flex-shrink-0 rotate-45" />}
+                          {isPinned && <Pin className="w-3 h-3 text-purple-500 fill-purple-500 flex-shrink-0 rotate-45" />}
                         </div>
 
                         {user.lastMessageTime && (
-                          <span className="text-[10px] text-slate-400 flex-shrink-0 font-medium">
+                          <span className="text-[9px] text-slate-400 flex-shrink-0">
                             {new Date(user.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         )}
                       </div>
 
                       <div className="flex justify-between items-center mt-0.5">
-                        <p className="text-xs text-slate-500 truncate max-w-[80%]">
+                        <p className="text-[10px] text-slate-400 truncate max-w-[80%]">
                           {user.lastMessage || 'Tap to open chat'}
                         </p>
                         {user.unreadCount > 0 && (
-                          <span className="bg-purple-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-4 px-1 flex items-center justify-center">
+                          <span className="bg-purple-600 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center flex-shrink-0">
                             {user.unreadCount}
                           </span>
                         )}
@@ -778,7 +763,7 @@ export default function Messages({ session }) {
                     <button
                       onClick={(e) => togglePinChat(user.id, e)}
                       title={isPinned ? 'Unpin Chat' : 'Pin Chat'}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-purple-100 rounded-full transition-all text-slate-400 hover:text-purple-600"
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition text-slate-400 hover:text-purple-600"
                     >
                       {isPinned ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />}
                     </button>
@@ -791,24 +776,24 @@ export default function Messages({ session }) {
 
         {/* CHAT WINDOW */}
         <div
-          className={`md:col-span-8 lg:col-span-9 bg-white md:rounded-3xl border border-slate-200/80 shadow-sm flex flex-col overflow-hidden min-h-0 relative transition-all duration-300 ${
+          className={`md:col-span-8 lg:col-span-9 bg-white dark:bg-slate-900 md:rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden min-h-0 relative ${
             !activeUser ? 'hidden md:flex' : 'flex'
           }`}
         >
           {activeUser ? (
             <>
               {/* HEADER */}
-              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-white z-20 relative">
+              <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 z-20 relative">
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={() => setActiveUser(null)}
-                    className="md:hidden text-slate-600 hover:text-purple-600 p-1.5 hover:bg-slate-100 rounded-full transition-colors"
+                    className="md:hidden text-slate-600 dark:text-slate-300 hover:text-purple-600 mr-1 p-1"
                   >
                     <ArrowLeft className="w-5 h-5" />
                   </button>
 
                   <div className="relative">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold flex items-center justify-center text-sm overflow-hidden flex-shrink-0 shadow-sm">
+                    <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
                       {activeUser.avatar_url ? (
                         <img src={activeUser.avatar_url} alt="avatar" className="w-full h-full object-cover" />
                       ) : (
@@ -816,88 +801,84 @@ export default function Messages({ session }) {
                       )}
                     </div>
                     {isOnline && !iBlockedUser && !userBlockedMe && (
-                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"></span>
+                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full"></span>
                     )}
                   </div>
 
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-bold text-slate-800 truncate">
+                  <div>
+                    <h3 className="text-xs font-extrabold text-slate-800 dark:text-white">
                       {getDisplayName(activeUser)}
                     </h3>
                     {iBlockedUser ? (
-                      <span className="text-[10px] text-rose-500 font-semibold flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" /> Blocked
-                      </span>
+                      <span className="text-[10px] text-red-500 font-bold">You blocked this user</span>
                     ) : userBlockedMe ? (
-                      <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
-                        <Slash className="w-3 h-3" /> Unavailable
-                      </span>
+                      <span className="text-[10px] text-slate-400 font-semibold">User unavailable</span>
                     ) : isTyping ? (
-                      <span className="text-[10px] text-purple-600 font-semibold animate-pulse">
+                      <span className="text-[10px] text-purple-600 font-bold animate-pulse flex items-center gap-1">
                         typing...
                       </span>
                     ) : isOnline ? (
-                      <span className="text-[10px] text-emerald-600 font-medium">Active now</span>
+                      <span className="text-[10px] text-emerald-500 font-bold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Active Now
+                      </span>
                     ) : (
-                      <span className="text-[10px] text-slate-400 font-normal">
+                      <span className="text-[10px] text-slate-400 font-medium">
                         {formatLastSeen(lastSeen)}
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-1">
-                  {/* 3-DOTS MENU */}
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowMenu(!showMenu)}
-                      className="p-2 text-slate-500 hover:text-purple-600 hover:bg-slate-50 rounded-full transition-colors"
-                    >
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
+                {/* 3-DOTS MENU */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowMenu(!showMenu)}
+                    className="p-2 text-slate-500 dark:text-slate-400 hover:text-purple-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition"
+                  >
+                    <MoreVertical className="w-5 h-5" />
+                  </button>
 
-                    {showMenu && (
-                      <div className="absolute right-0 top-10 w-48 bg-white border border-slate-200 rounded-2xl shadow-lg py-1.5 z-30 space-y-0.5 overflow-hidden">
-                        <button
-                          onClick={() => {
-                            setShowChatSearch(!showChatSearch);
-                            setShowMenu(false);
-                          }}
-                          className="w-full px-4 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
-                        >
-                          <Search className="w-3.5 h-3.5 text-slate-400" /> Search in Chat
-                        </button>
+                  {showMenu && (
+                    <div className="absolute right-0 top-11 w-48 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl shadow-xl py-2 z-30 space-y-1">
+                      <button
+                        onClick={() => {
+                          setShowChatSearch(!showChatSearch);
+                          setShowMenu(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-slate-700/60 flex items-center gap-2"
+                      >
+                        <Search className="w-4 h-4 text-purple-500" /> Search in Chat
+                      </button>
 
-                        <button
-                          onClick={handleClearChat}
-                          className="w-full px-4 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5 text-slate-400" /> Clear Chat
-                        </button>
+                      <button
+                        onClick={handleClearChat}
+                        className="w-full px-4 py-2 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-slate-700/60 flex items-center gap-2"
+                      >
+                        <RefreshCw className="w-4 h-4 text-amber-500" /> Clear Chat
+                      </button>
 
-                        <button
-                          onClick={handleToggleBlock}
-                          className="w-full px-4 py-2 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition-colors border-t border-slate-100"
-                        >
-                          <Slash className="w-3.5 h-3.5" /> {iBlockedUser ? 'Unblock User' : 'Block User'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                      <button
+                        onClick={handleToggleBlock}
+                        className="w-full px-4 py-2 text-left text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-2 border-t border-slate-100 dark:border-slate-700/60"
+                      >
+                        <Slash className="w-4 h-4" /> {iBlockedUser ? 'Unblock User' : 'Block User'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* IN-CHAT SEARCH BAR */}
               {showChatSearch && (
-                <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200/80 flex items-center justify-between z-10">
+                <div className="px-4 py-2 bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between z-10">
                   <div className="relative flex-1 mr-2">
-                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
                     <input
                       type="text"
                       placeholder="Search messages..."
                       value={chatSearchQuery}
                       onChange={(e) => setChatSearchQuery(e.target.value)}
-                      className="w-full bg-white text-xs pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                      className="w-full bg-white dark:bg-slate-900 text-xs pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
                     />
                   </div>
                   <button
@@ -905,28 +886,23 @@ export default function Messages({ session }) {
                       setShowChatSearch(false);
                       setChatSearchQuery('');
                     }}
-                    className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200 transition-colors"
+                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               )}
 
-              {/* MESSAGES FEED */}
-              <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-slate-50/50 custom-scrollbar">
+              {/* MESSAGES FEED WITH SWIPE TO REPLY */}
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-slate-50/50 dark:bg-slate-950/40">
                 {filteredMessages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full space-y-3 text-center">
-                    <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center">
-                      <MessageSquare className="w-6 h-6 text-slate-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700">
-                        {chatSearchQuery ? 'No messages found.' : `Say hi to ${getDisplayName(activeUser)}!`}
-                      </p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {chatSearchQuery ? 'Try a different keyword' : 'Start conversation with a friendly message'}
-                      </p>
-                    </div>
+                  <div className="text-center py-20 space-y-2">
+                    <MessageSquare className="w-8 h-8 text-purple-300 dark:text-purple-800 mx-auto" />
+                    <p className="text-xs font-semibold text-slate-400">
+                      {chatSearchQuery
+                        ? 'No messages found.'
+                        : `Say hi to ${getDisplayName(activeUser)}!`}
+                    </p>
                   </div>
                 ) : (
                   filteredMessages.map((msg, index) => {
@@ -945,7 +921,7 @@ export default function Messages({ session }) {
                       <React.Fragment key={msg.id || index}>
                         {showDateHeader && (
                           <div className="flex justify-center my-3">
-                            <span className="text-[10px] font-semibold bg-slate-200/70 text-slate-600 px-3 py-1 rounded-full uppercase tracking-wider">
+                            <span className="text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-3 py-1 rounded-full uppercase tracking-wider">
                               {formatDateHeader(msg.created_at)}
                             </span>
                           </div>
@@ -962,36 +938,36 @@ export default function Messages({ session }) {
                           onMouseMove={(e) => handleTouchMove(e, msg)}
                           onMouseUp={() => handleTouchEnd(msg)}
                         >
-                          {/* Swipe Reply Indicator */}
+                          {/* Swipe Reply Indicator Icon */}
                           {dragMsgId === msg.id && Math.abs(currentOffset) > 15 && (
                             <div
-                              className={`absolute top-1/2 -translate-y-1/2 p-1.5 bg-purple-600 text-white rounded-full shadow transition-all ${
+                              className={`absolute top-1/2 -translate-y-1/2 p-2 bg-purple-600 text-white rounded-full transition ${
                                 isMe ? 'right-2' : 'left-2'
                               }`}
                             >
-                              <Reply className="w-3 h-3" />
+                              <Reply className="w-3.5 h-3.5" />
                             </div>
                           )}
 
-                          {/* Hover Action Toolbar */}
+                          {/* Hover Actions Bar */}
                           {activeHoverMessage === msg.id && !iBlockedUser && !userBlockedMe && (
                             <div
-                              className={`absolute -top-8 ${
+                              className={`absolute -top-7 ${
                                 isMe ? 'right-0' : 'left-0'
-                              } bg-white shadow-md rounded-full px-2 py-1 flex items-center space-x-1 border border-slate-200 z-20`}
+                              } bg-white dark:bg-slate-800 shadow-md rounded-full px-2 py-1 flex items-center space-x-1 border border-slate-200 dark:border-slate-700 z-20`}
                             >
                               {['❤️', '😂', '👍', '🔥'].map((emoji) => (
                                 <button
                                   key={emoji}
                                   onClick={() => handleAddReaction(msg.id, emoji)}
-                                  className="text-xs hover:scale-125 transition-transform px-0.5"
+                                  className="text-xs hover:scale-125 transition transform"
                                 >
                                   {emoji}
                                 </button>
                               ))}
                               <button
                                 onClick={() => setReplyToMessage(msg)}
-                                className="text-slate-500 hover:text-purple-600 p-0.5 hover:bg-slate-100 rounded-full transition-colors"
+                                className="text-slate-500 hover:text-purple-600 px-1"
                                 title="Reply"
                               >
                                 <Reply className="w-3 h-3" />
@@ -999,7 +975,7 @@ export default function Messages({ session }) {
                               {isMe && (
                                 <button
                                   onClick={() => handleDeleteMessage(msg.id)}
-                                  className="text-rose-500 hover:text-rose-600 p-0.5 hover:bg-rose-50 rounded-full transition-colors border-l border-slate-100 pl-1"
+                                  className="text-red-500 hover:text-red-600 pl-1 border-l border-slate-200 dark:border-slate-700"
                                 >
                                   <Trash2 className="w-3 h-3" />
                                 </button>
@@ -1007,45 +983,38 @@ export default function Messages({ session }) {
                             </div>
                           )}
 
-                          {/* Message Bubble Container */}
+                          {/* Message Bubble Container with Smooth Drag Shift */}
                           <div
                             style={{ transform: `translateX(${currentOffset}px)` }}
-                            className={`relative max-w-[85%] sm:max-w-[70%] px-3.5 py-2.5 rounded-2xl text-sm space-y-1 transition-transform ease-out ${
+                            className={`relative max-w-[80%] sm:max-w-[65%] px-4 py-2.5 rounded-2xl text-xs font-semibold space-y-1 transition-transform ease-out ${
                               isMe
-                                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-br-xs shadow-sm'
-                                : 'bg-white text-slate-800 border border-slate-200/70 rounded-bl-xs shadow-xs'
+                                ? 'bg-purple-600 text-white rounded-br-none shadow-sm'
+                                : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-100 dark:border-slate-700 rounded-bl-none shadow-2xs'
                             }`}
                           >
-                            {/* Replying Banner Inside Message */}
+                            {/* Replying Context Header inside Message */}
                             {msg.reply_to && (
                               <div
-                                className={`p-2 rounded-lg text-[11px] mb-1.5 border-l-2 ${
+                                className={`p-2 rounded-lg text-[10px] mb-1.5 border-l-2 ${
                                   isMe
-                                    ? 'bg-black/15 border-white/40 text-purple-100'
-                                    : 'bg-purple-50 border-purple-500 text-slate-700'
+                                    ? 'bg-purple-700/60 border-white/80 text-purple-100'
+                                    : 'bg-slate-100 dark:bg-slate-700 border-purple-500 text-slate-600 dark:text-slate-300'
                                 }`}
                               >
-                                <p className="font-semibold text-[10px] opacity-90">
-                                  {msg.reply_to.sender_id ? (
-                                    msg.reply_to.sender_id === session.user.id ? 'You' : getDisplayName(activeUser)
-                                  ) : (
-                                    msg.reply_to.sender_name === 'You'
-                                      ? (msg.sender_id === session.user.id ? 'You' : getDisplayName(activeUser))
-                                      : (msg.reply_to.sender_name || 'User')
-                                  )}
-                                </p>
-                                <p className="truncate font-normal opacity-80 text-[10px]">
-                                  {msg.reply_to.content?.startsWith('[IMAGES]:') || msg.reply_to.content?.startsWith('[IMAGE]:') ? '📷 Photo' : msg.reply_to.content}
-                                </p>
+<p className="font-bold opacity-90">{msg.reply_to.sender_id ? (msg.reply_to.sender_id === session.user.id ? 'You' : getDisplayName(activeUser)) : (msg.reply_to.sender_name === 'You'
+        ? (msg.sender_id === session.user.id ? 'You' : getDisplayName(activeUser)) : (msg.reply_to.sender_name || 'User'))}</p>
+<p className="truncate opacity-80 font-normal">{msg.reply_to.content?.startsWith('[IMAGES]:') || msg.reply_to.content?.startsWith('[IMAGE]:') ? '📷 Photo' : msg.reply_to.content}</p>
                               </div>
                             )}
 
-                            {/* Images View */}
+                            {/* Dynamic Multi-Image Grid View */}
                             {isImageMsg ? (
                               <div
                                 className={`grid gap-1 my-1 rounded-xl overflow-hidden ${
                                   imageUrls.length === 1
                                     ? 'grid-cols-1'
+                                    : imageUrls.length === 2
+                                    ? 'grid-cols-2'
                                     : 'grid-cols-2'
                                 }`}
                               >
@@ -1053,15 +1022,15 @@ export default function Messages({ session }) {
                                   <div
                                     key={imgIdx}
                                     onClick={() => openGallery(imageUrls, imgIdx)}
-                                    className="relative aspect-square cursor-pointer overflow-hidden bg-slate-100 group/img"
+                                    className="relative aspect-square cursor-pointer overflow-hidden bg-slate-900/10 group/img"
                                   >
                                     <img
                                       src={url}
                                       alt="attachment"
-                                      className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-200"
+                                      className="w-full h-full object-cover group-hover/img:scale-105 transition duration-200"
                                     />
                                     {imgIdx === 3 && imageUrls.length > 4 && (
-                                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold text-xs">
+                                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-extrabold text-sm">
                                         +{imageUrls.length - 4}
                                       </div>
                                     )}
@@ -1069,10 +1038,10 @@ export default function Messages({ session }) {
                                 ))}
                               </div>
                             ) : (
-                              <p className="leading-relaxed break-words font-medium">{msg.content}</p>
+                              <p className="leading-relaxed">{msg.content}</p>
                             )}
 
-                            <div className="flex items-center justify-end space-x-1 mt-0.5">
+                            <div className="flex items-center justify-end space-x-1">
                               <span className={`text-[9px] ${isMe ? 'text-purple-200' : 'text-slate-400'}`}>
                                 {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
@@ -1092,7 +1061,7 @@ export default function Messages({ session }) {
                               <div
                                 className={`absolute -bottom-2 ${
                                   isMe ? 'left-2' : 'right-2'
-                                } bg-white border border-slate-200 rounded-full px-1.5 py-0.5 text-[9px] shadow-xs flex items-center gap-0.5 text-slate-700`}
+                                } bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full px-1.5 py-0.5 text-[10px] shadow-sm flex items-center`}
                               >
                                 {reactionsList.join('')}
                               </div>
@@ -1108,12 +1077,12 @@ export default function Messages({ session }) {
 
               {/* REPLIED PREVIEW BAR */}
               {replyToMessage && (
-                <div className="px-4 py-2 bg-slate-100 border-t border-slate-200 flex items-center justify-between">
-                  <div className="border-l-2 border-purple-600 pl-3.5 text-xs min-w-0 flex-1">
-                    <p className="font-semibold text-purple-600 text-[10px] flex items-center gap-1">
-                      <Reply className="w-3 h-3" /> Replying to {replyToMessage.sender_id === session.user.id ? 'Yourself' : getDisplayName(activeUser)}
+                <div className="px-4 py-2 bg-purple-50 dark:bg-slate-800/90 border-t border-purple-100 dark:border-slate-700 flex items-center justify-between">
+                  <div className="border-l-2 border-purple-600 pl-2 text-xs min-w-0 flex-1">
+                    <p className="font-bold text-purple-600 dark:text-purple-400 text-[10px]">
+                      Replying to {replyToMessage.sender_id === session.user.id ? 'Yourself' : getDisplayName(activeUser)}
                     </p>
-                    <p className="text-slate-600 truncate text-[11px]">
+                    <p className="text-slate-600 dark:text-slate-300 truncate text-[11px]">
                       {replyToMessage.content?.startsWith('[IMAGES]:') || replyToMessage.content?.startsWith('[IMAGE]:')
                         ? '📷 Photo'
                         : replyToMessage.content}
@@ -1121,40 +1090,40 @@ export default function Messages({ session }) {
                   </div>
                   <button
                     onClick={() => setReplyToMessage(null)}
-                    className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200 transition-colors"
+                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               )}
 
-              {/* INPUT BAR */}
+              {/* INPUT BAR / BLOCK WARNING BANNER */}
               {iBlockedUser ? (
-                <div className="p-3 border-t border-slate-200 bg-rose-50 text-center flex items-center justify-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-rose-500" />
-                  <p className="text-xs font-semibold text-rose-600">
-                    You blocked {getDisplayName(activeUser)}
+                <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-red-50 dark:bg-red-950/20 text-center flex items-center justify-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-500" />
+                  <p className="text-xs font-bold text-red-600 dark:text-red-400">
+                    You have blocked {getDisplayName(activeUser)}. Unblock to send messages.
                   </p>
                   <button
                     onClick={handleToggleBlock}
-                    className="text-xs font-bold text-purple-600 hover:underline"
+                    className="ml-2 text-xs font-bold underline text-purple-600 dark:text-purple-400"
                   >
                     Unblock
                   </button>
                 </div>
               ) : userBlockedMe ? (
-                <div className="p-3 border-t border-slate-200 bg-slate-50 text-center flex items-center justify-center gap-2">
+                <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 text-center flex items-center justify-center gap-2">
                   <Slash className="w-4 h-4 text-slate-400" />
-                  <p className="text-xs font-medium text-slate-500">
-                    You cannot reply to this conversation.
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    You cannot reply. {getDisplayName(activeUser)} has blocked you.
                   </p>
                 </div>
               ) : (
                 <form
                   onSubmit={handleSendMessage}
-                  className="p-3 border-t border-slate-200 bg-white flex items-center space-x-2"
+                  className="p-3 pb-2 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center space-x-2"
                 >
-                  <label className="p-2 text-slate-400 hover:text-purple-600 cursor-pointer rounded-full hover:bg-slate-100 transition-colors">
+                  <label className="p-2 text-slate-400 hover:text-purple-600 cursor-pointer rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition">
                     <ImageIcon className="w-5 h-5" />
                     <input
                       type="file"
@@ -1168,7 +1137,7 @@ export default function Messages({ session }) {
 
                   <input
                     type="text"
-                    placeholder={uploadingImage ? 'Uploading image...' : `Message ${getDisplayName(activeUser)}...`}
+                    placeholder={uploadingImage ? 'Uploading image(s)...' : `Message ${getDisplayName(activeUser)}...`}
                     value={newMessage}
                     onChange={handleTyping}
                     onKeyDown={(e) => {
@@ -1178,13 +1147,13 @@ export default function Messages({ session }) {
                       }
                     }}
                     disabled={uploadingImage}
-                    className="flex-1 bg-slate-100 border border-transparent rounded-full px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 placeholder-slate-400 transition-all"
+                    className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-full px-4 py-2.5 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 placeholder-slate-400"
                   />
 
                   <button
                     type="submit"
                     disabled={!newMessage.trim() || sending || uploadingImage}
-                    className="bg-purple-600 hover:bg-purple-700 text-white p-2.5 rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 flex items-center justify-center shadow-xs"
+                    className="bg-purple-600 hover:bg-purple-700 text-white p-2.5 rounded-full transition disabled:opacity-50 shadow-md shadow-purple-500/20 flex-shrink-0 flex items-center justify-center"
                   >
                     {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   </button>
@@ -1193,31 +1162,21 @@ export default function Messages({ session }) {
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center space-y-3 text-slate-400 p-6 text-center">
-              <div className="w-16 h-16 rounded-full bg-purple-50 flex items-center justify-center">
-                <MessageSquare className="w-8 h-8 text-purple-500" />
-              </div>
-              <div>
-                <p className="text-base font-semibold text-slate-700">Your Direct Messages</p>
-                <p className="text-xs text-slate-400 mt-1">
-                  Select a user from the left list to view or start conversation.
-                </p>
-              </div>
+              <MessageSquare className="w-12 h-12 text-slate-300 dark:text-slate-700" />
+              <p className="text-xs font-semibold">Select or search a user from the left inbox to start chatting!</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* CAROUSEL LIGHTBOX */}
+      {/* MULTI-IMAGE CAROUSEL LIGHTBOX SLIDER */}
       {galleryImages.length > 0 && (
-        <div 
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setGalleryImages([])}
-        >
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
           <button
             onClick={() => setGalleryImages([])}
-            className="absolute top-5 right-5 text-white bg-white/10 hover:bg-white/20 p-2.5 rounded-full transition-all z-10"
+            className="absolute top-5 right-5 text-white bg-slate-800/80 p-2 rounded-full hover:bg-slate-700 transition z-10"
           >
-            <X className="w-5 h-5" />
+            <X className="w-6 h-6" />
           </button>
 
           <a
@@ -1225,46 +1184,42 @@ export default function Messages({ session }) {
             target="_blank"
             rel="noopener noreferrer"
             download
-            className="absolute top-5 right-16 text-white bg-white/10 hover:bg-white/20 p-2.5 rounded-full transition-all z-10"
+            className="absolute top-5 right-18 text-white bg-slate-800/80 p-2 rounded-full hover:bg-slate-700 transition z-10"
           >
-            <Download className="w-5 h-5" />
+            <Download className="w-6 h-6" />
           </a>
 
+          {/* Slider Arrows */}
           {galleryImages.length > 1 && (
             <>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setActiveGalleryIndex((prev) => (prev > 0 ? prev - 1 : galleryImages.length - 1));
-                }}
-                className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-all"
+                onClick={() =>
+                  setActiveGalleryIndex((prev) => (prev > 0 ? prev - 1 : galleryImages.length - 1))
+                }
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition"
               >
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronLeft className="w-6 h-6" />
               </button>
 
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setActiveGalleryIndex((prev) => (prev < galleryImages.length - 1 ? prev + 1 : 0));
-                }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-all"
+                onClick={() =>
+                  setActiveGalleryIndex((prev) => (prev < galleryImages.length - 1 ? prev + 1 : 0))
+                }
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition"
               >
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-6 h-6" />
               </button>
             </>
           )}
 
-          <div 
-            className="flex flex-col items-center max-w-full max-h-[85vh]"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="flex flex-col items-center max-w-full max-h-[85vh]">
             <img
               src={galleryImages[activeGalleryIndex]}
               alt="full view"
-              className="max-w-full max-h-[75vh] rounded-xl object-contain"
+              className="max-w-full max-h-[75vh] rounded-2xl object-contain shadow-2xl"
             />
             {galleryImages.length > 1 && (
-              <span className="text-white/80 text-xs mt-3 font-medium bg-black/40 px-3 py-1 rounded-full">
+              <span className="text-white/80 text-xs mt-3 font-semibold bg-black/40 px-3 py-1 rounded-full">
                 {activeGalleryIndex + 1} / {galleryImages.length}
               </span>
             )}
@@ -1274,32 +1229,19 @@ export default function Messages({ session }) {
 
       {/* CONFIRMATION MODAL */}
       {confirmModal && (
-        <div 
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4"
-          onClick={() => setConfirmModal(null)}
-        >
-          <div 
-            className="bg-white border border-slate-200 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-full bg-rose-50 flex items-center justify-center flex-shrink-0">
-                <AlertCircle className="w-5 h-5 text-rose-600" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-800">
-                  {confirmModal.title}
-                </h3>
-                <p className="text-xs text-slate-500 leading-relaxed mt-1">
-                  {confirmModal.message}
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-end space-x-2 pt-1">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+            <h3 className="text-base font-extrabold text-slate-800 dark:text-white">
+              {confirmModal.title}
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              {confirmModal.message}
+            </p>
+            <div className="flex justify-end space-x-2 pt-2">
               {!confirmModal.hideCancel && (
                 <button
                   onClick={() => setConfirmModal(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                 >
                   Cancel
                 </button>
@@ -1309,7 +1251,7 @@ export default function Messages({ session }) {
                   if (confirmModal.onConfirm) confirmModal.onConfirm();
                   setConfirmModal(null);
                 }}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold text-white transition-all shadow-xs ${
+                className={`px-4 py-2 rounded-xl text-xs font-bold text-white transition shadow-md ${
                   confirmModal.confirmBg || 'bg-purple-600 hover:bg-purple-700'
                 }`}
               >
@@ -1319,22 +1261,6 @@ export default function Messages({ session }) {
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #94a3b8;
-        }
-      `}</style>
     </div>
   );
 }
