@@ -3,7 +3,8 @@ import { supabase } from '../supabaseClient';
 import { 
   Search, Send, Loader2, MessageSquare, ArrowLeft, Image as ImageIcon, 
   Check, CheckCheck, X, Download, Trash2, MoreVertical, Pin, PinOff, 
-  Slash, RefreshCw, AlertCircle, Reply, ChevronLeft, ChevronRight
+  Slash, RefreshCw, AlertCircle, Reply, ChevronLeft, ChevronRight,
+  Paperclip, FileText, ExternalLink, SmilePlus
 } from 'lucide-react';
 
 export default function Messages({ session }) {
@@ -44,6 +45,7 @@ export default function Messages({ session }) {
   
   // Custom Modals
   const [confirmModal, setConfirmModal] = useState(null);
+  
 
   // Block & Pin States
   const [iBlockedUser, setIBlockedUser] = useState(false);
