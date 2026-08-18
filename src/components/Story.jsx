@@ -25,6 +25,7 @@ export default function Story({ session, onSelectUser }) {
   const [textFont, setTextFont] = useState('sans-serif');
   const [storyPrivacy, setStoryPrivacy] = useState('public');
   const [closeFriendsText, setCloseFriendsText] = useState('');
+  const [showPrivacyPrompt, setShowPrivacyPrompt] = useState(false);
   const [textPos, setTextPos] = useState({ x: 50, y: 50 }); // Percentage position (50% X, 50% Y)
   const [isDraggingText, setIsDraggingText] = useState(false);
 
@@ -125,8 +126,18 @@ export default function Story({ session, onSelectUser }) {
   }
 
   function handleFileSelected(e) {
-    const file = e.target.files[0];
+    const files = Array.from(e.target.files || []);
+    const file = files[0];
     if (!file) return;
+
+    if (files.length > 1) {
+      files.forEach((item) => {
+        const type = item.type.startsWith('video') ? 'video' : 'image';
+        uploadStoryFile(item, type, null);
+      });
+      e.target.value = '';
+      return;
+    }
 
     const isVideo = file.type.startsWith('video');
     const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
@@ -179,6 +190,16 @@ export default function Story({ session, onSelectUser }) {
   }
 
   // Render Editor State to Final Image Blob
+  function handleShareClick() {
+    setShowPrivacyPrompt(true);
+  }
+
+  function confirmSharePrivacy(privacy) {
+    setStoryPrivacy(privacy);
+    setShowPrivacyPrompt(false);
+    setTimeout(() => handleFinishEditingAndUpload(), 0);
+  }
+
   async function handleFinishEditingAndUpload() {
     if (!editImageSrc) return;
 
@@ -284,16 +305,21 @@ export default function Story({ session, onSelectUser }) {
       .from('media')
       .getPublicUrl(filePath);
 
-    await supabase.from('stories').insert([
+    const { error: storyInsertError } = await supabase.from('stories').insert([
       {
         user_id: session.user.id,
         media_url: urlData.publicUrl,
         media_type: mediaType,
         caption: caption || null,
-        privacy: storyPrivacy,
-        close_friends: storyPrivacy === 'close_friends' ? closeFriendsText : null
+        privacy: storyPrivacy
       },
     ]);
+
+    if (storyInsertError) {
+      alert('Story save failed: ' + storyInsertError.message);
+      setStoryUploading(false);
+      return;
+    }
 
     setStoryUploading(false);
     setSelectedRawFile(null);
@@ -345,6 +371,7 @@ export default function Story({ session, onSelectUser }) {
       <input
         type="file"
         accept="image/*,video/*"
+        multiple
         ref={storyFileInputRef}
         onChange={handleFileSelected}
         className="hidden"
@@ -459,7 +486,7 @@ export default function Story({ session, onSelectUser }) {
             </div>
 
             <button
-              onClick={handleFinishEditingAndUpload}
+              onClick={handleShareClick}
               disabled={storyUploading}
               className="bg-lime-400 hover:bg-lime-500 text-slate-950 px-3 sm:px-5 py-2 rounded-full text-xs font-extrabold flex items-center space-x-1 transition disabled:opacity-50"
             >
@@ -613,14 +640,21 @@ export default function Story({ session, onSelectUser }) {
               </div>
             )}
 
-            <div className="flex items-center justify-between border-t border-slate-800 pt-2">
-              <span className="text-xs text-slate-400">Who can view?</span>
-              <select value={storyPrivacy} onChange={(e) => setStoryPrivacy(e.target.value)} className="bg-slate-800 text-white rounded-xl px-3 py-2 text-xs"><option value="public">Everyone</option><option value="followers">Followers</option><option value="close_friends">Close friends</option></select>
-            </div>
-            {storyPrivacy === 'close_friends' && <input value={closeFriendsText} onChange={(e) => setCloseFriendsText(e.target.value)} placeholder="Close friends usernames (comma separated)" className="w-full bg-slate-800 text-white rounded-xl px-3 py-2 text-xs" />}
 
           </div>
 
+        </div>
+      )}
+
+      {showPrivacyPrompt && (
+        <div className="fixed inset-0 z-[70] bg-black/70 flex items-center justify-center p-4">
+          <div className="w-full max-w-xs bg-slate-900 rounded-2xl p-4 space-y-3 border border-slate-700 shadow-2xl">
+            <h3 className="text-white font-bold">Who can view?</h3>
+            <button onClick={() => confirmSharePrivacy('public')} className="w-full text-left bg-slate-800 hover:bg-purple-600 text-white rounded-xl px-3 py-2 text-sm">Everyone</button>
+            <button onClick={() => confirmSharePrivacy('followers')} className="w-full text-left bg-slate-800 hover:bg-purple-600 text-white rounded-xl px-3 py-2 text-sm">Followers</button>
+            <button onClick={() => confirmSharePrivacy('close_friends')} className="w-full text-left bg-slate-800 hover:bg-purple-600 text-white rounded-xl px-3 py-2 text-sm">Close friends</button>
+            <button onClick={() => setShowPrivacyPrompt(false)} className="w-full text-slate-400 text-sm py-1">Cancel</button>
+          </div>
         </div>
       )}
 
