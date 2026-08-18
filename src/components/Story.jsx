@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
   Plus, X, Loader2, Trash2, ChevronLeft, ChevronRight, Eye, 
-  Crop, Type, RotateCw, Wand2, ZoomIn, ZoomOut, Move
+  Crop, Type, RotateCw, Wand2, ZoomIn, ZoomOut, Move, Send
 } from 'lucide-react';
 
 export default function Story({ session, onSelectUser }) {
@@ -21,6 +21,10 @@ export default function Story({ session, onSelectUser }) {
   const [storyText, setStoryText] = useState('');
   const [textColor, setTextColor] = useState('#ffffff');
   const [textBg, setTextBg] = useState(true);
+  const [textFontSize, setTextFontSize] = useState(48);
+  const [textFont, setTextFont] = useState('sans-serif');
+  const [storyPrivacy, setStoryPrivacy] = useState('public');
+  const [closeFriendsText, setCloseFriendsText] = useState('');
   const [textPos, setTextPos] = useState({ x: 50, y: 50 }); // Percentage position (50% X, 50% Y)
   const [isDraggingText, setIsDraggingText] = useState(false);
 
@@ -227,7 +231,7 @@ export default function Story({ session, onSelectUser }) {
         const renderX = (textPos.x / 100) * canvas.width;
         const renderY = (textPos.y / 100) * canvas.height;
 
-        ctx.font = 'bold 48px sans-serif';
+        ctx.font = `bold ${textFontSize}px ${textFont}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
@@ -254,7 +258,8 @@ export default function Story({ session, onSelectUser }) {
           return;
         }
         const editedFile = new File([blob], `story_${Date.now()}.jpg`, { type: 'image/jpeg' });
-        await uploadStoryFile(editedFile, 'image', storyText);
+          // Text is baked into the exported image; don't show it again as a bottom caption.
+          await uploadStoryFile(editedFile, 'image', null);
         setIsEditing(false);
       }, 'image/jpeg', 0.92);
     };
@@ -284,7 +289,9 @@ export default function Story({ session, onSelectUser }) {
         user_id: session.user.id,
         media_url: urlData.publicUrl,
         media_type: mediaType,
-        caption: caption || null
+        caption: caption || null,
+        privacy: storyPrivacy,
+        close_friends: storyPrivacy === 'close_friends' ? closeFriendsText : null
       },
     ]);
 
@@ -423,7 +430,7 @@ export default function Story({ session, onSelectUser }) {
                 className={`p-2.5 rounded-2xl flex items-center space-x-1.5 text-xs font-bold transition ${activeTab === 'text' ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-300'}`}
               >
                 <Type className="w-4 h-4" />
-                <span>Text</span>
+                <span className="hidden sm:inline">Text</span>
               </button>
 
               <button
@@ -431,7 +438,7 @@ export default function Story({ session, onSelectUser }) {
                 className={`p-2.5 rounded-2xl flex items-center space-x-1.5 text-xs font-bold transition ${activeTab === 'crop' ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-300'}`}
               >
                 <Crop className="w-4 h-4" />
-                <span>Zoom / Crop</span>
+                <span className="hidden sm:inline">Zoom / Crop</span>
               </button>
 
               <button
@@ -439,7 +446,7 @@ export default function Story({ session, onSelectUser }) {
                 className={`p-2.5 rounded-2xl flex items-center space-x-1.5 text-xs font-bold transition ${activeTab === 'filter' ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-300'}`}
               >
                 <Wand2 className="w-4 h-4" />
-                <span>Filters</span>
+                <span className="hidden sm:inline">Filters</span>
               </button>
 
               <button
@@ -454,16 +461,16 @@ export default function Story({ session, onSelectUser }) {
             <button
               onClick={handleFinishEditingAndUpload}
               disabled={storyUploading}
-              className="bg-lime-400 hover:bg-lime-500 text-slate-950 px-5 py-2 rounded-full text-xs font-extrabold flex items-center space-x-1 transition disabled:opacity-50"
+              className="bg-lime-400 hover:bg-lime-500 text-slate-950 px-3 sm:px-5 py-2 rounded-full text-xs font-extrabold flex items-center space-x-1 transition disabled:opacity-50"
             >
-              {storyUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Share</span>}
+              {storyUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /><span className="hidden sm:inline">Share</span></>}
             </button>
           </div>
 
           {/* Interactive Workspace Canvas */}
           <div 
             ref={previewAreaRef}
-            className="flex-1 flex items-center justify-center p-4 relative overflow-hidden bg-slate-950 select-none"
+            className="flex-1 min-h-0 flex items-center justify-center p-4 relative overflow-hidden bg-slate-950 select-none"
           >
             {/* Image Box */}
             <div 
@@ -500,7 +507,7 @@ export default function Story({ session, onSelectUser }) {
                     className={`inline-flex items-center space-x-1.5 px-4 py-2 rounded-2xl text-base md:text-lg font-bold shadow-2xl break-words max-w-[80vw] ${
                       textBg ? 'bg-black/70 backdrop-blur-md border border-white/20' : ''
                     }`}
-                    style={{ color: textColor }}
+                    style={{ color: textColor, fontSize: `${Math.max(14, textFontSize / 3)}px`, fontFamily: textFont }}
                   >
                     <Move className="w-3.5 h-3.5 text-white/50 inline-block mr-1" />
                     <span>{storyText}</span>
@@ -511,7 +518,7 @@ export default function Story({ session, onSelectUser }) {
           </div>
 
           {/* Bottom Tool Panels */}
-          <div className="p-4 bg-slate-900 border-t border-slate-800 z-20 space-y-3">
+          <div className="flex-shrink-0 max-h-[24dvh] overflow-y-auto p-3 sm:p-4 bg-slate-900 border-t border-slate-800 z-20 space-y-3">
             
             {/* Text Tab Panel */}
             {activeTab === 'text' && (
@@ -530,6 +537,10 @@ export default function Story({ session, onSelectUser }) {
                   >
                     BG
                   </button>
+                </div>
+                <div className="flex gap-2">
+                  <select value={textFont} onChange={(e) => setTextFont(e.target.value)} className="flex-1 bg-slate-800 text-white rounded-xl px-3 py-2 text-xs"><option value="sans-serif">Modern</option><option value="serif">Classic</option><option value="monospace">Mono</option></select>
+                  <input aria-label="Text size" type="range" min="28" max="96" value={textFontSize} onChange={(e) => setTextFontSize(Number(e.target.value))} className="flex-1 accent-purple-500" />
                 </div>
 
                 {/* Color Palette */}
@@ -579,7 +590,7 @@ export default function Story({ session, onSelectUser }) {
 
             {/* Filter Tab Panel */}
             {activeTab === 'filter' && (
-              <div className="flex justify-center space-x-3 overflow-x-auto pb-1">
+              <div className="flex justify-start sm:justify-center space-x-3 overflow-x-auto pb-1 scrollbar-none px-1">
                 {[
                   { id: 'normal', name: 'Normal' },
                   { id: 'bright', name: 'Vibrant' },
@@ -590,7 +601,7 @@ export default function Story({ session, onSelectUser }) {
                   <button
                     key={f.id}
                     onClick={() => setFilterStyle(f.id)}
-                    className={`px-4 py-2 rounded-2xl text-xs font-bold border transition ${
+                    className={`flex-shrink-0 px-4 py-2 rounded-2xl text-xs font-bold border transition ${
                       filterStyle === f.id
                         ? 'bg-purple-600 text-white border-purple-500'
                         : 'bg-slate-800 text-slate-300 border-slate-700'
@@ -601,6 +612,12 @@ export default function Story({ session, onSelectUser }) {
                 ))}
               </div>
             )}
+
+            <div className="flex items-center justify-between border-t border-slate-800 pt-2">
+              <span className="text-xs text-slate-400">Who can view?</span>
+              <select value={storyPrivacy} onChange={(e) => setStoryPrivacy(e.target.value)} className="bg-slate-800 text-white rounded-xl px-3 py-2 text-xs"><option value="public">Everyone</option><option value="followers">Followers</option><option value="close_friends">Close friends</option></select>
+            </div>
+            {storyPrivacy === 'close_friends' && <input value={closeFriendsText} onChange={(e) => setCloseFriendsText(e.target.value)} placeholder="Close friends usernames (comma separated)" className="w-full bg-slate-800 text-white rounded-xl px-3 py-2 text-xs" />}
 
           </div>
 
@@ -632,7 +649,7 @@ export default function Story({ session, onSelectUser }) {
             <ChevronRight className="w-6 h-6" />
           </button>
 
-          <div className="relative w-full h-full md:max-w-md md:h-[90vh] bg-slate-950 md:rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between">
+          <div className="relative w-full h-[100dvh] sm:h-[94dvh] sm:max-w-[min(100vw-1rem,28rem)] md:h-[90dvh] bg-slate-950 sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between">
             
             {/* Header */}
             <div className="absolute top-0 left-0 right-0 z-30 p-4 pt-3 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
