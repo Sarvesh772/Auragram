@@ -5,7 +5,7 @@ import {
   Send, Bookmark, Edit3, X, Sparkles, Loader2, Camera, AlertCircle, CheckCircle2 
 } from 'lucide-react';
 
-export default function Profile({ session, profileUserId }) {
+export default function Profile({ session, profileUserId, onMessage }) {
   const viewedUserId = profileUserId || session.user.id;
   const isOwnProfile = viewedUserId === session.user.id;
   const [profile, setProfile] = useState(null);
@@ -33,10 +33,40 @@ export default function Profile({ session, profileUserId }) {
   const [followState, setFollowState] = useState('none');
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
+  const [listMode, setListMode] = useState(null);
+  const [peopleList, setPeopleList] = useState([]);
 
   useEffect(() => {
     fetchProfileAndPosts();
   }, [session, viewedUserId]);
+
+  useEffect(() => {
+    const refreshFollowStats = async () => {
+      const [{ count: followers }, { count: following }] = await Promise.all([
+        supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', viewedUserId),
+        supabase.from('follows').select('following_id', { count: 'exact', head: true }).eq('follower_id', viewedUserId)
+      ]);
+      setFollowersCount(followers || 0);
+      setFollowingCount(following || 0);
+      if (viewedUserId !== session.user.id) {
+        const { data: relation } = await supabase.from('follows').select('follower_id').or(`and(follower_id.eq.${session.user.id},following_id.eq.${viewedUserId}),and(follower_id.eq.${viewedUserId},following_id.eq.${session.user.id})`);
+        const followingMe = (relation || []).some((r) => r.follower_id === viewedUserId);
+        const followingThem = (relation || []).some((r) => r.follower_id === session.user.id);
+        setFollowState(followingThem ? 'following' : followingMe ? 'followback' : 'none');
+      }
+    };
+    const channel = supabase.channel(`profile-follows-${viewedUserId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'follows' }, refreshFollowStats).subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [viewedUserId]);
+
+  async function openPeopleList(mode) {
+    const column = mode === 'followers' ? 'follower_id' : 'following_id';
+    const other = mode === 'followers' ? 'following_id' : 'follower_id';
+    const { data } = await supabase.from('follows').select(`${other}`).eq(column, viewedUserId);
+    const ids = (data || []).map((row) => row[other]);
+    const { data: profiles } = ids.length ? await supabase.from('profiles').select('id, username, full_name, avatar_url').in('id', ids) : { data: [] };
+    setPeopleList(profiles || []); setListMode(mode);
+  }
 
   async function fetchProfileAndPosts() {
     setLoading(true);
@@ -272,7 +302,7 @@ export default function Profile({ session, profileUserId }) {
                   {profile.full_name || profile.username || 'User'}
                 </h2>
                 <p className="text-xs font-bold text-purple-600 dark:text-purple-400 truncate">@{profile.username || 'username'}</p>
-                {profile.bio && <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-0.5 line-clamp-2">{profile.bio}</p>}
+                {profile.bio && <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-1 break-words whitespace-normal leading-relaxed">{profile.bio}</p>}
               </div>
             </div>
 
@@ -283,12 +313,12 @@ export default function Profile({ session, profileUserId }) {
             >
               <Edit3 className="w-3.5 h-3.5 text-purple-600" />
               <span>Edit</span>
-            </button> : <button onClick={toggleFollow} className="px-4 py-2 rounded-full bg-purple-600 text-white text-xs font-bold">{followState === 'following' ? 'Following' : followState === 'followback' ? 'Follow back' : 'Follow'}</button>}
+            </button> : <div className="flex flex-col gap-2 flex-shrink-0"><button onClick={toggleFollow} className="px-4 py-2 rounded-full bg-purple-600 text-white text-xs font-bold">{followState === 'following' ? 'Following' : followState === 'followback' ? 'Follow back' : 'Follow'}</button><button onClick={() => onMessage?.(viewedUserId)} className="px-4 py-2 rounded-full border border-purple-300 text-purple-600 text-xs font-bold">Message</button></div>}
           </div>
           <div className="grid grid-cols-3 gap-2 border-t border-slate-200/60 dark:border-slate-800 pt-3 text-center">
             <div><b className="block text-sm text-purple-600">{posts.length}</b><span className="text-[10px] text-slate-500">Posts</span></div>
-            <div><b className="block text-sm text-purple-600">{followersCount}</b><span className="text-[10px] text-slate-500">Followers</span></div>
-            <div><b className="block text-sm text-purple-600">{followingCount}</b><span className="text-[10px] text-slate-500">Following</span></div>
+            <button onClick={() => openPeopleList('followers')}><b className="block text-sm text-purple-600">{followersCount}</b><span className="text-[10px] text-slate-500">Followers</span></button>
+            <button onClick={() => openPeopleList('following')}><b className="block text-sm text-purple-600">{followingCount}</b><span className="text-[10px] text-slate-500">Following</span></button>
           </div>
 
         </div>
@@ -612,6 +642,7 @@ export default function Profile({ session, profileUserId }) {
           </div>
         </div>
       )}
+      {listMode && <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"><div className="bg-white dark:bg-slate-900 rounded-2xl p-4 w-full max-w-sm max-h-[70vh] overflow-y-auto"><div className="flex justify-between mb-3"><h3 className="font-bold">{listMode === 'followers' ? 'Followers' : 'Following'}</h3><button onClick={() => setListMode(null)}>✕</button></div>{peopleList.map((person) => <div key={person.id} className="flex items-center gap-3 py-2"><div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-bold">{(person.full_name || person.username || 'U')[0].toUpperCase()}</div><div><p className="text-sm font-bold">{person.full_name || person.username}</p><p className="text-xs text-slate-400">@{person.username}</p></div></div>)}</div></div>}
     </div>
   );
 }

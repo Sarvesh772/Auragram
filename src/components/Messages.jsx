@@ -7,7 +7,7 @@ import {
   Paperclip, FileText, ExternalLink, SmilePlus
 } from 'lucide-react';
 
-export default function Messages({ session, onViewProfile }) {
+export default function Messages({ session, onViewProfile, initialUserId }) {
   const [conversations, setConversations] = useState([]);
   const [activeUser, setActiveUser] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -54,6 +54,13 @@ export default function Messages({ session, onViewProfile }) {
     const saved = localStorage.getItem('auragram_pinned_chats');
     return saved ? JSON.parse(saved) : [];
   });
+
+  useEffect(() => {
+    if (!initialUserId) return;
+    const target = conversations.find((user) => user.id === initialUserId);
+    if (target) { setActiveUser(target); return; }
+    supabase.from('profiles').select('*').eq('id', initialUserId).single().then(({ data }) => { if (data) setActiveUser(data); });
+  }, [initialUserId, conversations]);
 
   const messagesEndRef = useRef(null);
   const presenceChannelRef = useRef(null);

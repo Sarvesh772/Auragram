@@ -63,6 +63,11 @@ export default function App() {
     await supabase.auth.signOut();
   }
 
+  function handleTabChange(tab) {
+    if (tab === 'profile') setProfileUserId(null);
+    setActiveTab(tab);
+  }
+
   if (loadingAuth) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
@@ -85,7 +90,7 @@ export default function App() {
         {/* Sidebar Left (Desktop Only) */}
         <Sidebar 
           activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
+          setActiveTab={handleTabChange} 
           session={session} 
           onLogout={handleLogout} 
         />
@@ -125,8 +130,8 @@ export default function App() {
 
           {/* Views Conditional Rendering */}
           {activeTab === 'feed' && <Feed session={session} onViewProfile={(id) => { setProfileUserId(id); setActiveTab('profile'); }} />}
-          {activeTab === 'messages' && <Messages session={session} onViewProfile={(id) => { setProfileUserId(id); setActiveTab('profile'); }} />}
-          {activeTab === 'profile' && <Profile session={session} profileUserId={profileUserId} />}
+          {activeTab === 'messages' && <Messages session={session} initialUserId={profileUserId} onViewProfile={(id) => { setProfileUserId(id); setActiveTab('profile'); }} />}
+          {activeTab === 'profile' && <Profile session={session} profileUserId={profileUserId} onMessage={(id) => { setProfileUserId(id); setActiveTab('messages'); }} />}
           {activeTab === 'reels' && <Reels session={session} onViewProfile={(userId) => { setProfileUserId(userId); setActiveTab('profile'); }} />}
           {activeTab === 'explore' && <Explore session={session} onViewProfile={(id) => { setProfileUserId(id); setActiveTab('profile'); }} />}
           {activeTab === 'notifications' && <Notifications session={session} />}
@@ -183,7 +188,7 @@ export default function App() {
 
         {/* Profile Icon (Message ke right side) */}
         <button 
-          onClick={() => setActiveTab('profile')} 
+          onClick={() => { setProfileUserId(null); setActiveTab('profile'); }} 
           className={`p-2.5 rounded-2xl transition ${activeTab === 'profile' ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30' : 'text-slate-500 dark:text-slate-400'}`}
         >
           <User className="w-5 h-5" />
