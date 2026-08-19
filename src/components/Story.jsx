@@ -334,15 +334,17 @@ export default function Story({ session, onSelectUser }) {
       .from('media')
       .getPublicUrl(filePath);
 
-    const { data: savedStory, error: storyInsertError } = await supabase.from('stories').insert([
+    const storyId = crypto.randomUUID();
+    const { error: storyInsertError } = await supabase.from('stories').insert([
       {
+        id: storyId,
         user_id: session.user.id,
         media_url: urlData.publicUrl,
         media_type: mediaType,
         caption: caption || null,
         privacy: storyPrivacy
       },
-    ]).select('id').single();
+    ]);
 
     if (storyInsertError) {
       alert('Story save failed: ' + storyInsertError.message);
@@ -350,7 +352,8 @@ export default function Story({ session, onSelectUser }) {
       return;
     }
     if (storyPrivacy === 'close_friends' && selectedCloseFriends.length) {
-      await supabase.from('story_close_friends').insert(selectedCloseFriends.map((userId) => ({ story_id: savedStory.id, user_id: userId })));
+      const { error: closeFriendsError } = await supabase.from('story_close_friends').insert(selectedCloseFriends.map((userId) => ({ story_id: storyId, user_id: userId })));
+      if (closeFriendsError) alert('Close Friends save failed: ' + closeFriendsError.message);
     }
 
     setStoryUploading(false);
