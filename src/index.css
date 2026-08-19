@@ -1,1 +1,31 @@
 @import "tailwindcss";
+
+/* Use the app's setting, not the device's colour-scheme preference. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+html, body, #root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #ffffff;
+  color: #0f172a;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+html.dark body {
+  background: #000000;
+  color: #f8fafc;
+}
+
+/* Keep native controls readable in both themes. */
+input, textarea, select {
+  color-scheme: light;
+}
+
+html.dark input,
+html.dark textarea,
+html.dark select {
+  color-scheme: dark;
+}

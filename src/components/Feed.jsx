@@ -268,7 +268,7 @@ export default function Feed({ session, onViewProfile }) {
       <Story session={session} />
 
       {/* Create Post Input */}
-      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+      <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
         {postError && <p className="text-xs text-rose-500 mb-2 font-medium">{postError}</p>}
         
         <div className="flex items-center space-x-3 mb-3">
@@ -280,7 +280,7 @@ export default function Feed({ session, onViewProfile }) {
             value={newContent}
             onChange={(e) => setNewContent(e.target.value)}
             placeholder="What's orbiting your mind?"
-            className="w-full bg-transparent focus:outline-none text-slate-700 text-sm font-medium"
+            className="w-full bg-transparent focus:outline-none text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm font-medium"
           />
         </div>
 
@@ -329,7 +329,7 @@ export default function Feed({ session, onViewProfile }) {
           const commentsCount = post.comments?.length || 0;
 
           return (
-            <div key={post.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            <div key={post.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
               <div className="flex items-center justify-between p-4">
                 <button onClick={() => onViewProfile?.(post.user_id)} className="flex items-center space-x-3 text-left">
                   {post.profiles?.avatar_url ? (
@@ -340,13 +340,13 @@ export default function Feed({ session, onViewProfile }) {
                     </div>
                   )}
                   <div>
-                    <p className="font-bold text-sm text-slate-800">{post.profiles?.full_name || post.profiles?.username || 'User'}</p>
+                    <p className="font-bold text-sm text-slate-800 dark:text-white">{post.profiles?.full_name || post.profiles?.username || 'User'}</p>
                     <p className="text-xs text-slate-400">{new Date(post.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                   </div>
                 </button>
               </div>
               
-              {post.content && <div className="px-4 pb-3"><p className="text-slate-700 text-sm">{post.content}</p></div>}
+              {post.content && <div className="px-4 pb-3"><p className="text-slate-700 dark:text-slate-200 text-sm">{post.content}</p></div>}
               
               {post.media_url && (
                 post.media_type === 'video' ? (
@@ -362,12 +362,12 @@ export default function Feed({ session, onViewProfile }) {
                   <div className="flex space-x-5">
                     <button onClick={() => handleToggleLike(post)} className="flex items-center space-x-1.5 transition active:scale-125">
                       <Heart className={`w-6 h-6 transition-colors ${isLikedByMe ? 'text-red-500 fill-red-500' : 'text-slate-600 hover:text-red-500'}`} />
-                      <span className="text-xs font-bold text-slate-700">{likesCount}</span>
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{likesCount}</span>
                     </button>
 
                     <button onClick={() => toggleCommentsView(post.id)} className="flex items-center space-x-1.5 text-slate-600 hover:text-purple-600">
                       <MessageCircle className="w-6 h-6" />
-                      <span className="text-xs font-bold text-slate-700">{commentsCount}</span>
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{commentsCount}</span>
                     </button>
 
                     <button onClick={() => handleSharePost(post)} title="Share post"><Send className="w-6 h-6 text-slate-600 hover:text-purple-600 cursor-pointer" /></button>
@@ -381,7 +381,7 @@ export default function Feed({ session, onViewProfile }) {
 
                 {/* Comments Drawer */}
                 {activeCommentPostId === post.id && (
-                  <div className="pt-4 mt-2 border-t border-slate-100 bg-slate-50/50 p-3 rounded-xl space-y-4">
+                  <div className="pt-4 mt-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 p-3 rounded-xl space-y-4">
                     <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Comments ({commentsCount})</h4>
 
                     <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
@@ -402,7 +402,7 @@ export default function Feed({ session, onViewProfile }) {
                               )}
                               <div className="bg-blue-50 p-2.5 rounded-2xl border border-slate-100 shadow-2xs max-w-[280px]">
                                 <span className="font-bold text-xs text-slate-800 block">{comment.profiles?.username || 'User'}</span>
-                                <p className="text-xs text-slate-600 mt-0.5 leading-snug">{comment.content}</p>
+                                <p className="text-xs text-slate-600 dark:text-slate-200 mt-0.5 leading-snug">{comment.content}</p>
                               </div>
                             </div>
 
@@ -426,7 +426,7 @@ export default function Feed({ session, onViewProfile }) {
                         value={commentTextMap[post.id] || ''}
                         onChange={(e) => setCommentTextMap({ ...commentTextMap, [post.id]: e.target.value })}
                         placeholder="Add a comment..."
-                        className="flex-1 bg-white border border-slate-200 rounded-full px-4 py-2 text-xs text-slate-800 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 shadow-2xs"
+                        className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-full px-4 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 shadow-2xs"
                         onKeyDown={(e) => e.key === 'Enter' && handleAddComment(post)}
                       />
                       <button 
