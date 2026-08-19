@@ -2,6 +2,38 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import Story from './Story';
 import { Image as ImageIcon, Video, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2 } from 'lucide-react';
+import MentionInput from './MentionInput';
+import { RenderFormattedText } from './MentionInput';
+
+// Extract @mentions and notify tagged users
+async function processMentions(text, actorId, postId) {
+  if (!text) return;
+  const matches = text.match(/@([a-zA-Z0-9_]+)/g);
+  if (!matches) return;
+
+  const usernames = [...new Set(matches.map(m => m.replace('@', '').toLowerCase()))];
+
+  const { data: taggedUsers } = await supabase
+    .from('profiles')
+    .select('id, username')
+    .in('username', usernames);
+
+  if (taggedUsers && taggedUsers.length > 0) {
+    const notifs = taggedUsers
+      .filter(u => u.id !== actorId)
+      .map(u => ({
+        recipient_id: u.id,
+        actor_id: actorId,
+        type: 'mention',
+        post_id: postId,
+        is_read: false
+      }));
+
+    if (notifs.length > 0) {
+      await supabase.from('notifications').insert(notifs);
+    }
+  }
+}
 
 export default function Feed({ session, onViewProfile }) {
   const [posts, setPosts] = useState([]);
@@ -163,8 +195,8 @@ export default function Feed({ session, onViewProfile }) {
     };
 
     const { data, error } = await supabase.from('comments').insert([newCommentObj]).select().single();
-
     if (!error && data) {
+      await processMentions(text, session.user.id, postId);
       const { data: myProfile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
       const createdComment = { ...data, profiles: myProfile };
 
@@ -233,22 +265,23 @@ export default function Feed({ session, onViewProfile }) {
       finalMediaType = fileType;
     }
 
-    const { error: insertError } = await supabase.from('posts').insert([
+    const { data: createdPost, error: insertError } = await supabase.from('posts').insert([
       {
         user_id: session.user.id,
         content: newContent,
         media_url: mediaUrl,
         media_type: finalMediaType
       }
-    ]);
+    ]).select('id').single();
 
     setUploading(false);
 
-    if (!insertError) {
+    if (!insertError && createdPost) {
+      await processMentions(newContent, session.user.id, createdPost.id);
       setNewContent('');
       handleRemoveFile();
       fetchPosts();
-    } else {
+    } else if (insertError) {
       setPostError(insertError.message);
     }
   }
@@ -275,11 +308,11 @@ export default function Feed({ session, onViewProfile }) {
           <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-sm">
             {displayUsername[0]?.toUpperCase()}
           </div>
-          <input 
-            type="text" 
+          <MentionInput
             value={newContent}
-            onChange={(e) => setNewContent(e.target.value)}
-            placeholder="What's orbiting your mind?"
+            onChange={setNewContent}
+            placeholder="What's orbiting your mind? (Use @ to mention)"
+            currentUserId={session.user.id}
             className="w-full bg-transparent focus:outline-none text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm font-medium"
           />
         </div>
@@ -346,7 +379,13 @@ export default function Feed({ session, onViewProfile }) {
                 </button>
               </div>
               
-              {post.content && <div className="px-4 pb-3"><p className="text-slate-700 dark:text-slate-200 text-sm">{post.content}</p></div>}
+              {post.content && (
+                <div className="px-4 pb-3">
+                  <p className="text-slate-700 dark:text-slate-200 text-sm">
+                    <RenderFormattedText text={post.content} onViewProfile={onViewProfile} />
+                  </p>
+                </div>
+              )}
               
               {post.media_url && (
                 post.media_type === 'video' ? (
@@ -402,7 +441,9 @@ export default function Feed({ session, onViewProfile }) {
                               )}
                               <div className="bg-blue-50 p-2.5 rounded-2xl border border-slate-100 shadow-2xs max-w-[280px]">
                                 <span className="font-bold text-xs text-slate-800 block">{comment.profiles?.username || 'User'}</span>
-                                <p className="text-xs text-slate-600 dark:text-slate-200 mt-0.5 leading-snug">{comment.content}</p>
+                                <p className="text-xs text-slate-600 dark:text-slate-200 mt-0.5 leading-snug">
+                                  <RenderFormattedText text={comment.content} onViewProfile={onViewProfile} />
+                                </p>
                               </div>
                             </div>
 
@@ -421,13 +462,13 @@ export default function Feed({ session, onViewProfile }) {
                     </div>
 
                     <div className="flex items-center space-x-2 pt-2 border-t border-slate-200/60">
-                      <input 
-                        type="text" 
+                      <MentionInput
                         value={commentTextMap[post.id] || ''}
-                        onChange={(e) => setCommentTextMap({ ...commentTextMap, [post.id]: e.target.value })}
-                        placeholder="Add a comment..."
-                        className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-full px-4 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 shadow-2xs"
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddComment(post)}
+                        onChange={(val) => setCommentTextMap({ ...commentTextMap, [post.id]: val })}
+                        placeholder="Add a comment... (use @ to tag)"
+                        onSend={() => handleAddComment(post)}
+                        currentUserId={session.user.id}
+                        className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-full px-4 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-purple-500 shadow-2xs"
                       />
                       <button 
                         onClick={() => handleAddComment(post)}

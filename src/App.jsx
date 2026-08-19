@@ -19,7 +19,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('feed');
   const [profileUserId, setProfileUserId] = useState(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
-  
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('auragram_theme') === 'dark';
   });
@@ -34,14 +35,41 @@ export default function App() {
     }
   }, [isDarkMode]);
 
+  // 1. Notifications Unread Count Listener (Correct Column: recipient_id)
   useEffect(() => {
     if (!session?.user?.id) return undefined;
-    const loadUnread = async () => {
-      const { count } = await supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('recipient_id', session.user.id).eq('is_read', false);
+    const loadUnreadNotifs = async () => {
+      const { count } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('recipient_id', session.user.id)
+        .eq('is_read', false);
       setUnreadNotifications(count || 0);
     };
-    loadUnread();
-    const channel = supabase.channel('notification-badge').on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${session.user.id}` }, loadUnread).subscribe();
+    loadUnreadNotifs();
+    const channel = supabase
+      .channel('notification-badge')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${session.user.id}` }, loadUnreadNotifs)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [session?.user?.id]);
+
+  // 2. Unread Direct Messages Listener (FIXED Column: receiver_id)
+  useEffect(() => {
+    if (!session?.user?.id) return undefined;
+    const loadUnreadMsgs = async () => {
+      const { count } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('receiver_id', session.user.id)
+        .eq('is_read', false);
+      setUnreadMessages(count || 0);
+    };
+    loadUnreadMsgs();
+    const channel = supabase
+      .channel('messages-badge')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `receiver_id=eq.${session.user.id}` }, loadUnreadMsgs)
+      .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [session?.user?.id]);
 
@@ -58,10 +86,6 @@ export default function App() {
 
     return () => subscription.unsubscribe();
   }, []);
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-  }
 
   function handleTabChange(tab) {
     if (tab === 'profile') setProfileUserId(null);
@@ -85,14 +109,14 @@ export default function App() {
 
   return (
     <div className={`min-h-screen flex justify-center transition-colors ${isDarkMode ? 'dark bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
-      <div className="w-full max-w-7xl flex">
+      <div className="w-full max-w-7xl flex relative">
         
         {/* Sidebar Left (Desktop Only) */}
         <Sidebar 
           activeTab={activeTab} 
           setActiveTab={handleTabChange} 
-          session={session} 
-          onLogout={handleLogout} 
+          unreadNotifications={unreadNotifications}
+          unreadMessages={unreadMessages}
         />
 
         {/* Main Content Area */}
@@ -115,7 +139,11 @@ export default function App() {
                   className={`relative p-2 rounded-full transition ${activeTab === 'notifications' ? 'bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}
                 >
                   <Bell className="w-5 h-5" />
-                  {unreadNotifications > 0 && <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>}
+                  {unreadNotifications > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">
+                      {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                    </span>
+                  )}
                 </button>
 
                 <button 
@@ -179,14 +207,19 @@ export default function App() {
           <Clapperboard className="w-5 h-5" />
         </button>
 
+        {/* Mobile Messages Button with Badge */}
         <button 
           onClick={() => setActiveTab('messages')} 
-          className={`p-2.5 rounded-2xl transition ${activeTab === 'messages' ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30' : 'text-slate-500 dark:text-slate-400'}`}
+          className={`relative p-2.5 rounded-2xl transition ${activeTab === 'messages' ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30' : 'text-slate-500 dark:text-slate-400'}`}
         >
           <MessageCircle className="w-5 h-5" />
+          {unreadMessages > 0 && (
+            <span className="absolute top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">
+              {unreadMessages > 99 ? '99+' : unreadMessages}
+            </span>
+          )}
         </button>
 
-        {/* Profile Icon (Message ke right side) */}
         <button 
           onClick={() => { setProfileUserId(null); setActiveTab('profile'); }} 
           className={`p-2.5 rounded-2xl transition ${activeTab === 'profile' ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30' : 'text-slate-500 dark:text-slate-400'}`}

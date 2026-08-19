@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Heart, MessageCircle, UserPlus, CheckCheck, Loader2, Bell, X } from 'lucide-react';
+import { Heart, MessageCircle, UserPlus, CheckCheck, Loader2, Bell, X, Sparkles } from 'lucide-react';
+import { RenderFormattedText } from './MentionInput';
 
-export default function Notifications({ session }) {
+export default function Notifications({ session, onViewProfile }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedNotif, setSelectedNotif] = useState(null);
@@ -62,7 +63,7 @@ export default function Notifications({ session }) {
       const actorsMap = (profilesRes.data || []).reduce((acc, curr) => ({ ...acc, [curr.id]: curr }), {});
       const postsMap = (postsRes.data || []).reduce((acc, curr) => ({ ...acc, [curr.id]: curr }), {});
 
-      const commentNotifs = data.filter(n => n.type === 'comment' && n.post_id);
+      const commentNotifs = data.filter(n => (n.type === 'comment' || n.type === 'mention') && n.post_id);
       let commentsMap = {};
 
       if (commentNotifs.length > 0) {
@@ -127,6 +128,8 @@ export default function Notifications({ session }) {
         return <MessageCircle className="w-3.5 h-3.5 fill-purple-500 text-purple-500" />;
       case 'follow':
         return <UserPlus className="w-3.5 h-3.5 text-blue-500" />;
+      case 'mention':
+        return <Sparkles className="w-3.5 h-3.5 text-purple-600 fill-purple-600" />;
       default:
         return <Bell className="w-3.5 h-3.5 text-slate-400" />;
     }
@@ -137,9 +140,9 @@ export default function Notifications({ session }) {
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-2xl mx-auto pb-20">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
         <div className="flex items-center space-x-2">
-          <h2 className="text-xl font-black text-slate-800">Notifications</h2>
+          <h2 className="text-xl font-black text-slate-800 dark:text-white">Notifications</h2>
           {unreadCount > 0 && (
             <span className="bg-purple-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
               {unreadCount} new
@@ -150,7 +153,7 @@ export default function Notifications({ session }) {
         {unreadCount > 0 && (
           <button
             onClick={handleMarkAllAsRead}
-            className="flex items-center space-x-1.5 text-xs font-bold text-purple-600 hover:text-purple-700 transition"
+            className="flex items-center space-x-1.5 text-xs font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 transition"
           >
             <CheckCheck className="w-4 h-4" />
             <span>Mark all read</span>
@@ -165,7 +168,7 @@ export default function Notifications({ session }) {
         </div>
       ) : notifications.length === 0 ? (
         <div className="text-center py-16 space-y-3">
-          <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mx-auto">
+          <div className="w-12 h-12 bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-300 rounded-full flex items-center justify-center mx-auto">
             <Bell className="w-6 h-6" />
           </div>
           <p className="text-xs font-semibold text-slate-400">No notifications yet!</p>
@@ -176,10 +179,10 @@ export default function Notifications({ session }) {
             <div
               key={notif.id}
               onClick={() => handleNotificationClick(notif)}
-              className={`flex items-start justify-between p-4 rounded-2xl border cursor-pointer transition hover:border-purple-300 hover:shadow-md ${
+              className={`flex items-start justify-between p-4 rounded-2xl border cursor-pointer transition hover:border-purple-300 dark:hover:border-slate-700 hover:shadow-md ${
                 notif.is_read 
-                  ? 'bg-white border-slate-100' 
-                  : 'bg-purple-50/40 border-purple-100 shadow-xs'
+                  ? 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800' 
+                  : 'bg-purple-50/40 dark:bg-purple-950/30 border-purple-100 dark:border-purple-900/50 shadow-xs'
               }`}
             >
               <div className="flex items-start space-x-3.5 min-w-0 flex-1">
@@ -191,23 +194,24 @@ export default function Notifications({ session }) {
                       (notif.actor?.username || 'U')[0].toUpperCase()
                     )}
                   </div>
-                  <div className="absolute -bottom-1 -right-1 bg-white p-1 rounded-full shadow-sm">
+                  <div className="absolute -bottom-1 -right-1 bg-white dark:bg-slate-900 p-1 rounded-full shadow-sm">
                     {renderNotifIcon(notif.type)}
                   </div>
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium text-slate-800 leading-snug">
-                    <span className="font-extrabold text-slate-900">@{notif.actor?.username || 'user'}</span>{' '}
+                  <p className="text-xs font-medium text-slate-800 dark:text-slate-200 leading-snug">
+                    <span className="font-extrabold text-slate-900 dark:text-white">@{notif.actor?.username || 'user'}</span>{' '}
                     {notif.type === 'like' && 'liked your post.'}
                     {notif.type === 'comment' && 'commented on your post.'}
                     {notif.type === 'follow' && 'started following you.'}
+                    {notif.type === 'mention' && 'mentioned you in a post or comment.'}
                   </p>
 
-                  {/* Comment Text Card */}
-                  {notif.type === 'comment' && notif.comment_text && (
-                    <div className="mt-1.5 p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs text-slate-600 italic truncate max-w-sm">
-                      "{notif.comment_text}"
+                  {/* Comment/Mention Text Preview */}
+                  {notif.comment_text && (notif.type === 'comment' || notif.type === 'mention') && (
+                    <div className="mt-1.5 p-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 italic truncate max-w-sm">
+                      <RenderFormattedText text={`"${notif.comment_text}"`} onViewProfile={onViewProfile} />
                     </div>
                   )}
 
@@ -218,7 +222,7 @@ export default function Notifications({ session }) {
               </div>
 
               {notif.post?.media_url && (
-                <div className="w-11 h-11 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0 ml-3 bg-black/5">
+                <div className="w-11 h-11 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 flex-shrink-0 ml-3 bg-black/5">
                   {notif.post.media_type === 'video' ? (
                     <video src={notif.post.media_url} className="w-full h-full object-cover" />
                   ) : (
@@ -234,15 +238,15 @@ export default function Notifications({ session }) {
       {/* CLICK POPUP MODAL */}
       {selectedNotif && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-5 space-y-4 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl max-w-md w-full p-5 space-y-4 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
             <button 
               onClick={() => setSelectedNotif(null)} 
-              className="absolute top-4 right-4 bg-slate-100 p-1.5 rounded-full hover:bg-slate-200 text-slate-600 transition"
+              className="absolute top-4 right-4 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition"
             >
               <X className="w-4 h-4" />
             </button>
 
-            <div className="flex items-center space-x-3 border-b border-slate-100 pb-3">
+            <div className="flex items-center space-x-3 border-b border-slate-100 dark:border-slate-800 pb-3">
               <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden">
                 {selectedNotif.actor?.avatar_url ? (
                   <img src={selectedNotif.actor.avatar_url} alt="avatar" className="w-full h-full object-cover" />
@@ -251,28 +255,35 @@ export default function Notifications({ session }) {
                 )}
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-900">@{selectedNotif.actor?.username}</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-white">@{selectedNotif.actor?.username}</p>
                 <p className="text-xs text-slate-400">
                   {selectedNotif.type === 'comment' && 'Commented on your post'}
                   {selectedNotif.type === 'like' && 'Liked your post'}
                   {selectedNotif.type === 'follow' && 'Started following you'}
+                  {selectedNotif.type === 'mention' && 'Mentioned you'}
                 </p>
               </div>
             </div>
 
-            {selectedNotif.type === 'comment' && (
-              <div className="bg-purple-50/60 p-3.5 rounded-2xl border border-purple-100">
-                <p className="text-xs font-semibold text-purple-900 uppercase tracking-wider mb-1">Comment:</p>
-                <p className="text-sm text-slate-800 font-medium">{selectedNotif.comment_text || 'No comment text found'}</p>
+            {(selectedNotif.type === 'comment' || selectedNotif.type === 'mention') && selectedNotif.comment_text && (
+              <div className="bg-purple-50/60 dark:bg-slate-800 p-3.5 rounded-2xl border border-purple-100 dark:border-slate-700">
+                <p className="text-xs font-semibold text-purple-900 dark:text-purple-300 uppercase tracking-wider mb-1">
+                  {selectedNotif.type === 'mention' ? 'Mention Context:' : 'Comment:'}
+                </p>
+                <p className="text-sm text-slate-800 dark:text-slate-200 font-medium">
+                  <RenderFormattedText text={selectedNotif.comment_text} onViewProfile={onViewProfile} />
+                </p>
               </div>
             )}
 
             {selectedNotif.post && (
               <div className="space-y-2">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Your Post:</p>
-                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 space-y-2">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Post:</p>
+                <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-2">
                   {selectedNotif.post.content && (
-                    <p className="text-xs text-slate-700 font-medium">{selectedNotif.post.content}</p>
+                    <p className="text-xs text-slate-700 dark:text-slate-200 font-medium">
+                      <RenderFormattedText text={selectedNotif.post.content} onViewProfile={onViewProfile} />
+                    </p>
                   )}
                   {selectedNotif.post.media_url && (
                     <div className="rounded-xl overflow-hidden max-h-52 bg-black/5">
