@@ -88,6 +88,17 @@ export default function Story({ session, onSelectUser }) {
       .select('*')
       .in('id', userIds);
 
+    const followedRes = await supabase.from('follows').select('following_id').eq('follower_id', session.user.id);
+    const followedIds = new Set((followedRes.data || []).map((row) => row.following_id));
+    const closeRes = await supabase.from('story_close_friends').select('story_id').eq('user_id', session.user.id).in('story_id', storiesData.map((story) => story.id));
+    const closeStoryIds = new Set((closeRes.data || []).map((row) => row.story_id));
+    const visibleStories = storiesData.filter((story) => {
+      if (story.user_id === session.user.id || story.privacy === 'public' || !story.privacy) return true;
+      if (story.privacy === 'followers') return followedIds.has(story.user_id);
+      if (story.privacy === 'close_friends') return closeStoryIds.has(story.id);
+      return false;
+    });
+
     const profilesMap = (profiles || []).reduce(
       (acc, p) => ({ ...acc, [p.id]: p }),
       {}
@@ -96,8 +107,8 @@ export default function Story({ session, onSelectUser }) {
     const grouped = userIds.map((uid) => ({
       userId: uid,
       profile: profilesMap[uid] || null,
-      stories: storiesData.filter((s) => s.user_id === uid),
-    }));
+      stories: visibleStories.filter((s) => s.user_id === uid),
+    })).filter((group) => group.stories.length > 0);
 
     setStoriesGrouped(grouped);
   }
