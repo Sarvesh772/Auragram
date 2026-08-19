@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import Story from './Story';
-import { Image as ImageIcon, Video, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2 } from 'lucide-react';
+import { Image as ImageIcon, Video, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import MentionInput from './MentionInput';
 import { RenderFormattedText } from './MentionInput';
 
-// Extract @mentions and notify tagged users
+// Helper for @mentions
 async function processMentions(text, actorId, postId) {
   if (!text) return;
   const matches = text.match(/@([a-zA-Z0-9_]+)/g);
@@ -35,13 +35,77 @@ async function processMentions(text, actorId, postId) {
   }
 }
 
+// Media Carousel Component for Posts
+function PostMediaCarousel({ mediaItems }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  if (!mediaItems || mediaItems.length === 0) return null;
+
+  const prevSlide = (e) => {
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev === 0 ? mediaItems.length - 1 : prev - 1));
+  };
+
+  const nextSlide = (e) => {
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev === mediaItems.length - 1 ? 0 : prev + 1));
+  };
+
+  const currentItem = mediaItems[currentIndex];
+
+  return (
+    <div className="relative w-full max-h-[480px] bg-black flex items-center justify-center overflow-hidden group">
+      {currentItem.type === 'video' ? (
+        <video src={currentItem.url} controls className="w-full max-h-[480px] object-contain" />
+      ) : (
+        <img src={currentItem.url} alt={`Slide ${currentIndex + 1}`} className="w-full max-h-[480px] object-cover" />
+      )}
+
+      {/* Slide Navigation Buttons */}
+      {mediaItems.length > 1 && (
+        <>
+          <button
+            onClick={prevSlide}
+            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-1.5 rounded-full backdrop-blur-xs transition opacity-0 group-hover:opacity-100"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <button
+            onClick={nextSlide}
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-1.5 rounded-full backdrop-blur-xs transition opacity-0 group-hover:opacity-100"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+
+          {/* Indicator Dots */}
+          <div className="absolute bottom-3 left-0 right-0 flex justify-center space-x-1.5 z-10">
+            {mediaItems.map((_, idx) => (
+              <span
+                key={idx}
+                className={`w-2 h-2 rounded-full transition-all ${
+                  idx === currentIndex ? 'bg-purple-500 w-4' : 'bg-white/60'
+                }`}
+              />
+            ))}
+          </div>
+
+          {/* Counter Badge */}
+          <div className="absolute top-3 right-3 bg-slate-900/70 text-white text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-xs">
+            {currentIndex + 1}/{mediaItems.length}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function Feed({ session, onViewProfile }) {
   const [posts, setPosts] = useState([]);
   const [bookmarkedPostIds, setBookmarkedPostIds] = useState(new Set());
   const [newContent, setNewContent] = useState('');
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [filePreview, setFilePreview] = useState(null);
-  const [fileType, setFileType] = useState(null);
+  
+  // Multi-file state
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [postError, setPostError] = useState('');
@@ -52,8 +116,7 @@ export default function Feed({ session, onViewProfile }) {
   const [commentTextMap, setCommentTextMap] = useState({});
   const [loadingComments, setLoadingComments] = useState({});
 
-  const imageInputRef = useRef(null);
-  const videoInputRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const displayUsername = session?.user?.user_metadata?.username || session?.user?.email?.split('@')[0] || 'User';
 
@@ -115,12 +178,23 @@ export default function Feed({ session, onViewProfile }) {
       return acc;
     }, {});
 
-    const formattedPosts = postsData.map(post => ({
-      ...post,
-      profiles: profilesMap[post.user_id] || null,
-      likes: (likesRes.data || []).filter(l => l.post_id === post.id),
-      comments: (commentsRes.data || []).filter(c => c.post_id === post.id)
-    }));
+    const formattedPosts = postsData.map(post => {
+      // Normalizing media list for carousel
+      let mediaList = [];
+      if (post.media_urls && Array.isArray(post.media_urls) && post.media_urls.length > 0) {
+        mediaList = post.media_urls;
+      } else if (post.media_url) {
+        mediaList = [{ url: post.media_url, type: post.media_type || 'image' }];
+      }
+
+      return {
+        ...post,
+        mediaList,
+        profiles: profilesMap[post.user_id] || null,
+        likes: (likesRes.data || []).filter(l => l.post_id === post.id),
+        comments: (commentsRes.data || []).filter(c => c.post_id === post.id)
+      };
+    });
 
     setPosts(formattedPosts);
     setLoading(false);
@@ -222,37 +296,36 @@ export default function Feed({ session, onViewProfile }) {
     }
   }
 
-  function handleFileSelect(e, type) {
-    const file = e.target.files[0];
-    if (!file) return;
+  function handleFileSelect(e) {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
 
-    setSelectedFile(file);
-    setFileType(type);
-    setFilePreview(URL.createObjectURL(file));
+    const formattedFiles = files.map(file => ({
+      file,
+      type: file.type.startsWith('video') ? 'video' : 'image',
+      preview: URL.createObjectURL(file)
+    }));
+
+    setSelectedFiles(prev => [...prev, ...formattedFiles]);
   }
 
-  function handleRemoveFile() {
-    setSelectedFile(null);
-    setFilePreview(null);
-    setFileType(null);
-    if (imageInputRef.current) imageInputRef.current.value = '';
-    if (videoInputRef.current) videoInputRef.current.value = '';
+  function handleRemoveFile(index) {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   }
 
   async function handleCreatePost() {
-    if (!newContent.trim() && !selectedFile) return;
+    if (!newContent.trim() && selectedFiles.length === 0) return;
     setPostError('');
     setUploading(true);
 
-    let mediaUrl = null;
-    let finalMediaType = null;
+    const uploadedMedia = [];
 
-    if (selectedFile) {
-      const fileExt = selectedFile.name.split('.').pop();
+    for (const item of selectedFiles) {
+      const fileExt = item.file.name.split('.').pop();
       const fileName = `${Date.now()}_${Math.random()}.${fileExt}`;
       const filePath = `${session.user.id}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage.from('media').upload(filePath, selectedFile);
+      const { error: uploadError } = await supabase.storage.from('media').upload(filePath, item.file);
 
       if (uploadError) {
         setPostError('Upload failed: ' + uploadError.message);
@@ -261,25 +334,28 @@ export default function Feed({ session, onViewProfile }) {
       }
 
       const { data: publicUrlData } = supabase.storage.from('media').getPublicUrl(filePath);
-      mediaUrl = publicUrlData.publicUrl;
-      finalMediaType = fileType;
+      uploadedMedia.push({
+        url: publicUrlData.publicUrl,
+        type: item.type
+      });
     }
 
-    const { data: createdPost, error: insertError } = await supabase.from('posts').insert([
-      {
-        user_id: session.user.id,
-        content: newContent,
-        media_url: mediaUrl,
-        media_type: finalMediaType
-      }
-    ]).select('id').single();
+    const postPayload = {
+      user_id: session.user.id,
+      content: newContent,
+      media_urls: uploadedMedia,
+      media_url: uploadedMedia[0]?.url || null,
+      media_type: uploadedMedia[0]?.type || null
+    };
+
+    const { data: createdPost, error: insertError } = await supabase.from('posts').insert([postPayload]).select('id').single();
 
     setUploading(false);
 
     if (!insertError && createdPost) {
       await processMentions(newContent, session.user.id, createdPost.id);
       setNewContent('');
-      handleRemoveFile();
+      setSelectedFiles([]);
       fetchPosts();
     } else if (insertError) {
       setPostError(insertError.message);
@@ -294,8 +370,14 @@ export default function Feed({ session, onViewProfile }) {
 
   return (
     <div className="p-4 space-y-6">
-      <input type="file" accept="image/*" ref={imageInputRef} onChange={(e) => handleFileSelect(e, 'image')} className="hidden" />
-      <input type="file" accept="video/*" ref={videoInputRef} onChange={(e) => handleFileSelect(e, 'video')} className="hidden" />
+      <input 
+        type="file" 
+        accept="image/*,video/*" 
+        multiple 
+        ref={fileInputRef} 
+        onChange={handleFileSelect} 
+        className="hidden" 
+      />
 
       {/* Stories Section */}
       <Story session={session} />
@@ -317,26 +399,35 @@ export default function Feed({ session, onViewProfile }) {
           />
         </div>
 
-        {filePreview && (
-          <div className="relative mb-3 rounded-xl overflow-hidden border border-slate-200 bg-black/5 max-h-60 flex items-center justify-center">
-            <button onClick={handleRemoveFile} className="absolute top-2 right-2 bg-slate-900/80 text-white p-1 rounded-full hover:bg-slate-900 z-10">
-              <X className="w-4 h-4" />
-            </button>
-            {fileType === 'image' ? (
-              <img src={filePreview} alt="Preview" className="max-h-60 object-contain w-full" />
-            ) : (
-              <video src={filePreview} controls className="max-h-60 w-full" />
-            )}
+        {/* Selected Media Grid Previews */}
+        {selectedFiles.length > 0 && (
+          <div className="mb-3 grid grid-cols-3 gap-2">
+            {selectedFiles.map((item, idx) => (
+              <div key={idx} className="relative rounded-xl overflow-hidden border border-slate-200 h-24 bg-black/5">
+                <button 
+                  onClick={() => handleRemoveFile(idx)} 
+                  className="absolute top-1 right-1 bg-slate-900/80 text-white p-1 rounded-full hover:bg-slate-900 z-10"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+                {item.type === 'image' ? (
+                  <img src={item.preview} alt="Preview" className="h-24 w-full object-cover" />
+                ) : (
+                  <video src={item.preview} className="h-24 w-full object-cover" />
+                )}
+              </div>
+            ))}
           </div>
         )}
 
-        <div className="flex justify-between items-center pt-3 border-t border-slate-200">
+        <div className="flex justify-between items-center pt-3 border-t border-slate-200 dark:border-slate-800">
           <div className="flex space-x-4">
-            <button onClick={() => imageInputRef.current?.click()} className="flex items-center space-x-1 text-purple-600 font-medium text-xs md:text-sm">
-              <ImageIcon className="w-4 h-4" /> <span>Photo</span>
-            </button>
-            <button onClick={() => videoInputRef.current?.click()} className="flex items-center space-x-1 text-rose-500 font-medium text-xs md:text-sm">
-              <Video className="w-4 h-4" /> <span>Video</span>
+            <button 
+              onClick={() => fileInputRef.current?.click()} 
+              className="flex items-center space-x-1.5 text-purple-600 font-medium text-xs md:text-sm"
+            >
+              <ImageIcon className="w-4 h-4" /> 
+              <span>Photo / Video</span>
             </button>
           </div>
           <button 
@@ -387,16 +478,11 @@ export default function Feed({ session, onViewProfile }) {
                 </div>
               )}
               
-              {post.media_url && (
-                post.media_type === 'video' ? (
-                  <video src={post.media_url} controls className="w-full max-h-[450px] bg-black" />
-                ) : (
-                  <img src={post.media_url} className="w-full object-cover max-h-[450px]" alt="Post media" />
-                )
-              )}
+              {/* Render Carousel Post Media */}
+              <PostMediaCarousel mediaItems={post.mediaList} />
 
               {/* Actions */}
-              <div className="p-4 border-t border-slate-50 space-y-3">
+              <div className="p-4 border-t border-slate-50 dark:border-slate-800 space-y-3">
                 <div className="flex justify-between items-center">
                   <div className="flex space-x-5">
                     <button onClick={() => handleToggleLike(post)} className="flex items-center space-x-1.5 transition active:scale-125">
@@ -439,8 +525,8 @@ export default function Feed({ session, onViewProfile }) {
                                   {(comment.profiles?.username || 'U')[0].toUpperCase()}
                                 </div>
                               )}
-                              <div className="bg-blue-50 p-2.5 rounded-2xl border border-slate-100 shadow-2xs max-w-[280px]">
-                                <span className="font-bold text-xs text-slate-800 block">{comment.profiles?.username || 'User'}</span>
+                              <div className="bg-blue-50 dark:bg-slate-800 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-2xs max-w-[280px]">
+                                <span className="font-bold text-xs text-slate-800 dark:text-white block">{comment.profiles?.username || 'User'}</span>
                                 <p className="text-xs text-slate-600 dark:text-slate-200 mt-0.5 leading-snug">
                                   <RenderFormattedText text={comment.content} onViewProfile={onViewProfile} />
                                 </p>
@@ -461,7 +547,7 @@ export default function Feed({ session, onViewProfile }) {
                       )}
                     </div>
 
-                    <div className="flex items-center space-x-2 pt-2 border-t border-slate-200/60">
+                    <div className="flex items-center space-x-2 pt-2 border-t border-slate-200/60 dark:border-slate-700">
                       <MentionInput
                         value={commentTextMap[post.id] || ''}
                         onChange={(val) => setCommentTextMap({ ...commentTextMap, [post.id]: val })}
