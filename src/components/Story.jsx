@@ -26,6 +26,9 @@ export default function Story({ session, onSelectUser }) {
   const [storyPrivacy, setStoryPrivacy] = useState('public');
   const [closeFriendsText, setCloseFriendsText] = useState('');
   const [showPrivacyPrompt, setShowPrivacyPrompt] = useState(false);
+  const [showCloseFriendsPicker, setShowCloseFriendsPicker] = useState(false);
+  const [closeFriendProfiles, setCloseFriendProfiles] = useState([]);
+  const [selectedCloseFriends, setSelectedCloseFriends] = useState([]);
   const [textPos, setTextPos] = useState({ x: 50, y: 50 }); // Percentage position (50% X, 50% Y)
   const [isDraggingText, setIsDraggingText] = useState(false);
 
@@ -197,6 +200,21 @@ export default function Story({ session, onSelectUser }) {
   function confirmSharePrivacy(privacy) {
     setStoryPrivacy(privacy);
     setShowPrivacyPrompt(false);
+    setTimeout(() => handleFinishEditingAndUpload(), 0);
+  }
+
+  async function openCloseFriendsPicker() {
+    const { data } = await supabase.from('profiles').select('id, username, full_name, avatar_url').neq('id', session.user.id).order('full_name');
+    setCloseFriendProfiles(data || []);
+    setSelectedCloseFriends([]);
+    setShowPrivacyPrompt(false);
+    setShowCloseFriendsPicker(true);
+  }
+
+  function confirmCloseFriendsShare() {
+    if (!selectedCloseFriends.length) return;
+    setStoryPrivacy('close_friends');
+    setShowCloseFriendsPicker(false);
     setTimeout(() => handleFinishEditingAndUpload(), 0);
   }
 
@@ -652,8 +670,24 @@ export default function Story({ session, onSelectUser }) {
             <h3 className="text-white font-bold">Who can view?</h3>
             <button onClick={() => confirmSharePrivacy('public')} className="w-full text-left bg-slate-800 hover:bg-purple-600 text-white rounded-xl px-3 py-2 text-sm">Everyone</button>
             <button onClick={() => confirmSharePrivacy('followers')} className="w-full text-left bg-slate-800 hover:bg-purple-600 text-white rounded-xl px-3 py-2 text-sm">Followers</button>
-            <button onClick={() => confirmSharePrivacy('close_friends')} className="w-full text-left bg-slate-800 hover:bg-purple-600 text-white rounded-xl px-3 py-2 text-sm">Close friends</button>
+            <button onClick={openCloseFriendsPicker} className="w-full text-left bg-slate-800 hover:bg-purple-600 text-white rounded-xl px-3 py-2 text-sm">Close friends</button>
             <button onClick={() => setShowPrivacyPrompt(false)} className="w-full text-slate-400 text-sm py-1">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {showCloseFriendsPicker && (
+        <div className="fixed inset-0 z-[75] bg-black/70 flex items-center justify-center p-4">
+          <div className="w-full max-w-sm max-h-[75vh] bg-slate-900 rounded-2xl p-4 space-y-3 border border-slate-700 shadow-2xl flex flex-col">
+            <h3 className="text-white font-bold">Choose close friends</h3>
+            <div className="overflow-y-auto space-y-1 flex-1">
+              {closeFriendProfiles.map((person) => {
+                const selected = selectedCloseFriends.includes(person.id);
+                return <button key={person.id} onClick={() => setSelectedCloseFriends((prev) => selected ? prev.filter((id) => id !== person.id) : [...prev, person.id])} className={`w-full flex items-center gap-3 p-2 rounded-xl text-left ${selected ? 'bg-purple-600/40' : 'bg-slate-800'}`}><div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-bold">{(person.full_name || person.username || 'U')[0].toUpperCase()}</div><span className="text-white text-sm flex-1">{person.full_name || person.username}</span><span className="text-xs text-purple-200">{selected ? 'Selected' : 'Select'}</span></button>;
+              })}
+            </div>
+            <button disabled={!selectedCloseFriends.length} onClick={confirmCloseFriendsShare} className="w-full bg-lime-400 disabled:opacity-40 text-slate-950 rounded-xl py-2 text-sm font-bold">Share to selected ({selectedCloseFriends.length})</button>
+            <button onClick={() => setShowCloseFriendsPicker(false)} className="text-slate-400 text-sm py-1">Cancel</button>
           </div>
         </div>
       )}

@@ -30,6 +30,9 @@ export default function Profile({ session, profileUserId }) {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [followState, setFollowState] = useState('none');
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
 
   useEffect(() => {
     fetchProfileAndPosts();
@@ -51,6 +54,18 @@ export default function Profile({ session, profileUserId }) {
       setUsername(profileData.username || '');
       setBio(profileData.bio || '');
       setAvatarUrl(profileData.avatar_url || '');
+      const [{ count: followers }, { count: following }] = await Promise.all([
+        supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', viewedUserId),
+        supabase.from('follows').select('following_id', { count: 'exact', head: true }).eq('follower_id', viewedUserId)
+      ]);
+      setFollowersCount(followers || 0);
+      setFollowingCount(following || 0);
+      if (viewedUserId !== session.user.id) {
+        const { data: relation } = await supabase.from('follows').select('follower_id, following_id').or(`and(follower_id.eq.${session.user.id},following_id.eq.${viewedUserId}),and(follower_id.eq.${viewedUserId},following_id.eq.${session.user.id})`);
+        const following = (relation || []).some((r) => r.follower_id === session.user.id);
+        const followedBack = (relation || []).some((r) => r.follower_id === viewedUserId);
+        setFollowState(following ? 'following' : followedBack ? 'followback' : 'none');
+      }
     }
 
     // Fetch user posts
@@ -83,6 +98,18 @@ export default function Profile({ session, profileUserId }) {
 
     setPosts(formattedPosts);
     setLoading(false);
+  }
+
+  async function toggleFollow() {
+    if (isOwnProfile || !profile) return;
+    if (followState === 'following') {
+      await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('following_id', viewedUserId);
+      setFollowState('none');
+    } else {
+      await supabase.from('follows').insert([{ follower_id: session.user.id, following_id: viewedUserId }]);
+      setFollowState('following');
+      await supabase.from('notifications').insert([{ recipient_id: viewedUserId, actor_id: session.user.id, type: 'follow', is_read: false }]);
+    }
   }
 
   // Open Post Modal & Fetch Comments
@@ -250,21 +277,20 @@ export default function Profile({ session, profileUserId }) {
             </div>
 
             {/* Edit Button */}
-              {isOwnProfile && <button 
+              {isOwnProfile ? <button 
                 onClick={() => setIsEditing(true)}
               className="flex items-center space-x-1 sm:space-x-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-purple-300 rounded-full text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm transition flex-shrink-0"
             >
               <Edit3 className="w-3.5 h-3.5 text-purple-600" />
               <span>Edit</span>
-            </button>}
+            </button> : <button onClick={toggleFollow} className="px-4 py-2 rounded-full bg-purple-600 text-white text-xs font-bold">{followState === 'following' ? 'Following' : followState === 'followback' ? 'Follow back' : 'Follow'}</button>}
+          </div>
+          <div className="grid grid-cols-3 gap-2 border-t border-slate-200/60 dark:border-slate-800 pt-3 text-center">
+            <div><b className="block text-sm text-purple-600">{posts.length}</b><span className="text-[10px] text-slate-500">Posts</span></div>
+            <div><b className="block text-sm text-purple-600">{followersCount}</b><span className="text-[10px] text-slate-500">Followers</span></div>
+            <div><b className="block text-sm text-purple-600">{followingCount}</b><span className="text-[10px] text-slate-500">Following</span></div>
           </div>
 
-          {/* Stats Bar */}
-          <div className="flex justify-around items-center border-t border-slate-200/60 dark:border-slate-800 pt-3 text-xs font-extrabold text-slate-600 dark:text-slate-400 text-center">
-            <div><span className="text-purple-600 font-black block sm:inline sm:mr-1">{posts.length}</span> Posts</div>
-            <div><span className="text-purple-600 font-black block sm:inline sm:mr-1">{textPosts.length}</span> Thoughts</div>
-            <div><span className="text-purple-600 font-black block sm:inline sm:mr-1">{photoPosts.length + reelPosts.length}</span> Media</div>
-          </div>
         </div>
       )}
 

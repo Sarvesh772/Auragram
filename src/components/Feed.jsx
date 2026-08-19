@@ -253,6 +253,12 @@ export default function Feed({ session, onViewProfile }) {
     }
   }
 
+  async function handleSharePost(post) {
+    const url = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
+    if (navigator.share) await navigator.share({ title: 'Auragram post', text: post.content || 'Check this post', url });
+    else await navigator.clipboard?.writeText(url);
+  }
+
   return (
     <div className="p-4 space-y-6">
       <input type="file" accept="image/*" ref={imageInputRef} onChange={(e) => handleFileSelect(e, 'image')} className="hidden" />
@@ -364,7 +370,7 @@ export default function Feed({ session, onViewProfile }) {
                       <span className="text-xs font-bold text-slate-700">{commentsCount}</span>
                     </button>
 
-                    <Send className="w-6 h-6 text-slate-600 hover:text-purple-600 cursor-pointer" />
+                    <button onClick={() => handleSharePost(post)} title="Share post"><Send className="w-6 h-6 text-slate-600 hover:text-purple-600 cursor-pointer" /></button>
                   </div>
 
                   {/* Bookmark Button */}
