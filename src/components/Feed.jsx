@@ -119,6 +119,12 @@ export default function Feed({ session, onViewProfile }) {
   const fileInputRef = useRef(null);
 
   const displayUsername = session?.user?.user_metadata?.username || session?.user?.email?.split('@')[0] || 'User';
+  const [myProfile, setMyProfile] = useState(null);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    supabase.from('profiles').select('avatar_url, full_name, username').eq('id', session.user.id).single().then(({ data }) => setMyProfile(data || null));
+  }, [session?.user?.id]);
 
   useEffect(() => {
     fetchPosts();
@@ -387,13 +393,13 @@ export default function Feed({ session, onViewProfile }) {
         {postError && <p className="text-xs text-rose-500 mb-2 font-medium">{postError}</p>}
         
         <div className="flex items-center space-x-3 mb-3">
-          <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-sm">
-            {displayUsername[0]?.toUpperCase()}
+          <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
+            {myProfile?.avatar_url ? <img src={myProfile.avatar_url} alt="Your profile" className="w-full h-full object-cover" /> : displayUsername[0]?.toUpperCase()}
           </div>
           <MentionInput
             value={newContent}
             onChange={setNewContent}
-            placeholder="What's orbiting your mind? (Use @ to mention)"
+            placeholder="What's orbiting your mind?"
             currentUserId={session.user.id}
             className="w-full bg-transparent focus:outline-none text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm font-medium"
           />

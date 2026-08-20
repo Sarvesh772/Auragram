@@ -512,23 +512,25 @@ export default function Reels({ session, onViewProfile }) {
                       )}
                     </div>
 
-                    {/* Add Comment Input with @Mention Support */}
-                    <div className="flex items-center space-x-2 pt-3 border-t border-white/10 flex-shrink-0">
-                      <MentionInput
-                        value={commentTextMap[reel.id] || ''}
-                        onChange={(val) => setCommentTextMap({ ...commentTextMap, [reel.id]: val })}
-                        placeholder="Add a comment... (use @ to tag)"
-                        onSend={() => handleAddComment(reel)}
-                        currentUserId={session.user.id}
-                        className="flex-1 bg-white/10 border border-white/10 rounded-full px-4 py-2.5 text-sm text-white placeholder-white/40 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all duration-200"
-                      />
-                      <button
-                        onClick={() => handleAddComment(reel)}
-                        className="bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white p-2.5 rounded-full transition-all duration-200 hover:scale-105 active:scale-90 shadow-lg shadow-rose-500/20"
-                      >
-                        <Send className="w-4 h-4" />
-                      </button>
-                    </div>
+                   {/* Add Comment Input with @Mention Support */}
+<div className="flex items-center space-x-2 pt-3 border-t border-white/10 flex-shrink-0 w-full">
+  <div className="flex-1 min-w-0">
+    <MentionInput
+      value={commentTextMap[reel.id] || ''}
+      onChange={(val) => setCommentTextMap({ ...commentTextMap, [reel.id]: val })}
+      placeholder="Add a comment... (use @ to tag)"
+      onSend={() => handleAddComment(reel)}
+      currentUserId={session.user.id}
+      className="w-full bg-white/10 border border-white/10 rounded-full px-4 py-2.5 text-xs text-white placeholder-white/40 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all duration-200 truncate"
+    />
+  </div>
+  <button
+    onClick={() => handleAddComment(reel)}
+    className="bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white p-2.5 rounded-full transition-all duration-200 hover:scale-105 active:scale-90 shadow-lg shadow-rose-500/20 flex-shrink-0"
+  >
+    <Send className="w-4 h-4" />
+  </button>
+</div>
                   </div>
                 )}
               </div>
