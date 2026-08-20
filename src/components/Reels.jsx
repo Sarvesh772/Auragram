@@ -1,11 +1,42 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Heart, MessageCircle, Send, Bookmark, Music2, Volume2, VolumeX, Trash2, X, Loader2, ChevronLeft, MoreVertical } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, Music2, Volume2, VolumeX, Trash2, X, Loader2, MoreVertical } from 'lucide-react';
+import MentionInput from './MentionInput';
+import { RenderFormattedText } from './MentionInput';
+
+// Helper to extract @mentions and trigger notifications
+async function processMentions(text, actorId, postId) {
+  if (!text) return;
+  const matches = text.match(/@([a-zA-Z0-9_]+)/g);
+  if (!matches) return;
+
+  const usernames = [...new Set(matches.map(m => m.replace('@', '').toLowerCase()))];
+
+  const { data: taggedUsers } = await supabase
+    .from('profiles')
+    .select('id, username')
+    .in('username', usernames);
+
+  if (taggedUsers && taggedUsers.length > 0) {
+    const notifs = taggedUsers
+      .filter(u => u.id !== actorId)
+      .map(u => ({
+        recipient_id: u.id,
+        actor_id: actorId,
+        type: 'mention',
+        post_id: postId,
+        is_read: false
+      }));
+
+    if (notifs.length > 0) {
+      await supabase.from('notifications').insert(notifs);
+    }
+  }
+}
 
 export default function Reels({ session, onViewProfile }) {
   const [reels, setReels] = useState([]);
   const [loading, setLoading] = useState(true);
-  // Start muted so autoplay works reliably across browsers.
   const [isMuted, setIsMuted] = useState(true);
   const [bookmarkedReelIds, setBookmarkedReelIds] = useState(new Set());
   const [menuReelId, setMenuReelId] = useState(null);
@@ -51,7 +82,10 @@ export default function Reels({ session, onViewProfile }) {
   async function handleEditReel() {
     if (!editingReel) return;
     const { error } = await supabase.from('posts').update({ content: editText.trim() }).eq('id', editingReel.id).eq('user_id', session.user.id);
-    if (!error) setReels((prev) => prev.map((reel) => reel.id === editingReel.id ? { ...reel, content: editText.trim() } : reel));
+    if (!error) {
+      await processMentions(editText.trim(), session.user.id, editingReel.id);
+      setReels((prev) => prev.map((reel) => reel.id === editingReel.id ? { ...reel, content: editText.trim() } : reel));
+    }
     setEditingReel(null);
   }
 
@@ -176,7 +210,7 @@ export default function Reels({ session, onViewProfile }) {
     setLoadingComments(prev => ({ ...prev, [reelId]: false }));
   }
 
-  // ADD REEL COMMENT + NOTIFICATION
+  // ADD REEL COMMENT + NOTIFICATION & MENTION
   async function handleAddComment(reel) {
     const reelId = reel.id;
     const text = commentTextMap[reelId];
@@ -195,6 +229,8 @@ export default function Reels({ session, onViewProfile }) {
       .single();
 
     if (!error && data) {
+      await processMentions(text, session.user.id, reelId);
+
       const { data: myProfile } = await supabase
         .from('profiles')
         .select('*')
@@ -308,7 +344,7 @@ export default function Reels({ session, onViewProfile }) {
                   playsInline
                 />
 
-                {/* Gradient Overlay for better text readability */}
+                {/* Gradient Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
 
                 {/* Top Mute Control */}
@@ -346,7 +382,7 @@ export default function Reels({ session, onViewProfile }) {
 
                   {reel.content && (
                     <p className="text-sm leading-relaxed line-clamp-2 text-white/90 font-medium">
-                      {reel.content}
+                      <RenderFormattedText text={reel.content} onViewProfile={onViewProfile} />
                     </p>
                   )}
 
@@ -394,7 +430,7 @@ export default function Reels({ session, onViewProfile }) {
                     </div>
                   </button>
 
-                  {/* More actions: placed directly below bookmark */}
+                  {/* More actions */}
                   <div className="relative">
                     <button
                       onClick={() => setMenuReelId(menuReelId === reel.id ? null : reel.id)}
@@ -457,7 +493,9 @@ export default function Reels({ session, onViewProfile }) {
                                 <span className="font-bold text-rose-400 block text-[10px] mb-0.5">
                                   @{comment.profiles?.username || 'user'}
                                 </span>
-                                <p className="text-white/90 text-[11px] leading-snug">{comment.content}</p>
+                                <p className="text-white/90 text-[11px] leading-snug">
+                                  <RenderFormattedText text={comment.content} onViewProfile={onViewProfile} />
+                                </p>
                               </div>
                             </div>
 
@@ -474,15 +512,15 @@ export default function Reels({ session, onViewProfile }) {
                       )}
                     </div>
 
-                    {/* Add Comment Input */}
+                    {/* Add Comment Input with @Mention Support */}
                     <div className="flex items-center space-x-2 pt-3 border-t border-white/10 flex-shrink-0">
-                      <input
-                        type="text"
+                      <MentionInput
                         value={commentTextMap[reel.id] || ''}
-                        onChange={(e) => setCommentTextMap({ ...commentTextMap, [reel.id]: e.target.value })}
-                        placeholder="Add a comment..."
+                        onChange={(val) => setCommentTextMap({ ...commentTextMap, [reel.id]: val })}
+                        placeholder="Add a comment... (use @ to tag)"
+                        onSend={() => handleAddComment(reel)}
+                        currentUserId={session.user.id}
                         className="flex-1 bg-white/10 border border-white/10 rounded-full px-4 py-2.5 text-sm text-white placeholder-white/40 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all duration-200"
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddComment(reel)}
                       />
                       <button
                         onClick={() => handleAddComment(reel)}
@@ -499,49 +537,25 @@ export default function Reels({ session, onViewProfile }) {
         </div>
       )}
 
+      {/* Edit Reel Modal */}
       {editingReel && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <div className="bg-slate-900 rounded-2xl p-4 w-full max-w-sm space-y-3">
-            <h3 className="font-bold">Edit Reel</h3>
-            <textarea value={editText} onChange={(e) => setEditText(e.target.value)} className="w-full rounded-xl bg-white/10 p-3 text-sm outline-none" rows={3} />
-            <div className="flex justify-end gap-2"><button onClick={() => setEditingReel(null)} className="px-3 py-2 text-sm">Cancel</button><button onClick={handleEditReel} className="bg-rose-600 px-4 py-2 rounded-xl text-sm font-bold">Save</button></div>
+            <h3 className="font-bold text-white">Edit Reel</h3>
+            <MentionInput
+              value={editText}
+              onChange={setEditText}
+              placeholder="Edit caption..."
+              currentUserId={session.user.id}
+              className="w-full rounded-xl bg-white/10 p-3 text-sm text-white outline-none"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setEditingReel(null)} className="px-3 py-2 text-sm text-slate-300">Cancel</button>
+              <button onClick={handleEditReel} className="bg-rose-600 px-4 py-2 rounded-xl text-sm font-bold text-white">Save</button>
+            </div>
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.3);
-        }
-        @keyframes spin-slow {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-        .animate-spin-slow {
-          animation: spin-slow 4s linear infinite;
-        }
-      `}</style>
     </div>
   );
 }
