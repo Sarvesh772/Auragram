@@ -42,6 +42,9 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const [shareCopied, setShareCopied] = useState(false);
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [safetyMessage, setSafetyMessage] = useState('');
+  const [reportPost, setReportPost] = useState(null);
+  const [reportReason, setReportReason] = useState('Spam');
+  const [reportDetails, setReportDetails] = useState('');
 
   function postShareUrl(post) {
     return `${window.location.origin}/?post=${encodeURIComponent(post.id)}`;
@@ -68,6 +71,14 @@ export default function Profile({ session, profileUserId, onMessage }) {
     if (action === 'mute') await supabase.from('muted_users').upsert([{ muter_id: session.user.id, muted_id: viewedUserId }]);
     setSafetyMessage(action === 'report' ? 'Report submitted.' : action === 'block' ? 'User blocked.' : 'User muted.');
     setTimeout(() => setSafetyMessage(''), 2200);
+  }
+
+  async function submitPostReport() {
+    if (!reportPost) return;
+    const reason = reportReason === 'Other' ? reportDetails.trim() : reportReason;
+    if (!reason) return;
+    await supabase.from('reports').insert([{ reporter_id: session.user.id, reported_user_id: reportPost.user_id, post_id: reportPost.id, reason }]);
+    setReportPost(null); setReportDetails(''); setSafetyMessage('Report submitted.'); setTimeout(() => setSafetyMessage(''), 2200);
   }
 
   useEffect(() => {
@@ -451,6 +462,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
                   <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-line">
                     {post.content}
                   </p>
+                  {!isOwnProfile && <button onClick={() => setReportPost(post)} className="text-[10px] font-bold text-slate-400 hover:text-rose-600">Report post</button>}
 
                   <div className="flex items-center justify-between border-t border-slate-50 dark:border-slate-800 pt-2.5 text-slate-500 text-xs font-semibold">
                     <div className="flex items-center space-x-4">
@@ -488,7 +500,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
                     <span className="absolute top-2 right-2 z-10 rounded-full bg-black/55 px-2 py-1 text-[10px] font-bold text-white">Photo</span>
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition flex items-end justify-between p-3 text-white font-bold text-xs">
                       <div className="flex items-center gap-3"><span className="flex items-center gap-1"><Heart className="w-4 h-4 fill-white" />{post.likes?.length || 0}</span><span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" />{post.commentsCount || 0}</span></div>
-                      {isOwnProfile && <button aria-label={post.is_pinned ? 'Unpin photo' : 'Pin photo'} onClick={(e) => { e.stopPropagation(); togglePinned(post); }} className={`rounded-full bg-black/50 p-2 ${post.is_pinned ? 'text-amber-300' : 'text-white'}`}><Pin className="w-4 h-4" /></button>}
+                      <div className="flex items-center gap-2">{!isOwnProfile && <button onClick={(e) => { e.stopPropagation(); setReportPost(post); }} className="rounded-full bg-black/50 px-2 py-1 text-[10px]">Report</button>}{isOwnProfile && <button aria-label={post.is_pinned ? 'Unpin photo' : 'Pin photo'} onClick={(e) => { e.stopPropagation(); togglePinned(post); }} className={`rounded-full bg-black/50 p-2 ${post.is_pinned ? 'text-amber-300' : 'text-white'}`}><Pin className="w-4 h-4" /></button>}</div>
                     </div>
                   </div>
                 ))}
@@ -514,7 +526,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
                     <span className="absolute inset-0 flex items-center justify-center text-white/90 group-hover:scale-110 transition"><span className="rounded-full bg-black/45 p-3"><Play className="w-5 h-5 fill-white" /></span></span>
                     <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition flex items-end justify-between p-3 text-white font-bold text-xs">
                       <div className="flex items-center gap-3"><span className="flex items-center gap-1"><Heart className="w-4 h-4 fill-white" />{post.likes?.length || 0}</span><span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" />{post.commentsCount || 0}</span></div>
-                      {isOwnProfile && <button aria-label={post.is_pinned ? 'Unpin reel' : 'Pin reel'} onClick={(e) => { e.stopPropagation(); togglePinned(post); }} className={`rounded-full bg-black/50 p-2 ${post.is_pinned ? 'text-amber-300' : 'text-white'}`}><Pin className="w-4 h-4" /></button>}
+                      <div className="flex items-center gap-2">{!isOwnProfile && <button onClick={(e) => { e.stopPropagation(); setReportPost(post); }} className="rounded-full bg-black/50 px-2 py-1 text-[10px]">Report</button>}{isOwnProfile && <button aria-label={post.is_pinned ? 'Unpin reel' : 'Pin reel'} onClick={(e) => { e.stopPropagation(); togglePinned(post); }} className={`rounded-full bg-black/50 p-2 ${post.is_pinned ? 'text-amber-300' : 'text-white'}`}><Pin className="w-4 h-4" /></button>}</div>
                     </div>
                   </div>
                 ))}
@@ -732,6 +744,8 @@ export default function Profile({ session, profileUserId, onMessage }) {
           </div>
         </div>
       </div>}
+
+      {reportPost && <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setReportPost(null)}><div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}><div className="flex items-center justify-between mb-4"><h3 className="font-extrabold text-slate-800 dark:text-white">Report post</h3><button onClick={() => setReportPost(null)}><X className="w-5 h-5" /></button></div><p className="text-xs text-slate-500 mb-3">Why are you reporting this post?</p><div className="space-y-2">{['Spam','Harassment or bullying','Hate speech','Nudity or violence','Misinformation','Other'].map((reason) => <label key={reason} className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200"><input type="radio" name="report-reason" checked={reportReason === reason} onChange={() => setReportReason(reason)} />{reason}</label>)}</div>{reportReason === 'Other' && <textarea value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} placeholder="Tell us more..." rows={3} className="mt-3 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs" /> }<button onClick={submitPostReport} className="mt-4 w-full rounded-xl bg-rose-600 py-2.5 text-xs font-bold text-white">Submit report</button></div></div>}
       {listMode && <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"><div className="bg-white dark:bg-slate-900 rounded-2xl p-4 w-full max-w-sm max-h-[70vh] overflow-y-auto"><div className="flex justify-between mb-3"><h3 className="font-bold">{listMode === 'followers' ? 'Followers' : 'Following'}</h3><button onClick={() => setListMode(null)}>✕</button></div>{peopleList.map((person) => <div key={person.id} className="flex items-center gap-3 py-2"><div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-bold">{(person.full_name || person.username || 'U')[0].toUpperCase()}</div><div><p className="text-sm font-bold">{person.full_name || person.username}</p><p className="text-xs text-slate-400">@{person.username}</p></div></div>)}</div></div>}
     </div>
   );
