@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import Story from './Story';
-import { Image as ImageIcon, Video, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Image as ImageIcon, Video, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight, MoreVertical, Flag } from 'lucide-react';
 import MentionInput from './MentionInput';
 import { RenderFormattedText } from './MentionInput';
 
@@ -120,6 +120,22 @@ export default function Feed({ session, onViewProfile }) {
 
   const displayUsername = session?.user?.user_metadata?.username || session?.user?.email?.split('@')[0] || 'User';
   const [myProfile, setMyProfile] = useState(null);
+  const [reportPost, setReportPost] = useState(null);
+  const [reportReason, setReportReason] = useState('Spam');
+  const [reportDetails, setReportDetails] = useState('');
+  const [reportMessage, setReportMessage] = useState('');
+
+  async function submitReport() {
+    if (!reportPost) return;
+    const reason = reportReason === 'Other' ? reportDetails.trim() : reportReason;
+    if (!reason) return;
+    let { error } = await supabase.from('reports').insert([{ reporter_id: session.user.id, reported_user_id: reportPost.user_id, post_id: reportPost.id, reason }]);
+    if (error?.message?.includes('post_id')) {
+      ({ error } = await supabase.from('reports').insert([{ reporter_id: session.user.id, reported_user_id: reportPost.user_id, reason }]));
+    }
+    if (error) { window.alert(`Report failed: ${error.message}`); return; }
+    setReportPost(null); setReportDetails(''); setReportMessage('Report submitted successfully.'); setTimeout(() => setReportMessage(''), 2200);
+  }
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -376,6 +392,7 @@ export default function Feed({ session, onViewProfile }) {
 
   return (
     <div className="p-4 space-y-6">
+      {reportMessage && <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[90] rounded-full bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-xl">{reportMessage}</div>}
       <input 
         type="file" 
         accept="image/*,video/*" 
@@ -474,6 +491,7 @@ export default function Feed({ session, onViewProfile }) {
                     <p className="text-xs text-slate-400">{new Date(post.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                   </div>
                 </button>
+                <button onClick={() => setReportPost(post)} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800" title="Post options"><MoreVertical className="w-5 h-5" /></button>
               </div>
               
               {post.content && (
@@ -576,6 +594,7 @@ export default function Feed({ session, onViewProfile }) {
           );
         })
       )}
+      {reportPost && <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-4" onClick={() => setReportPost(null)}><div className="bg-white dark:bg-slate-900 rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}><div className="flex justify-between mb-3"><b>Report post</b><button onClick={() => setReportPost(null)}><X className="w-4 h-4" /></button></div>{['Spam','Harassment or bullying','Hate speech','Misinformation','Other'].map(r => <label className="block text-xs py-1" key={r}><input type="radio" name="report" checked={reportReason === r} onChange={() => setReportReason(r)} /> {r}</label>)}{reportReason === 'Other' && <textarea className="w-full mt-2 p-2 border rounded" value={reportDetails} onChange={e => setReportDetails(e.target.value)} placeholder="Reason" />}<button onClick={submitReport} className="w-full mt-3 bg-rose-600 text-white rounded-xl py-2 text-xs font-bold">Submit report</button></div></div>}
     </div>
   );
 }
