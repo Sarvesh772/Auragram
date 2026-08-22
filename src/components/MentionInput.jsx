@@ -104,7 +104,7 @@ export default function MentionInput({ value, onChange, placeholder, onSend, cla
   };
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full min-w-0 flex-1">
       {/* Auto-suggest Popup Dropdown */}
       {showSuggestions && suggestions.length > 0 && (
         <div className="absolute bottom-full left-0 mb-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden">

@@ -560,7 +560,7 @@ export default function Feed({ session, onViewProfile }) {
                         placeholder="Add a comment... (use @ to tag)"
                         onSend={() => handleAddComment(post)}
                         currentUserId={session.user.id}
-                        className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-full px-4 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-purple-500 shadow-2xs"
+                        className="w-full min-w-0 flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-full px-4 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-purple-500 shadow-2xs"
                       />
                       <button 
                         onClick={() => handleAddComment(post)}

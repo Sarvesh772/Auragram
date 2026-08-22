@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
   FileText, Image as ImageIcon, Film, Heart, MessageCircle, 
-  Send, Bookmark, Edit3, X, Sparkles, Loader2, Camera, AlertCircle, CheckCircle2 
+  Send, Bookmark, Edit3, X, Sparkles, Loader2, Camera, AlertCircle, CheckCircle2, Pin, Play, Flag, MoreVertical
 } from 'lucide-react';
 
 export default function Profile({ session, profileUserId, onMessage }) {
@@ -17,6 +17,8 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const [selectedPost, setSelectedPost] = useState(null);
   const [postComments, setPostComments] = useState([]);
   const [newComment, setNewComment] = useState('');
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [commentLikes, setCommentLikes] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
 
   // Edit Profile State
@@ -35,6 +37,38 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const [followingCount, setFollowingCount] = useState(0);
   const [listMode, setListMode] = useState(null);
   const [peopleList, setPeopleList] = useState([]);
+  const [pinMessage, setPinMessage] = useState('');
+  const [sharePost, setSharePost] = useState(null);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [safetyOpen, setSafetyOpen] = useState(false);
+  const [safetyMessage, setSafetyMessage] = useState('');
+
+  function postShareUrl(post) {
+    return `${window.location.origin}/?post=${encodeURIComponent(post.id)}`;
+  }
+
+  async function copyPostLink() {
+    if (!sharePost) return;
+    await navigator.clipboard?.writeText(postShareUrl(sharePost));
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 1600);
+  }
+
+  async function nativeSharePost() {
+    if (!sharePost) return;
+    const url = postShareUrl(sharePost);
+    if (navigator.share) await navigator.share({ title: 'Auragram post', text: sharePost.content || 'Check this post on Auragram', url });
+    else await copyPostLink();
+  }
+
+  async function handleSafetyAction(action) {
+    setSafetyOpen(false);
+    if (action === 'report') await supabase.from('reports').insert([{ reporter_id: session.user.id, reported_user_id: viewedUserId, reason: 'Profile reported' }]);
+    if (action === 'block') await supabase.from('blocked_users').upsert([{ blocker_id: session.user.id, blocked_id: viewedUserId }]);
+    if (action === 'mute') await supabase.from('muted_users').upsert([{ muter_id: session.user.id, muted_id: viewedUserId }]);
+    setSafetyMessage(action === 'report' ? 'Report submitted.' : action === 'block' ? 'User blocked.' : 'User muted.');
+    setTimeout(() => setSafetyMessage(''), 2200);
+  }
 
   useEffect(() => {
     fetchProfileAndPosts();
@@ -119,7 +153,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
       commentsData = cRes.data || [];
     }
 
-    const formattedPosts = (postsData || []).map(post => ({
+    const formattedPosts = (postsData || []).sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned)).map(post => ({
       ...post,
       profiles: profileData,
       likes: likesData.filter(l => l.post_id === post.id),
@@ -142,6 +176,17 @@ export default function Profile({ session, profileUserId, onMessage }) {
     }
   }
 
+  async function togglePinned(post) {
+    if (!isOwnProfile) return;
+    const { error } = await supabase.from('posts').update({ is_pinned: !post.is_pinned }).eq('id', post.id).eq('user_id', session.user.id);
+    if (!error) {
+      const nextPinned = !post.is_pinned;
+      setPosts((prev) => prev.map((item) => item.id === post.id ? { ...item, is_pinned: nextPinned } : item).sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned)));
+      setPinMessage(nextPinned ? 'Post pinned to profile' : 'Post unpinned');
+      setTimeout(() => setPinMessage(''), 1800);
+    }
+  }
+
   // Open Post Modal & Fetch Comments
   async function handleOpenPost(post) {
     setSelectedPost(post);
@@ -152,6 +197,9 @@ export default function Profile({ session, profileUserId, onMessage }) {
       .select('*')
       .eq('post_id', post.id)
       .order('created_at', { ascending: true });
+
+    const { data: likesData } = await supabase.from('comment_likes').select('comment_id, user_id').eq('post_id', post.id);
+    setCommentLikes(likesData || []);
 
     if (commentsData && commentsData.length > 0) {
       const userIds = [...new Set(commentsData.map(c => c.user_id))];
@@ -170,9 +218,11 @@ export default function Profile({ session, profileUserId, onMessage }) {
   async function handleAddComment() {
     if (!newComment.trim() || !selectedPost) return;
 
+    const replyPrefix = replyingTo?.profiles?.username ? `@${replyingTo.profiles.username} ` : '';
+    const commentContent = `${replyPrefix}${newComment.trim()}`;
     const { data, error } = await supabase
       .from('comments')
-      .insert([{ post_id: selectedPost.id, user_id: session.user.id, content: newComment.trim() }])
+      .insert([{ post_id: selectedPost.id, user_id: session.user.id, content: commentContent, parent_comment_id: replyingTo?.id || null }])
       .select()
       .single();
 
@@ -180,8 +230,20 @@ export default function Profile({ session, profileUserId, onMessage }) {
       const { data: myProfile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
       setPostComments([...postComments, { ...data, profiles: myProfile }]);
       setNewComment('');
+      setReplyingTo(null);
       
       setPosts(prev => prev.map(p => p.id === selectedPost.id ? { ...p, commentsCount: p.commentsCount + 1 } : p));
+    }
+  }
+
+  async function toggleCommentLike(commentId) {
+    const existing = commentLikes.find((like) => like.comment_id === commentId && like.user_id === session.user.id);
+    if (existing) {
+      await supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', session.user.id);
+      setCommentLikes((prev) => prev.filter((like) => like !== existing));
+    } else {
+      const { data } = await supabase.from('comment_likes').insert([{ comment_id: commentId, post_id: selectedPost.id, user_id: session.user.id }]).select().single();
+      if (data) setCommentLikes((prev) => [...prev, data]);
     }
   }
 
@@ -282,6 +344,8 @@ export default function Profile({ session, profileUserId, onMessage }) {
 
   return (
     <div className="w-full max-w-2xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 pb-20 box-border overflow-x-hidden">
+      {pinMessage && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-4 py-2 rounded-full text-xs font-bold shadow-xl">{pinMessage}</div>}
+      {safetyMessage && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-4 py-2 rounded-full text-xs font-bold shadow-xl">{safetyMessage}</div>}
       {/* Profile Header Card */}
       {profile && (
         <div className="bg-slate-50 border border-slate-100 dark:bg-slate-900 dark:border-slate-800 p-4 sm:p-6 rounded-3xl space-y-4 shadow-sm w-full box-border">
@@ -313,7 +377,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
             >
               <Edit3 className="w-3.5 h-3.5 text-purple-600" />
               <span>Edit</span>
-            </button> : <div className="flex flex-col gap-2 flex-shrink-0"><button onClick={toggleFollow} className="px-4 py-2 rounded-full bg-purple-600 text-white text-xs font-bold">{followState === 'following' ? 'Following' : followState === 'followback' ? 'Follow back' : 'Follow'}</button><button onClick={() => onMessage?.(viewedUserId)} className="px-4 py-2 rounded-full border border-purple-300 text-purple-600 text-xs font-bold">Message</button></div>}
+            </button> : <div className="relative flex flex-col gap-2 flex-shrink-0"><div className="flex gap-2"><button onClick={toggleFollow} className="px-4 py-2 rounded-full bg-purple-600 text-white text-xs font-bold">{followState === 'following' ? 'Following' : followState === 'followback' ? 'Follow back' : 'Follow'}</button><button onClick={() => onMessage?.(viewedUserId)} className="px-4 py-2 rounded-full border border-purple-300 text-purple-600 text-xs font-bold">Message</button><button onClick={() => setSafetyOpen(v => !v)} className="rounded-full border border-slate-200 dark:border-slate-700 p-2 text-slate-500"><MoreVertical className="w-4 h-4" /></button></div>{safetyOpen && <div className="absolute right-0 top-11 z-20 w-44 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-1 shadow-xl"><button onClick={() => handleSafetyAction('report')} className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-bold hover:bg-rose-50 hover:text-rose-600"><Flag className="w-3.5 h-3.5" /> Report</button><button onClick={() => handleSafetyAction('mute')} className="w-full rounded-xl px-3 py-2 text-left text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800">Mute user</button><button onClick={() => handleSafetyAction('block')} className="w-full rounded-xl px-3 py-2 text-left text-xs font-bold text-rose-600 hover:bg-rose-50">Block user</button></div>}</div>}
           </div>
           <div className="grid grid-cols-3 gap-2 border-t border-slate-200/60 dark:border-slate-800 pt-3 text-center">
             <div><b className="block text-sm text-purple-600">{posts.length}</b><span className="text-[10px] text-slate-500">Posts</span></div>
@@ -375,11 +439,14 @@ export default function Profile({ session, profileUserId, onMessage }) {
                         (profile?.full_name || profile?.username || 'U')[0].toUpperCase()
                       )}
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <h4 className="text-xs font-extrabold text-slate-800 dark:text-white">{profile?.full_name || profile?.username || 'User'}</h4>
                       <p className="text-[10px] text-slate-400">{new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
+                    {isOwnProfile && <button onClick={() => togglePinned(post)} className={`p-2 rounded-full transition ${post.is_pinned ? 'text-amber-500 bg-amber-50' : 'text-slate-400 hover:text-purple-600 hover:bg-purple-50'}`} title={post.is_pinned ? 'Unpin post' : 'Pin post'}><Pin className="w-4 h-4" /></button>}
                   </div>
+
+                  {post.is_pinned && <div className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-400/15 px-2 py-1 text-[10px] font-extrabold text-amber-700 dark:text-amber-300"><Pin className="w-3 h-3" /> Pinned to profile</div>}
 
                   <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-line">
                     {post.content}
@@ -395,7 +462,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
                         <MessageCircle className="w-4 h-4" />
                         <span>{post.commentsCount || 0}</span>
                       </div>
-                      <Send className="w-4 h-4 hover:text-purple-600 cursor-pointer" />
+                      <button type="button" onClick={() => setSharePost(post)} title="Share post"><Send className="w-4 h-4 hover:text-purple-600 cursor-pointer" /></button>
                     </div>
                     <Bookmark className="w-4 h-4 hover:text-purple-600 cursor-pointer" />
                   </div>
@@ -414,11 +481,14 @@ export default function Profile({ session, profileUserId, onMessage }) {
                   <div 
                     key={post.id} 
                     onClick={() => handleOpenPost(post)}
-                    className="relative group aspect-square rounded-2xl overflow-hidden bg-slate-100 cursor-pointer"
+                    className="relative group aspect-square rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 cursor-pointer shadow-sm ring-1 ring-slate-200/70 dark:ring-slate-700/70"
                   >
                     <img src={post.media_url} alt="photo" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white space-x-3 font-bold text-xs">
-                      <div className="flex items-center space-x-1"><Heart className="w-4 h-4 fill-white" /><span>{post.likes?.length || 0}</span></div>
+                    {post.is_pinned && <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-1 text-[10px] font-extrabold text-amber-950 shadow"><Pin className="w-3 h-3" /> Pinned</span>}
+                    <span className="absolute top-2 right-2 z-10 rounded-full bg-black/55 px-2 py-1 text-[10px] font-bold text-white">Photo</span>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition flex items-end justify-between p-3 text-white font-bold text-xs">
+                      <div className="flex items-center gap-3"><span className="flex items-center gap-1"><Heart className="w-4 h-4 fill-white" />{post.likes?.length || 0}</span><span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" />{post.commentsCount || 0}</span></div>
+                      {isOwnProfile && <button aria-label={post.is_pinned ? 'Unpin photo' : 'Pin photo'} onClick={(e) => { e.stopPropagation(); togglePinned(post); }} className={`rounded-full bg-black/50 p-2 ${post.is_pinned ? 'text-amber-300' : 'text-white'}`}><Pin className="w-4 h-4" /></button>}
                     </div>
                   </div>
                 ))}
@@ -436,11 +506,15 @@ export default function Profile({ session, profileUserId, onMessage }) {
                   <div 
                     key={post.id} 
                     onClick={() => handleOpenPost(post)}
-                    className="relative group aspect-[9/16] rounded-2xl overflow-hidden bg-black cursor-pointer"
+                    className="relative group aspect-[9/16] rounded-2xl overflow-hidden bg-black cursor-pointer shadow-sm ring-1 ring-slate-200/70 dark:ring-slate-700/70"
                   >
                     <video src={post.media_url} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white space-x-3 font-bold text-xs">
-                      <div className="flex items-center space-x-1"><Heart className="w-4 h-4 fill-white" /><span>{post.likes?.length || 0}</span></div>
+                    {post.is_pinned && <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-1 text-[10px] font-extrabold text-amber-950 shadow"><Pin className="w-3 h-3" /> Pinned</span>}
+                    <span className="absolute top-2 right-2 z-10 rounded-full bg-black/55 px-2 py-1 text-[10px] font-bold text-white">Reel</span>
+                    <span className="absolute inset-0 flex items-center justify-center text-white/90 group-hover:scale-110 transition"><span className="rounded-full bg-black/45 p-3"><Play className="w-5 h-5 fill-white" /></span></span>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition flex items-end justify-between p-3 text-white font-bold text-xs">
+                      <div className="flex items-center gap-3"><span className="flex items-center gap-1"><Heart className="w-4 h-4 fill-white" />{post.likes?.length || 0}</span><span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" />{post.commentsCount || 0}</span></div>
+                      {isOwnProfile && <button aria-label={post.is_pinned ? 'Unpin reel' : 'Pin reel'} onClick={(e) => { e.stopPropagation(); togglePinned(post); }} className={`rounded-full bg-black/50 p-2 ${post.is_pinned ? 'text-amber-300' : 'text-white'}`}><Pin className="w-4 h-4" /></button>}
                     </div>
                   </div>
                 ))}
@@ -453,7 +527,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
       {/* POPUP MODAL FOR TAP TO VIEW MEDIA/REELS */}
       {selectedPost && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl overflow-hidden max-w-2xl w-full max-h-[90vh] flex flex-col md:flex-row relative shadow-2xl my-auto">
+          <div className={`bg-white dark:bg-slate-900 rounded-3xl overflow-hidden w-full max-h-[92vh] flex flex-col md:flex-row relative shadow-2xl my-auto ${selectedPost.media_url ? 'max-w-2xl' : 'max-w-4xl min-h-[70vh] md:min-h-[78vh]'}`}>
             {/* Close Button */}
             <button 
               onClick={() => setSelectedPost(null)}
@@ -463,16 +537,16 @@ export default function Profile({ session, profileUserId, onMessage }) {
             </button>
 
             {/* Left Side: Media */}
-            <div className="md:w-1/2 bg-black flex items-center justify-center min-h-[220px] sm:min-h-[280px] max-h-[50vh] md:max-h-[85vh] relative overflow-hidden">
+            {selectedPost.media_url && <div className="md:w-1/2 bg-black flex items-center justify-center min-h-[220px] sm:min-h-[280px] max-h-[50vh] md:max-h-[85vh] relative overflow-hidden">
               {selectedPost.media_type === 'video' ? (
                 <video src={selectedPost.media_url} controls autoPlay className="w-full h-full max-h-[50vh] md:max-h-[85vh] object-contain" />
               ) : (
                 <img src={selectedPost.media_url} alt="post" className="w-full h-full max-h-[50vh] md:max-h-[85vh] object-contain" />
               )}
-            </div>
+            </div>}
 
             {/* Right Side: Details & Comments */}
-            <div className="md:w-1/2 p-4 flex flex-col justify-between h-[320px] md:h-auto bg-white dark:bg-slate-900">
+            <div className={`${selectedPost.media_url ? 'md:w-1/2 h-[320px] md:h-auto' : 'w-full h-[70vh] md:h-[78vh]'} p-5 sm:p-7 flex flex-col justify-between bg-white dark:bg-slate-900`}>
               <div className="space-y-3 overflow-hidden flex-1 flex flex-col">
                 {/* User Info Header */}
                 <div className="flex items-center space-x-2.5 border-b border-slate-100 dark:border-slate-800 pb-3 flex-shrink-0">
@@ -502,7 +576,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
                   ) : postComments.length === 0 ? (
                     <p className="text-xs text-slate-400 py-4 text-center">No comments yet.</p>
                   ) : (
-                    postComments.map(c => (
+                    postComments.filter(c => !c.parent_comment_id).map(c => (
                       <div key={c.id} className="flex space-x-2 items-start text-xs">
                         <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-600 font-bold flex items-center justify-center text-[10px] overflow-hidden flex-shrink-0">
                           {c.profiles?.avatar_url ? (
@@ -514,6 +588,8 @@ export default function Profile({ session, profileUserId, onMessage }) {
                         <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded-xl flex-1">
                           <span className="font-bold text-[11px] text-slate-800 dark:text-white block">@{c.profiles?.username || 'user'}</span>
                           <span className="text-slate-600 dark:text-slate-300 text-[11px]">{c.content}</span>
+                          <div className="mt-1 flex items-center gap-3"><button type="button" onClick={() => toggleCommentLike(c.id)} className={`text-[10px] font-bold ${commentLikes.some(l => l.comment_id === c.id && l.user_id === session.user.id) ? 'text-pink-600' : 'text-slate-400'}`}>♥ {commentLikes.filter(l => l.comment_id === c.id).length}</button><button type="button" onClick={() => { setReplyingTo(c); setNewComment(''); }} className="text-[10px] font-bold text-purple-600 hover:underline">Reply</button></div>
+                          {postComments.filter(reply => reply.parent_comment_id === c.id).map(reply => <div key={reply.id} className="mt-2 ml-3 border-l-2 border-purple-200 pl-2"><span className="font-bold text-[10px] text-slate-700 dark:text-slate-200 block">@{reply.profiles?.username || 'user'}</span><span className="text-[10px] text-slate-500 dark:text-slate-300">{reply.content}</span><div><button type="button" onClick={() => toggleCommentLike(reply.id)} className={`text-[10px] font-bold ${commentLikes.some(l => l.comment_id === reply.id && l.user_id === session.user.id) ? 'text-pink-600' : 'text-slate-400'}`}>♥ {commentLikes.filter(l => l.comment_id === reply.id).length}</button></div></div>)}
                         </div>
                       </div>
                     ))
@@ -522,7 +598,9 @@ export default function Profile({ session, profileUserId, onMessage }) {
               </div>
 
               {/* Comment Input */}
-              <div className="flex items-center space-x-2 pt-3 border-t border-slate-100 dark:border-slate-800 mt-2 flex-shrink-0">
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 mt-2 flex-shrink-0">
+                {replyingTo && <div className="mb-2 flex items-center justify-between rounded-lg bg-purple-50 dark:bg-purple-400/10 px-2 py-1.5 text-[10px] text-purple-700 dark:text-purple-300"><span>Replying to @{replyingTo.profiles?.username || 'user'}</span><button type="button" onClick={() => setReplyingTo(null)}><X className="w-3 h-3" /></button></div>}
+                <div className="flex items-center space-x-2">
                 <input 
                   type="text" 
                   value={newComment}
@@ -534,6 +612,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
                 <button onClick={handleAddComment} className="bg-purple-600 text-white p-2 rounded-full hover:bg-purple-700">
                   <Send className="w-3.5 h-3.5" />
                 </button>
+                </div>
               </div>
             </div>
           </div>
@@ -642,6 +721,17 @@ export default function Profile({ session, profileUserId, onMessage }) {
           </div>
         </div>
       )}
+
+      {sharePost && <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3" onClick={() => setSharePost(null)}>
+        <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4"><h3 className="text-base font-extrabold text-slate-800 dark:text-white">Share post</h3><button onClick={() => setSharePost(null)} className="rounded-full bg-slate-100 dark:bg-slate-800 p-2"><X className="w-4 h-4" /></button></div>
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={copyPostLink} className="rounded-2xl bg-slate-100 dark:bg-slate-800 px-3 py-3 text-xs font-bold text-slate-700 dark:text-slate-200">{shareCopied ? 'Copied!' : 'Copy link'}</button>
+            <a href={`https://wa.me/?text=${encodeURIComponent(postShareUrl(sharePost))}`} target="_blank" rel="noreferrer" className="rounded-2xl bg-emerald-500 px-3 py-3 text-center text-xs font-bold text-white">WhatsApp</a>
+            <button onClick={nativeSharePost} className="col-span-2 rounded-2xl bg-purple-600 px-3 py-3 text-xs font-bold text-white">More sharing options</button>
+          </div>
+        </div>
+      </div>}
       {listMode && <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"><div className="bg-white dark:bg-slate-900 rounded-2xl p-4 w-full max-w-sm max-h-[70vh] overflow-y-auto"><div className="flex justify-between mb-3"><h3 className="font-bold">{listMode === 'followers' ? 'Followers' : 'Following'}</h3><button onClick={() => setListMode(null)}>✕</button></div>{peopleList.map((person) => <div key={person.id} className="flex items-center gap-3 py-2"><div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-bold">{(person.full_name || person.username || 'U')[0].toUpperCase()}</div><div><p className="text-sm font-bold">{person.full_name || person.username}</p><p className="text-xs text-slate-400">@{person.username}</p></div></div>)}</div></div>}
     </div>
   );
