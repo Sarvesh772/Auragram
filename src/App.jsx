@@ -16,10 +16,28 @@ import { Home, Compass, MessageCircle, Clapperboard, Bell, Settings as SettingsI
 export default function App() {
   const [session, setSession] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
-  const [activeTab, setActiveTab] = useState('feed');
-  const [profileUserId, setProfileUserId] = useState(null);
+  const initialProfileId = window.location.pathname.match(/^\/profile\/([^/]+)/)?.[1] || null;
+  const [activeTab, setActiveTab] = useState(initialProfileId || window.location.pathname === '/profile' ? 'profile' : 'feed');
+  const [profileUserId, setProfileUserId] = useState(initialProfileId);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
+
+  useEffect(() => {
+    const path = activeTab === 'profile' ? (profileUserId ? `/profile/${profileUserId}` : '/profile') : '/';
+    if (window.location.pathname !== path) window.history.pushState({}, '', path);
+  }, [activeTab, profileUserId]);
+
+  useEffect(() => {
+    const route = window.location.pathname;
+    const profileMatch = route.match(/^\/profile\/([^/]+)/);
+    if (profileMatch) { setProfileUserId(profileMatch[1]); setActiveTab('profile'); }
+    else if (route === '/profile') setActiveTab('profile');
+    const onPopState = () => { const match = window.location.pathname.match(/^\/profile\/([^/]+)/); setProfileUserId(match?.[1] || null); setActiveTab(match || window.location.pathname === '/profile' ? 'profile' : 'feed'); };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  const openProfile = (id) => { setProfileUserId(id); setActiveTab('profile'); window.history.pushState({}, '', `/profile/${id}`); };
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('auragram_theme') === 'dark';
@@ -157,11 +175,11 @@ export default function App() {
           )}
 
           {/* Views Conditional Rendering */}
-          {activeTab === 'feed' && <Feed session={session} onViewProfile={(id) => { setProfileUserId(id); setActiveTab('profile'); }} />}
+          {activeTab === 'feed' && <Feed session={session} onViewProfile={openProfile} />}
           {activeTab === 'messages' && <Messages session={session} initialUserId={profileUserId} onViewProfile={(id) => { setProfileUserId(id); setActiveTab('profile'); }} />}
           {activeTab === 'profile' && <Profile session={session} profileUserId={profileUserId} onMessage={(id) => { setProfileUserId(id); setActiveTab('messages'); }} />}
-          {activeTab === 'reels' && <Reels session={session} onViewProfile={(userId) => { setProfileUserId(userId); setActiveTab('profile'); }} />}
-          {activeTab === 'explore' && <Explore session={session} onViewProfile={(id) => { setProfileUserId(id); setActiveTab('profile'); }} />}
+          {activeTab === 'reels' && <Reels session={session} onViewProfile={openProfile} />}
+          {activeTab === 'explore' && <Explore session={session} onViewProfile={openProfile} />}
           {activeTab === 'notifications' && <Notifications session={session} />}
           {activeTab === 'settings' && (
             <Settings 
