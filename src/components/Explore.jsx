@@ -103,7 +103,7 @@ export default function Explore({ session, onViewProfile }) {
   );
 
   return (
-    <div className="p-4 md:p-6 space-y-5 max-w-2xl mx-auto pb-24">
+    <div className="w-full min-w-0 p-3 sm:p-4 md:p-6 space-y-5 max-w-2xl mx-auto pb-24 overflow-x-hidden">
       {/* Search Input Bar */}
       <div className="relative">
         <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -117,10 +117,10 @@ export default function Explore({ session, onViewProfile }) {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex space-x-2 border-b border-slate-100 dark:border-slate-800 pb-3 overflow-x-auto">
+      <div className="flex gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 overflow-x-auto whitespace-nowrap scrollbar-hide">
         <button
           onClick={() => setActiveFilter('all')}
-          className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${
+            className={`shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold transition ${
             activeFilter === 'all'
               ? 'bg-purple-600 text-white shadow-md shadow-purple-500/20'
               : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
@@ -130,7 +130,7 @@ export default function Explore({ session, onViewProfile }) {
         </button>
         <button
           onClick={() => setActiveFilter('users')}
-          className={`px-4 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition ${
+            className={`shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition ${
             activeFilter === 'users'
               ? 'bg-purple-600 text-white shadow-md shadow-purple-500/20'
               : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
@@ -141,7 +141,7 @@ export default function Explore({ session, onViewProfile }) {
         </button>
         <button
           onClick={() => setActiveFilter('hashtags')}
-          className={`px-4 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition ${
+            className={`shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition ${
             activeFilter === 'hashtags'
               ? 'bg-purple-600 text-white shadow-md shadow-purple-500/20'
               : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
@@ -152,7 +152,7 @@ export default function Explore({ session, onViewProfile }) {
         </button>
         <button
           onClick={() => setActiveFilter('posts')}
-          className={`px-4 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition ${
+            className={`shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition ${
             activeFilter === 'posts'
               ? 'bg-purple-600 text-white shadow-md shadow-purple-500/20'
               : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
@@ -202,7 +202,7 @@ export default function Explore({ session, onViewProfile }) {
                   <div
                     key={user.id}
                     onClick={() => onViewProfile?.(user.id)}
-                    className="flex items-center justify-between p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-purple-300 cursor-pointer transition shadow-2xs"
+                    className="min-w-0 flex items-center justify-between p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-purple-300 cursor-pointer transition shadow-2xs"
                   >
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
@@ -212,9 +212,9 @@ export default function Explore({ session, onViewProfile }) {
                           (user.username || 'U')[0].toUpperCase()
                         )}
                       </div>
-                      <div>
-                        <p className="font-bold text-sm text-slate-800 dark:text-white">@{user.username}</p>
-                        <p className="text-xs text-slate-400">{user.full_name || 'Auragram Member'}</p>
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-slate-800 dark:text-white truncate">@{user.username}</p>
+                        <p className="text-xs text-slate-400 truncate">{user.full_name || 'Auragram Member'}</p>
                       </div>
                     </div>
                   </div>

@@ -369,10 +369,10 @@ export default function Profile({ session, profileUserId, onMessage }) {
       {profile && (
         <div className="relative bg-slate-50 border border-slate-100 dark:bg-slate-900 dark:border-slate-800 p-4 sm:p-6 rounded-3xl space-y-4 shadow-sm w-full box-border">
           <button onClick={copyProfileLink} className="absolute top-1 right-10 rounded-full border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800 p-2 text-slate-500 hover:text-purple-600" title="Copy profile link"><Copy className="w-4 h-4" /></button>
-          <div className="flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             
             {/* Avatar & Info */}
-            <div className="flex items-center space-x-3 min-w-0 flex-1">
+            <div className="flex items-center space-x-3 min-w-0 w-full sm:flex-1 sm:w-auto pr-10">
               <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-extrabold flex items-center justify-center text-xl sm:text-2xl shadow-md overflow-hidden flex-shrink-0">
                 {profile.avatar_url ? (
                   <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
