@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import Story from './Story';
-import { Image as ImageIcon, Video, MessageCircle, Send, Music, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight, MoreVertical, Flag } from 'lucide-react';
+import { Image as ImageIcon, Video, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight, MoreVertical, Flag } from 'lucide-react';
 import MentionInput from './MentionInput';
 import { RenderFormattedText } from './MentionInput';
-import { AudioSelectorModal, MusicBadge } from './AudioSelector';
 
 
 // Helper for @mentions
@@ -101,7 +100,7 @@ function PostMediaCarousel({ mediaItems }) {
   );
 }
 
-export default function Feed({ session, onViewProfile }) {
+export default function Feed({ session, onViewProfile, initialPostId }) {
   const [posts, setPosts] = useState([]);
   const [bookmarkedPostIds, setBookmarkedPostIds] = useState(new Set());
   const [newContent, setNewContent] = useState('');
@@ -113,8 +112,6 @@ export default function Feed({ session, onViewProfile }) {
   const [postError, setPostError] = useState('');
 
 // music selection state
-const [selectedAudio, setSelectedAudio] = useState(null);
-const [showMusicModal, setShowMusicModal] = useState(false);
 
   // Comments State
   const [activeCommentPostId, setActiveCommentPostId] = useState(null);
@@ -152,6 +149,13 @@ const [showMusicModal, setShowMusicModal] = useState(false);
     fetchPosts();
     fetchBookmarks();
   }, []);
+
+  useEffect(() => {
+    if (initialPostId && posts.some((post) => post.id === initialPostId)) {
+      setActiveCommentPostId(initialPostId);
+      setTimeout(() => document.getElementById(`post-${initialPostId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
+    }
+  }, [initialPostId, posts]);
 
   async function fetchBookmarks() {
     const { data } = await supabase
@@ -374,9 +378,6 @@ const [showMusicModal, setShowMusicModal] = useState(false);
   media_urls: uploadedMedia,
   media_url: uploadedMedia[0]?.url || null,
   media_type: uploadedMedia[0]?.type || null,
-  audio_title: selectedAudio?.title || null,
-  audio_artist: selectedAudio?.artist || null,
-  audio_url: selectedAudio?.url || null
 };
 
     const { data: createdPost, error: insertError } = await supabase.from('posts').insert([postPayload]).select('id').single();
@@ -452,18 +453,14 @@ const [showMusicModal, setShowMusicModal] = useState(false);
           </div>
         )}
 
-        <div className="flex justify-between items-center pt-3 border-t border-slate-200 dark:border-slate-800">
-          <div className="flex space-x-4">
+        <div className="flex flex-wrap gap-3 justify-between items-center pt-3 border-t border-slate-200 dark:border-slate-800">
+          <div className="flex flex-wrap gap-x-4 gap-y-2 min-w-0">
             <button 
               onClick={() => fileInputRef.current?.click()} 
               className="flex items-center space-x-1.5 text-purple-600 font-medium text-xs md:text-sm"
             >
               <ImageIcon className="w-4 h-4" /> 
               <span>Photo / Video</span>
-            </button>
-            <button onClick={() => setShowMusicModal(true)} className={`flex items-center space-x-1.5 font-medium text-xs md:text-sm ${selectedAudio ? 'text-purple-600 font-bold' : 'text-slate-500 hover:text-purple-600'}`}>
-              <Music className="w-4 h-4" />
-              <span>{selectedAudio ? selectedAudio.title : 'Music'}</span>
             </button>
           </div>
           <button 
@@ -489,7 +486,7 @@ const [showMusicModal, setShowMusicModal] = useState(false);
           const commentsCount = post.comments?.length || 0;
 
           return (
-            <div key={post.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div id={`post-${post.id}`} key={post.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
               <div className="flex items-center justify-between p-4">
                 <button onClick={() => onViewProfile?.(post.user_id)} className="flex items-center space-x-3 text-left">
                   {post.profiles?.avatar_url ? (
@@ -517,11 +514,6 @@ const [showMusicModal, setShowMusicModal] = useState(false);
               
               {/* Render Carousel Post Media */}
               <PostMediaCarousel mediaItems={post.mediaList} />
-              {post.audio_title && (
-                <div className="px-4 pt-2">
-                  <MusicBadge audioTitle={post.audio_title} audioArtist={post.audio_artist} />
-                </div>
-              )}
 
               {/* Actions */}
               <div className="p-4 border-t border-slate-50 dark:border-slate-800 space-y-3">
@@ -613,7 +605,6 @@ const [showMusicModal, setShowMusicModal] = useState(false);
         })
       )}
       {reportPost && <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-4" onClick={() => setReportPost(null)}><div className="bg-white dark:bg-slate-900 rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}><div className="flex justify-between mb-3"><b>Report post</b><button onClick={() => setReportPost(null)}><X className="w-4 h-4" /></button></div>{['Spam','Harassment or bullying','Hate speech','Misinformation','Other'].map(r => <label className="block text-xs py-1" key={r}><input type="radio" name="report" checked={reportReason === r} onChange={() => setReportReason(r)} /> {r}</label>)}{reportReason === 'Other' && <textarea className="w-full mt-2 p-2 border rounded" value={reportDetails} onChange={e => setReportDetails(e.target.value)} placeholder="Reason" />}<button onClick={submitReport} className="w-full mt-3 bg-rose-600 text-white rounded-xl py-2 text-xs font-bold">Submit report</button></div></div>}
-      <AudioSelectorModal isOpen={showMusicModal} onClose={() => setShowMusicModal(false)} onSelect={setSelectedAudio} currentAudio={selectedAudio} />
     </div>
   );
 }

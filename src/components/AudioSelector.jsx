@@ -81,9 +81,9 @@ export function MusicBadge({ audioTitle, audioArtist }) {
   if (!audioTitle) return null;
 
   return (
-    <div className="inline-flex items-center space-x-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 text-white text-[11px] font-medium">
+    <div className="inline-flex max-w-full min-w-0 items-center space-x-2 bg-black/40 backdrop-blur-md px-2.5 sm:px-3 py-1 rounded-full border border-white/10 text-white text-[10px] sm:text-[11px] font-medium">
       <Disc className="w-3.5 h-3.5 text-purple-400 animate-spin" />
-      <span className="truncate max-w-[150px]">
+      <span className="truncate max-w-[45vw] sm:max-w-[220px]">
         {audioTitle} {audioArtist ? `• ${audioArtist}` : ''}
       </span>
     </div>

@@ -17,6 +17,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const initialProfileId = window.location.pathname.match(/^\/profile\/([^/]+)/)?.[1] || null;
+  const initialPostId = new URLSearchParams(window.location.search).get('post');
   const [activeTab, setActiveTab] = useState(initialProfileId || window.location.pathname === '/profile' ? 'profile' : 'feed');
   const [profileUserId, setProfileUserId] = useState(initialProfileId);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -175,7 +176,7 @@ export default function App() {
           )}
 
           {/* Views Conditional Rendering */}
-          {activeTab === 'feed' && <Feed session={session} onViewProfile={openProfile} />}
+          {activeTab === 'feed' && <Feed session={session} onViewProfile={openProfile} initialPostId={initialPostId} />}
           {activeTab === 'messages' && <Messages session={session} initialUserId={profileUserId} onViewProfile={(id) => { setProfileUserId(id); setActiveTab('profile'); }} />}
           {activeTab === 'profile' && <Profile session={session} profileUserId={profileUserId} onMessage={(id) => { setProfileUserId(id); setActiveTab('messages'); }} />}
           {activeTab === 'reels' && <Reels session={session} onViewProfile={openProfile} />}

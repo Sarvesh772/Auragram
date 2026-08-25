@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
   FileText, Image as ImageIcon, Film, Heart, MessageCircle, 
-  Send, Bookmark, Edit3, X, Sparkles, Loader2, Camera, AlertCircle, CheckCircle2, Pin, Play, Flag, MoreVertical
+  Send, Bookmark, Edit3, X, Sparkles, Loader2, Camera, AlertCircle, CheckCircle2, Pin, Play, Flag, MoreVertical, Copy
 } from 'lucide-react';
 
 export default function Profile({ session, profileUserId, onMessage }) {
@@ -42,6 +42,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const [shareCopied, setShareCopied] = useState(false);
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [safetyMessage, setSafetyMessage] = useState('');
+  const [profileLinkCopied, setProfileLinkCopied] = useState(false);
   const [reportPost, setReportPost] = useState(null);
   const [reportReason, setReportReason] = useState('Spam');
   const [reportDetails, setReportDetails] = useState('');
@@ -79,6 +80,12 @@ export default function Profile({ session, profileUserId, onMessage }) {
     if (!reason) return;
     await supabase.from('reports').insert([{ reporter_id: session.user.id, reported_user_id: reportPost.user_id, post_id: reportPost.id, reason }]);
     setReportPost(null); setReportDetails(''); setSafetyMessage('Report submitted.'); setTimeout(() => setSafetyMessage(''), 2200);
+  }
+
+  async function copyProfileLink() {
+    await navigator.clipboard?.writeText(`${window.location.origin}/profile/${viewedUserId}`);
+    setProfileLinkCopied(true);
+    setTimeout(() => setProfileLinkCopied(false), 1800);
   }
 
   useEffect(() => {
@@ -357,9 +364,11 @@ export default function Profile({ session, profileUserId, onMessage }) {
     <div className="w-full max-w-2xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 pb-20 box-border overflow-x-hidden">
       {pinMessage && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-4 py-2 rounded-full text-xs font-bold shadow-xl">{pinMessage}</div>}
       {safetyMessage && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-4 py-2 rounded-full text-xs font-bold shadow-xl">{safetyMessage}</div>}
+      {profileLinkCopied && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-4 py-2 rounded-full text-xs font-bold shadow-xl">Profile link copied</div>}
       {/* Profile Header Card */}
       {profile && (
-        <div className="bg-slate-50 border border-slate-100 dark:bg-slate-900 dark:border-slate-800 p-4 sm:p-6 rounded-3xl space-y-4 shadow-sm w-full box-border">
+        <div className="relative bg-slate-50 border border-slate-100 dark:bg-slate-900 dark:border-slate-800 p-4 sm:p-6 rounded-3xl space-y-4 shadow-sm w-full box-border">
+          <button onClick={copyProfileLink} className="absolute top-1 right-10 rounded-full border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800 p-2 text-slate-500 hover:text-purple-600" title="Copy profile link"><Copy className="w-4 h-4" /></button>
           <div className="flex items-center justify-between gap-2 sm:gap-4">
             
             {/* Avatar & Info */}
