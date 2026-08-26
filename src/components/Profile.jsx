@@ -393,7 +393,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
             {/* Edit Button */}
               {isOwnProfile ? <button 
                 onClick={() => setIsEditing(true)}
-              className="flex items-center space-x-1 sm:space-x-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-purple-300 rounded-full text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm transition flex-shrink-0"
+              className="self-end sm:self-auto mr-5 w-auto flex items-center space-x-1 sm:space-x-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-purple-300 rounded-full text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm transition flex-shrink-0"
             >
               <Edit3 className="w-3.5 h-3.5 text-purple-600" />
               <span>Edit</span>

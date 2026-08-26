@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from './supabaseClient';
+
 import Auth from './components/Auth';
 import Sidebar from './components/Sidebar';
 import Feed from './components/Feed';
@@ -13,32 +15,59 @@ import RightPanel from './components/RightPanel';
 
 import { Home, Compass, MessageCircle, Clapperboard, Bell, Settings as SettingsIcon, User } from 'lucide-react';
 
+// Wrapper to handle dynamic /profile/:username and default logged-in user profile
+function ProfileWrapper({ session }) {
+  const { username } = useParams();
+  const navigate = useNavigate();
+  const profileUserId = username || session?.user?.id;
+
+  return (
+    <Profile 
+      session={session} 
+      profileUserId={profileUserId} 
+      onMessage={(id) => navigate(`/messages?user=${id}`)} 
+    />
+  );
+}
+
+// Wrapper for Feed to support ?post=id query parameter link sharing
+function FeedWrapper({ session }) {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialPostId = searchParams.get('post');
+
+  return (
+    <Feed 
+      session={session} 
+      initialPostId={initialPostId} 
+      onViewProfile={(id) => navigate(`/profile/${id}`)} 
+    />
+  );
+}
+
+// Wrapper for Messages to handle ?user=id query param
+function MessagesWrapper({ session }) {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialUserId = searchParams.get('user');
+
+  return (
+    <Messages 
+      session={session} 
+      initialUserId={initialUserId} 
+      onViewProfile={(id) => navigate(`/profile/${id}`)} 
+    />
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
-  const initialProfileId = window.location.pathname.match(/^\/profile\/([^/]+)/)?.[1] || null;
-  const initialPostId = new URLSearchParams(window.location.search).get('post');
-  const [activeTab, setActiveTab] = useState(initialProfileId || window.location.pathname === '/profile' ? 'profile' : 'feed');
-  const [profileUserId, setProfileUserId] = useState(initialProfileId);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
 
-  useEffect(() => {
-    const path = activeTab === 'profile' ? (profileUserId ? `/profile/${profileUserId}` : '/profile') : '/';
-    if (window.location.pathname !== path) window.history.pushState({}, '', path);
-  }, [activeTab, profileUserId]);
-
-  useEffect(() => {
-    const route = window.location.pathname;
-    const profileMatch = route.match(/^\/profile\/([^/]+)/);
-    if (profileMatch) { setProfileUserId(profileMatch[1]); setActiveTab('profile'); }
-    else if (route === '/profile') setActiveTab('profile');
-    const onPopState = () => { const match = window.location.pathname.match(/^\/profile\/([^/]+)/); setProfileUserId(match?.[1] || null); setActiveTab(match || window.location.pathname === '/profile' ? 'profile' : 'feed'); };
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
-  }, []);
-
-  const openProfile = (id) => { setProfileUserId(id); setActiveTab('profile'); window.history.pushState({}, '', `/profile/${id}`); };
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('auragram_theme') === 'dark';
@@ -54,9 +83,24 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // 1. Notifications Unread Count Listener (Correct Column: recipient_id)
+  // Auth Listener
   useEffect(() => {
-    if (!session?.user?.id) return undefined;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoadingAuth(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setLoadingAuth(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Notifications Unread Count Listener
+  useEffect(() => {
+    if (!session?.user?.id) return;
     const loadUnreadNotifs = async () => {
       const { count } = await supabase
         .from('notifications')
@@ -73,9 +117,9 @@ export default function App() {
     return () => { supabase.removeChannel(channel); };
   }, [session?.user?.id]);
 
-  // 2. Unread Direct Messages Listener (FIXED Column: receiver_id)
+  // Unread Messages Listener
   useEffect(() => {
-    if (!session?.user?.id) return undefined;
+    if (!session?.user?.id) return;
     const loadUnreadMsgs = async () => {
       const { count } = await supabase
         .from('messages')
@@ -92,25 +136,6 @@ export default function App() {
     return () => { supabase.removeChannel(channel); };
   }, [session?.user?.id]);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoadingAuth(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setLoadingAuth(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  function handleTabChange(tab) {
-    if (tab === 'profile') setProfileUserId(null);
-    setActiveTab(tab);
-  }
-
   if (loadingAuth) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
@@ -123,8 +148,24 @@ export default function App() {
     return <Auth />;
   }
 
+  // Active Tab determination based on Current Route
+  const pathname = location.pathname;
+  let activeTab = 'feed';
+  if (pathname.startsWith('/explore')) activeTab = 'explore';
+  else if (pathname.startsWith('/reels')) activeTab = 'reels';
+  else if (pathname.startsWith('/messages')) activeTab = 'messages';
+  else if (pathname.startsWith('/notifications')) activeTab = 'notifications';
+  else if (pathname.startsWith('/profile')) activeTab = 'profile';
+  else if (pathname.startsWith('/settings')) activeTab = 'settings';
+
   const isFullWidthPage = activeTab === 'messages' || activeTab === 'reels';
   const showMobileTopBar = activeTab !== 'messages';
+
+  const handleTabChange = (tab) => {
+    if (tab === 'feed') navigate('/');
+    else if (tab === 'profile') navigate(`/profile/${session.user.id}`);
+    else navigate(`/${tab}`);
+  };
 
   return (
     <div className={`min-h-screen flex justify-center transition-colors ${isDarkMode ? 'dark bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
@@ -150,11 +191,11 @@ export default function App() {
             <header className={`md:hidden flex justify-between items-center px-4 py-3 border-b sticky top-0 backdrop-blur-md z-20 ${
               isDarkMode ? 'border-slate-800 bg-slate-900/90' : 'border-slate-100 bg-white/90'
             }`}>
-              <h1 className="text-2xl font-black text-purple-600 tracking-tight">Auragram</h1>
+              <h1 className="text-2xl font-black text-purple-600 tracking-tight cursor-pointer" onClick={() => navigate('/')}>Auragram</h1>
               
               <div className="flex space-x-2 items-center">
                 <button 
-                  onClick={() => setActiveTab('notifications')} 
+                  onClick={() => navigate('/notifications')} 
                   className={`relative p-2 rounded-full transition ${activeTab === 'notifications' ? 'bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}
                 >
                   <Bell className="w-5 h-5" />
@@ -166,7 +207,7 @@ export default function App() {
                 </button>
 
                 <button 
-                  onClick={() => setActiveTab('settings')} 
+                  onClick={() => navigate('/settings')} 
                   className={`p-2 rounded-full transition ${activeTab === 'settings' ? 'bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`}
                 >
                   <SettingsIcon className="w-5 h-5" />
@@ -175,20 +216,17 @@ export default function App() {
             </header>
           )}
 
-          {/* Views Conditional Rendering */}
-          {activeTab === 'feed' && <Feed session={session} onViewProfile={openProfile} initialPostId={initialPostId} />}
-          {activeTab === 'messages' && <Messages session={session} initialUserId={profileUserId} onViewProfile={(id) => { setProfileUserId(id); setActiveTab('profile'); }} />}
-          {activeTab === 'profile' && <Profile session={session} profileUserId={profileUserId} onMessage={(id) => { setProfileUserId(id); setActiveTab('messages'); }} />}
-          {activeTab === 'reels' && <Reels session={session} onViewProfile={openProfile} />}
-          {activeTab === 'explore' && <Explore session={session} onViewProfile={openProfile} />}
-          {activeTab === 'notifications' && <Notifications session={session} />}
-          {activeTab === 'settings' && (
-            <Settings 
-              session={session} 
-              isDarkMode={isDarkMode} 
-              setIsDarkMode={setIsDarkMode} 
-            />
-          )}
+          {/* Clean Route Structure */}
+          <Routes>
+            <Route path="/" element={<FeedWrapper session={session} />} />
+            <Route path="/explore" element={<Explore session={session} onViewProfile={(id) => navigate(`/profile/${id}`)} />} />
+            <Route path="/reels" element={<Reels session={session} onViewProfile={(id) => navigate(`/profile/${id}`)} />} />
+            <Route path="/messages" element={<MessagesWrapper session={session} />} />
+            <Route path="/notifications" element={<Notifications session={session} onViewProfile={(id) => navigate(`/profile/${id}`)} />} />
+            <Route path="/profile" element={<ProfileWrapper session={session} />} />
+            <Route path="/profile/:username" element={<ProfileWrapper session={session} />} />
+            <Route path="/settings" element={<Settings session={session} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />} />
+          </Routes>
           
         </main>
 
@@ -206,29 +244,28 @@ export default function App() {
         isDarkMode ? 'bg-slate-900/95 border-slate-800 backdrop-blur-md' : 'bg-white/95 border-slate-200 backdrop-blur-md'
       }`}>
         <button 
-          onClick={() => setActiveTab('feed')} 
+          onClick={() => navigate('/')} 
           className={`p-2.5 rounded-2xl transition ${activeTab === 'feed' ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30' : 'text-slate-500 dark:text-slate-400'}`}
         >
           <Home className="w-5 h-5" />
         </button>
 
         <button 
-          onClick={() => setActiveTab('explore')} 
+          onClick={() => navigate('/explore')} 
           className={`p-2.5 rounded-2xl transition ${activeTab === 'explore' ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30' : 'text-slate-500 dark:text-slate-400'}`}
         >
           <Compass className="w-5 h-5" />
         </button>
 
         <button 
-          onClick={() => setActiveTab('reels')} 
+          onClick={() => navigate('/reels')} 
           className={`p-2.5 rounded-2xl transition ${activeTab === 'reels' ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30' : 'text-slate-500 dark:text-slate-400'}`}
         >
           <Clapperboard className="w-5 h-5" />
         </button>
 
-        {/* Mobile Messages Button with Badge */}
         <button 
-          onClick={() => setActiveTab('messages')} 
+          onClick={() => navigate('/messages')} 
           className={`relative p-2.5 rounded-2xl transition ${activeTab === 'messages' ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30' : 'text-slate-500 dark:text-slate-400'}`}
         >
           <MessageCircle className="w-5 h-5" />
@@ -240,7 +277,7 @@ export default function App() {
         </button>
 
         <button 
-          onClick={() => { setProfileUserId(null); setActiveTab('profile'); }} 
+          onClick={() => navigate(`/profile/${session.user.id}`)} 
           className={`p-2.5 rounded-2xl transition ${activeTab === 'profile' ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30' : 'text-slate-500 dark:text-slate-400'}`}
         >
           <User className="w-5 h-5" />
