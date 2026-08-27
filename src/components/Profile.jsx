@@ -83,7 +83,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
   }
 
   async function copyProfileLink() {
-    await navigator.clipboard?.writeText(`${window.location.origin}/profile/${viewedUserId}`);
+    await navigator.clipboard?.writeText(`${window.location.origin}/profile/${profile?.username || viewedUserId}`);
     setProfileLinkCopied(true);
     setTimeout(() => setProfileLinkCopied(false), 1800);
   }
@@ -124,14 +124,22 @@ export default function Profile({ session, profileUserId, onMessage }) {
     setLoading(true);
 
     // Fetch user profile
-    const { data: profileData } = await supabase
+    let { data: profileData } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', viewedUserId)
       .single();
+    if (!profileData) {
+      const result = await supabase.from('profiles').select('*').eq('username', viewedUserId).maybeSingle();
+      profileData = result.data;
+    }
+    const targetId = profileData?.id || viewedUserId;
 
     if (profileData) {
       setProfile(profileData);
+      if (window.location.pathname.startsWith('/profile/') && profileData.username) {
+        window.history.replaceState({}, '', `/profile/${profileData.username}`);
+      }
       setFullName(profileData.full_name || '');
       setUsername(profileData.username || '');
       setBio(profileData.bio || '');
@@ -154,7 +162,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
     const { data: postsData } = await supabase
       .from('posts')
       .select('*')
-      .eq('user_id', viewedUserId)
+      .eq('user_id', targetId)
       .order('created_at', { ascending: false });
 
     // Fetch Likes and Comments for user posts
