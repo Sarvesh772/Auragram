@@ -2,16 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
   FileText, Image as ImageIcon, Film, Heart, MessageCircle, 
-  Send, Bookmark, Edit3, X, Sparkles, Loader2, Camera, AlertCircle, CheckCircle2, Pin, Play, Flag, MoreVertical, Copy
+  Send, Bookmark, Edit3, X, Sparkles, Loader2, Camera, AlertCircle, CheckCircle2, Pin, Play, Flag, MoreVertical, Copy, UserPlus, UserCheck, UserMinus
 } from 'lucide-react';
 
 export default function Profile({ session, profileUserId, onMessage }) {
   const viewedUserId = profileUserId || session.user.id;
-  const isOwnProfile = viewedUserId === session.user.id;
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
-  const [activeTab, setActiveTab] = useState('text'); // 'text', 'photos', 'reels'
+  const [activeTab, setActiveTab] = useState('text');
   const [loading, setLoading] = useState(true);
+  // A username route (e.g. /profile/auragram) is resolved asynchronously;
+  // treat it as our own profile once the loaded profile id matches the session.
+  const isOwnProfile = viewedUserId === session.user.id || profile?.id === session.user.id;
 
   // Modal View State
   const [selectedPost, setSelectedPost] = useState(null);
@@ -123,7 +125,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
   async function fetchProfileAndPosts() {
     setLoading(true);
 
-    // Fetch user profile
     let { data: profileData } = await supabase
       .from('profiles')
       .select('*')
@@ -158,14 +159,12 @@ export default function Profile({ session, profileUserId, onMessage }) {
       }
     }
 
-    // Fetch user posts
     const { data: postsData } = await supabase
       .from('posts')
       .select('*')
       .eq('user_id', targetId)
       .order('created_at', { ascending: false });
 
-    // Fetch Likes and Comments for user posts
     const postIds = (postsData || []).map(p => p.id);
     let likesData = [];
     let commentsData = [];
@@ -213,7 +212,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
     }
   }
 
-  // Open Post Modal & Fetch Comments
   async function handleOpenPost(post) {
     setSelectedPost(post);
     setLoadingComments(true);
@@ -240,7 +238,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
     setLoadingComments(false);
   }
 
-  // Add Comment inside Modal
   async function handleAddComment() {
     if (!newComment.trim() || !selectedPost) return;
 
@@ -273,7 +270,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
     }
   }
 
-  // Avatar Upload Handler
   async function handleAvatarUpload(e) {
     try {
       setUploadingAvatar(true);
@@ -304,7 +300,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
     }
   }
 
-  // Update Profile Info with Unique Username Validation
   async function handleUpdateProfile(e) {
     e.preventDefault();
     setErrorMsg('');
@@ -320,7 +315,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
     try {
       setSaving(true);
 
-      // Check unique username if username is changed
       if (cleanUsername !== profile?.username?.toLowerCase()) {
         const { data: existingUser } = await supabase
           .from('profiles')
@@ -363,60 +357,137 @@ export default function Profile({ session, profileUserId, onMessage }) {
     }
   }
 
-  // Filter Posts by Category
   const textPosts = posts.filter(p => !p.media_url);
   const photoPosts = posts.filter(p => p.media_url && p.media_type !== 'video');
   const reelPosts = posts.filter(p => p.media_url && p.media_type === 'video');
 
   return (
     <div className="w-full max-w-2xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 pb-20 box-border overflow-x-hidden">
+      
+      {/* Toast Messages */}
       {pinMessage && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-4 py-2 rounded-full text-xs font-bold shadow-xl">{pinMessage}</div>}
       {safetyMessage && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-4 py-2 rounded-full text-xs font-bold shadow-xl">{safetyMessage}</div>}
       {profileLinkCopied && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-4 py-2 rounded-full text-xs font-bold shadow-xl">Profile link copied</div>}
-      {/* Profile Header Card */}
-      {profile && (
-        <div className="relative bg-slate-50 border border-slate-100 dark:bg-slate-900 dark:border-slate-800 p-4 sm:p-6 rounded-3xl space-y-4 shadow-sm w-full box-border">
-          <button onClick={copyProfileLink} className="absolute top-1 right-10 rounded-full border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800 p-2 text-slate-500 hover:text-purple-600" title="Copy profile link"><Copy className="w-4 h-4" /></button>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            
-            {/* Avatar & Info */}
-            <div className="flex items-center space-x-3 min-w-0 w-full sm:flex-1 sm:w-auto pr-10">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-extrabold flex items-center justify-center text-xl sm:text-2xl shadow-md overflow-hidden flex-shrink-0">
-                {profile.avatar_url ? (
-                  <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                ) : (
-                  (profile.full_name || profile.username || 'U')[0].toUpperCase()
-                )}
-              </div>
 
-              <div className="flex-1 min-w-0">
-                <h2 className="text-base sm:text-xl font-black text-slate-800 dark:text-white truncate">
-                  {profile.full_name || profile.username || 'User'}
-                </h2>
-                <p className="text-xs font-bold text-purple-600 dark:text-purple-400 truncate">@{profile.username || 'username'}</p>
-                {profile.bio && <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-1 break-words whitespace-normal leading-relaxed">{profile.bio}</p>}
-              </div>
-            </div>
+{/* PROFILE HEADER CARD */}
+{profile && (
+  <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 sm:p-6 rounded-3xl space-y-4 shadow-sm w-full box-border">
+    
+    {/* Right Side Action Buttons - Copy & Edit stacked vertically */}
+    <div className="absolute top-3 right-3 flex flex-col gap-2">
+      {/* Copy Profile Link Button */}
+      <button 
+        onClick={copyProfileLink} 
+        className="rounded-full border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800 p-2 text-slate-500 hover:text-purple-600 transition-all hover:scale-110"
+        title="Copy profile link"
+      >
+        <Copy className="w-4 h-4" />
+      </button>
+      
+      {/* Edit Profile Button - Only for own profile */}
+      {isOwnProfile && (
+        <button 
+          onClick={() => setIsEditing(true)}
+          className="rounded-full border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800 p-2 text-slate-500 hover:text-purple-600 transition-all hover:scale-110"
+          title="Edit profile"
+        >
+          <Edit3 className="w-4 h-4" />
+        </button>
+      )}
+    </div>
 
-            {/* Edit Button */}
-              {isOwnProfile ? <button 
-                onClick={() => setIsEditing(true)}
-              className="self-end sm:self-auto mr-5 w-auto flex items-center space-x-1 sm:space-x-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-purple-300 rounded-full text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm transition flex-shrink-0"
+    {/* Profile Info Row */}
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      
+      {/* Avatar & Name/Bio */}
+      <div className="flex items-center space-x-4 min-w-0 flex-1">
+        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-extrabold flex items-center justify-center text-2xl shadow-md overflow-hidden flex-shrink-0 ring-2 ring-purple-500/20">
+          {profile.avatar_url ? (
+            <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+          ) : (
+            (profile.full_name || profile.username || 'U')[0].toUpperCase()
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white truncate">
+            {profile.full_name || profile.username || 'User'}
+          </h2>
+          <p className="text-sm font-bold text-purple-600 dark:text-purple-400 truncate">
+            @{profile.username || 'username'}
+          </p>
+          {profile.bio && (
+            <p className="text-sm text-slate-600 dark:text-slate-300 font-medium mt-1 break-words whitespace-normal leading-relaxed">
+              {profile.bio}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Follow/Message Buttons - Only for other profiles */}
+      {!isOwnProfile && (
+        <div className="flex items-center gap-2 flex-shrink-0 self-start sm:self-center">
+          <button 
+            onClick={toggleFollow}
+            className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
+              followState === 'following' 
+                ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600' 
+                : 'bg-purple-600 text-white hover:bg-purple-700 shadow-md hover:shadow-purple-500/25'
+            }`}
+          >
+            {followState === 'following' ? 'Following' : followState === 'followback' ? 'Follow Back' : 'Follow'}
+          </button>
+          
+          <button 
+            onClick={() => onMessage?.(viewedUserId)} 
+            className="px-4 py-2 rounded-full border border-purple-300 text-purple-600 text-sm font-bold hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all"
+          >
+            Message
+          </button>
+          
+          {/* More Options Dropdown */}
+          <div className="relative">
+            <button 
+              onClick={() => setSafetyOpen(v => !v)} 
+              className="rounded-full border border-slate-200 dark:border-slate-700 p-2 text-slate-500 hover:text-slate-700 dark:hover:text-white transition-all hover:bg-slate-100 dark:hover:bg-slate-800"
             >
-              <Edit3 className="w-3.5 h-3.5 text-purple-600" />
-              <span>Edit</span>
-            </button> : <div className="relative flex flex-col gap-2 flex-shrink-0"><div className="flex gap-2"><button onClick={toggleFollow} className="px-4 py-2 rounded-full bg-purple-600 text-white text-xs font-bold">{followState === 'following' ? 'Following' : followState === 'followback' ? 'Follow back' : 'Follow'}</button><button onClick={() => onMessage?.(viewedUserId)} className="px-4 py-2 rounded-full border border-purple-300 text-purple-600 text-xs font-bold">Message</button><button onClick={() => setSafetyOpen(v => !v)} className="rounded-full border border-slate-200 dark:border-slate-700 p-2 text-slate-500"><MoreVertical className="w-4 h-4" /></button></div>{safetyOpen && <div className="absolute right-0 top-11 z-20 w-44 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-1 shadow-xl"><button onClick={() => handleSafetyAction('mute')} className="w-full rounded-xl px-3 py-2 text-left text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800">Mute user</button><button onClick={() => handleSafetyAction('block')} className="w-full rounded-xl px-3 py-2 text-left text-xs font-bold text-rose-600 hover:bg-rose-50">Block user</button></div>}</div>}
+              <MoreVertical className="w-4 h-4" />
+            </button>
+            
+            {safetyOpen && (
+              <div className="absolute right-0 top-11 z-20 w-48 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-1 shadow-xl">
+                <button onClick={() => handleSafetyAction('mute')} className="w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+                  Mute user
+                </button>
+                <button onClick={() => handleSafetyAction('block')} className="w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all">
+                  Block user
+                </button>
+              </div>
+            )}
           </div>
-          <div className="grid grid-cols-3 gap-2 border-t border-slate-200/60 dark:border-slate-800 pt-3 text-center">
-            <div><b className="block text-sm text-purple-600">{posts.length}</b><span className="text-[10px] text-slate-500">Posts</span></div>
-            <button onClick={() => openPeopleList('followers')}><b className="block text-sm text-purple-600">{followersCount}</b><span className="text-[10px] text-slate-500">Followers</span></button>
-            <button onClick={() => openPeopleList('following')}><b className="block text-sm text-purple-600">{followingCount}</b><span className="text-[10px] text-slate-500">Following</span></button>
-          </div>
-
         </div>
       )}
+    </div>
 
-      {/* TABS HEADER: Text | Photos | Reels */}
+    {/* Stats Row */}
+    <div className="grid grid-cols-3 gap-2 border-t border-slate-200/60 dark:border-slate-800 pt-3 text-center">
+      <div>
+        <b className="block text-sm font-bold text-purple-600">{posts.length}</b>
+        <span className="text-[10px] text-slate-500 font-medium">Posts</span>
+      </div>
+      <button onClick={() => openPeopleList('followers')} className="hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl py-1 transition-all">
+        <b className="block text-sm font-bold text-purple-600">{followersCount}</b>
+        <span className="text-[10px] text-slate-500 font-medium">Followers</span>
+      </button>
+      <button onClick={() => openPeopleList('following')} className="hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl py-1 transition-all">
+        <b className="block text-sm font-bold text-purple-600">{followingCount}</b>
+        <span className="text-[10px] text-slate-500 font-medium">Following</span>
+      </button>
+    </div>
+  </div>
+)}
+
+      {/* TABS: Text | Photos | Reels */}
       <div className="w-full flex border-b border-slate-200 dark:border-slate-800 text-xs font-bold">
         {[
           { id: 'text', label: 'Text', icon: FileText, count: textPosts.length },
@@ -429,15 +500,19 @@ export default function Profile({ session, profileUserId, onMessage }) {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-3 flex items-center justify-center space-x-1.5 border-b-2 transition ${
+              className={`flex-1 py-3 flex items-center justify-center gap-1.5 border-b-2 transition-all ${
                 isActive 
                   ? 'border-purple-600 text-purple-600' 
-                  : 'border-transparent text-slate-400 hover:text-slate-600'
+                  : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
               }`}
             >
               <Icon className="w-4 h-4" />
               <span>{tab.label}</span>
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${isActive ? 'bg-purple-100 text-purple-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+                isActive 
+                  ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' 
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+              }`}>
                 {tab.count}
               </span>
             </button>
@@ -452,57 +527,89 @@ export default function Profile({ session, profileUserId, onMessage }) {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* 1. TEXT TAB */}
+          
+          {/* TEXT TAB */}
           {activeTab === 'text' && (
             textPosts.length === 0 ? (
-              <p className="text-center text-xs text-slate-400 py-12 font-medium">No text thoughts posted yet.</p>
+              <p className="text-center text-sm text-slate-400 py-12 font-medium">No text thoughts posted yet.</p>
             ) : (
               textPosts.map(post => (
-                <div key={post.id} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
-                      {profile?.avatar_url ? (
-                        <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                      ) : (
-                        (profile?.full_name || profile?.username || 'U')[0].toUpperCase()
-                      )}
+                <div key={post.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm space-y-3">
+                  
+                  {/* Post Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
+                        {profile?.avatar_url ? (
+                          <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                        ) : (
+                          (profile?.full_name || profile?.username || 'U')[0].toUpperCase()
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-extrabold text-slate-800 dark:text-white">
+                          {profile?.full_name || profile?.username || 'User'}
+                        </h4>
+                        <p className="text-[10px] text-slate-400">
+                          {new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h4 className="text-xs font-extrabold text-slate-800 dark:text-white">{profile?.full_name || profile?.username || 'User'}</h4>
-                      <p className="text-[10px] text-slate-400">{new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                    </div>
-                    {isOwnProfile && <button onClick={() => togglePinned(post)} className={`p-2 rounded-full transition ${post.is_pinned ? 'text-amber-500 bg-amber-50' : 'text-slate-400 hover:text-purple-600 hover:bg-purple-50'}`} title={post.is_pinned ? 'Unpin post' : 'Pin post'}><Pin className="w-4 h-4" /></button>}
+                    
+                    {/* Pin Button */}
+                    {isOwnProfile && (
+                      <button 
+                        onClick={() => togglePinned(post)} 
+                        className={`p-2 rounded-full transition-all ${
+                          post.is_pinned 
+                            ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10' 
+                            : 'text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-500/10'
+                        }`}
+                        title={post.is_pinned ? 'Unpin post' : 'Pin post'}
+                      >
+                        <Pin className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
 
-                  {post.is_pinned && <div className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-400/15 px-2 py-1 text-[10px] font-extrabold text-amber-700 dark:text-amber-300"><Pin className="w-3 h-3" /> Pinned to profile</div>}
+                  {/* Pinned Badge */}
+                  {post.is_pinned && (
+                    <div className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-400/15 px-2 py-1 text-[10px] font-extrabold text-amber-700 dark:text-amber-300">
+                      <Pin className="w-3 h-3" /> Pinned to profile
+                    </div>
+                  )}
 
-                  <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-line">
+                  {/* Post Content */}
+                  <p className="text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-line">
                     {post.content}
                   </p>
 
-                  <div className="flex items-center justify-between border-t border-slate-50 dark:border-slate-800 pt-2.5 text-slate-500 text-xs font-semibold">
+                  {/* Post Actions */}
+                  <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-2.5 text-slate-500 text-xs font-semibold">
                     <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-1 hover:text-purple-600 cursor-pointer">
+                      <div className="flex items-center space-x-1 hover:text-purple-600 cursor-pointer transition-colors">
                         <Heart className="w-4 h-4" />
                         <span>{post.likes?.length || 0}</span>
                       </div>
-                      <div className="flex items-center space-x-1 hover:text-purple-600 cursor-pointer" onClick={() => handleOpenPost(post)}>
+                      <div className="flex items-center space-x-1 hover:text-purple-600 cursor-pointer transition-colors" onClick={() => handleOpenPost(post)}>
                         <MessageCircle className="w-4 h-4" />
                         <span>{post.commentsCount || 0}</span>
                       </div>
-                      <button type="button" onClick={() => setSharePost(post)} title="Share post"><Send className="w-4 h-4 hover:text-purple-600 cursor-pointer" /></button>
+                      <button type="button" onClick={() => setSharePost(post)} title="Share post" className="hover:text-purple-600 transition-colors">
+                        <Send className="w-4 h-4" />
+                      </button>
                     </div>
-                    <Bookmark className="w-4 h-4 hover:text-purple-600 cursor-pointer" />
+                    <Bookmark className="w-4 h-4 hover:text-purple-600 cursor-pointer transition-colors" />
                   </div>
                 </div>
               ))
             )
           )}
 
-          {/* 2. PHOTOS TAB */}
+          {/* PHOTOS TAB */}
           {activeTab === 'photos' && (
             photoPosts.length === 0 ? (
-              <p className="text-center text-xs text-slate-400 py-12 font-medium">No photo posts found.</p>
+              <p className="text-center text-sm text-slate-400 py-12 font-medium">No photo posts found.</p>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {photoPosts.map(post => (
@@ -511,12 +618,34 @@ export default function Profile({ session, profileUserId, onMessage }) {
                     onClick={() => handleOpenPost(post)}
                     className="relative group aspect-square rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 cursor-pointer shadow-sm ring-1 ring-slate-200/70 dark:ring-slate-700/70"
                   >
-                    <img src={post.media_url} alt="photo" className="w-full h-full object-cover" />
-                    {post.is_pinned && <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-1 text-[10px] font-extrabold text-amber-950 shadow"><Pin className="w-3 h-3" /> Pinned</span>}
+                    <img src={post.media_url} alt="photo" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    
+                    {/* Pinned Badge */}
+                    {post.is_pinned && (
+                      <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-1 text-[10px] font-extrabold text-amber-950 shadow">
+                        <Pin className="w-3 h-3" /> Pinned
+                      </span>
+                    )}
+                    
                     <span className="absolute top-2 right-2 z-10 rounded-full bg-black/55 px-2 py-1 text-[10px] font-bold text-white">Photo</span>
+                    
+                    {/* Hover Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition flex items-end justify-between p-3 text-white font-bold text-xs">
-                      <div className="flex items-center gap-3"><span className="flex items-center gap-1"><Heart className="w-4 h-4 fill-white" />{post.likes?.length || 0}</span><span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" />{post.commentsCount || 0}</span></div>
-                      <div className="flex items-center gap-2">{!isOwnProfile && <button onClick={(e) => { e.stopPropagation(); setReportPost(post); }} className="rounded-full bg-black/50 px-2 py-1 text-[10px]">Report</button>}{isOwnProfile && <button aria-label={post.is_pinned ? 'Unpin photo' : 'Pin photo'} onClick={(e) => { e.stopPropagation(); togglePinned(post); }} className={`rounded-full bg-black/50 p-2 ${post.is_pinned ? 'text-amber-300' : 'text-white'}`}><Pin className="w-4 h-4" /></button>}</div>
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center gap-1"><Heart className="w-4 h-4 fill-white" />{post.likes?.length || 0}</span>
+                        <span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" />{post.commentsCount || 0}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!isOwnProfile && <button onClick={(e) => { e.stopPropagation(); setReportPost(post); }} className="rounded-full bg-black/50 px-2 py-1 text-[10px]">Report</button>}
+                        {isOwnProfile && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); togglePinned(post); }} 
+                            className={`rounded-full bg-black/50 p-2 transition-all ${post.is_pinned ? 'text-amber-300' : 'text-white'}`}
+                          >
+                            <Pin className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -524,10 +653,10 @@ export default function Profile({ session, profileUserId, onMessage }) {
             )
           )}
 
-          {/* 3. REELS TAB */}
+          {/* REELS TAB */}
           {activeTab === 'reels' && (
             reelPosts.length === 0 ? (
-              <p className="text-center text-xs text-slate-400 py-12 font-medium">No video reels uploaded.</p>
+              <p className="text-center text-sm text-slate-400 py-12 font-medium">No video reels uploaded.</p>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {reelPosts.map(post => (
@@ -536,13 +665,39 @@ export default function Profile({ session, profileUserId, onMessage }) {
                     onClick={() => handleOpenPost(post)}
                     className="relative group aspect-[9/16] rounded-2xl overflow-hidden bg-black cursor-pointer shadow-sm ring-1 ring-slate-200/70 dark:ring-slate-700/70"
                   >
-                    <video src={post.media_url} className="w-full h-full object-cover" />
-                    {post.is_pinned && <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-1 text-[10px] font-extrabold text-amber-950 shadow"><Pin className="w-3 h-3" /> Pinned</span>}
+                    <video src={post.media_url} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    
+                    {/* Pinned Badge */}
+                    {post.is_pinned && (
+                      <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-1 text-[10px] font-extrabold text-amber-950 shadow">
+                        <Pin className="w-3 h-3" /> Pinned
+                      </span>
+                    )}
+                    
                     <span className="absolute top-2 right-2 z-10 rounded-full bg-black/55 px-2 py-1 text-[10px] font-bold text-white">Reel</span>
-                    <span className="absolute inset-0 flex items-center justify-center text-white/90 group-hover:scale-110 transition"><span className="rounded-full bg-black/45 p-3"><Play className="w-5 h-5 fill-white" /></span></span>
+                    
+                    {/* Play Icon */}
+                    <span className="absolute inset-0 flex items-center justify-center text-white/90 group-hover:scale-110 transition">
+                      <span className="rounded-full bg-black/45 p-3"><Play className="w-5 h-5 fill-white" /></span>
+                    </span>
+                    
+                    {/* Hover Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition flex items-end justify-between p-3 text-white font-bold text-xs">
-                      <div className="flex items-center gap-3"><span className="flex items-center gap-1"><Heart className="w-4 h-4 fill-white" />{post.likes?.length || 0}</span><span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" />{post.commentsCount || 0}</span></div>
-                      <div className="flex items-center gap-2">{!isOwnProfile && <button onClick={(e) => { e.stopPropagation(); setReportPost(post); }} className="rounded-full bg-black/50 px-2 py-1 text-[10px]">Report</button>}{isOwnProfile && <button aria-label={post.is_pinned ? 'Unpin reel' : 'Pin reel'} onClick={(e) => { e.stopPropagation(); togglePinned(post); }} className={`rounded-full bg-black/50 p-2 ${post.is_pinned ? 'text-amber-300' : 'text-white'}`}><Pin className="w-4 h-4" /></button>}</div>
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center gap-1"><Heart className="w-4 h-4 fill-white" />{post.likes?.length || 0}</span>
+                        <span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" />{post.commentsCount || 0}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!isOwnProfile && <button onClick={(e) => { e.stopPropagation(); setReportPost(post); }} className="rounded-full bg-black/50 px-2 py-1 text-[10px]">Report</button>}
+                        {isOwnProfile && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); togglePinned(post); }} 
+                            className={`rounded-full bg-black/50 p-2 transition-all ${post.is_pinned ? 'text-amber-300' : 'text-white'}`}
+                          >
+                            <Pin className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -552,33 +707,37 @@ export default function Profile({ session, profileUserId, onMessage }) {
         </div>
       )}
 
-      {/* POPUP MODAL FOR TAP TO VIEW MEDIA/REELS */}
+      {/* POST MODAL */}
       {selectedPost && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
           <div className={`bg-white dark:bg-slate-900 rounded-3xl overflow-hidden w-full max-h-[92vh] flex flex-col md:flex-row relative shadow-2xl my-auto ${selectedPost.media_url ? 'max-w-2xl' : 'max-w-4xl min-h-[70vh] md:min-h-[78vh]'}`}>
+            
             {/* Close Button */}
             <button 
               onClick={() => setSelectedPost(null)}
-              className="absolute top-3 right-3 bg-black/60 hover:bg-black text-white p-1.5 rounded-full z-20 transition"
+              className="absolute top-3 right-3 bg-black/60 hover:bg-black text-white p-2 rounded-full z-20 transition-all hover:scale-110"
             >
               <X className="w-4 h-4" />
             </button>
 
-            {/* Left Side: Media */}
-            {selectedPost.media_url && <div className="md:w-1/2 bg-black flex items-center justify-center min-h-[220px] sm:min-h-[280px] max-h-[50vh] md:max-h-[85vh] relative overflow-hidden">
-              {selectedPost.media_type === 'video' ? (
-                <video src={selectedPost.media_url} controls autoPlay className="w-full h-full max-h-[50vh] md:max-h-[85vh] object-contain" />
-              ) : (
-                <img src={selectedPost.media_url} alt="post" className="w-full h-full max-h-[50vh] md:max-h-[85vh] object-contain" />
-              )}
-            </div>}
+            {/* Media */}
+            {selectedPost.media_url && (
+              <div className="md:w-1/2 bg-black flex items-center justify-center min-h-[220px] sm:min-h-[280px] max-h-[50vh] md:max-h-[85vh] relative overflow-hidden">
+                {selectedPost.media_type === 'video' ? (
+                  <video src={selectedPost.media_url} playsInline muted autoPlay className="w-full h-full max-h-[50vh] md:max-h-[85vh] object-contain" />
+                ) : (
+                  <img src={selectedPost.media_url} alt="post" className="w-full h-full max-h-[50vh] md:max-h-[85vh] object-contain" />
+                )}
+              </div>
+            )}
 
-            {/* Right Side: Details & Comments */}
+            {/* Details & Comments */}
             <div className={`${selectedPost.media_url ? 'md:w-1/2 h-[320px] md:h-auto' : 'w-full h-[70vh] md:h-[78vh]'} p-5 sm:p-7 flex flex-col justify-between bg-white dark:bg-slate-900`}>
               <div className="space-y-3 overflow-hidden flex-1 flex flex-col">
-                {/* User Info Header */}
+                
+                {/* User Info */}
                 <div className="flex items-center space-x-2.5 border-b border-slate-100 dark:border-slate-800 pb-3 flex-shrink-0">
-                  <div className="w-8 h-8 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
                     {profile?.avatar_url ? (
                       <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
                     ) : (
@@ -586,14 +745,16 @@ export default function Profile({ session, profileUserId, onMessage }) {
                     )}
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-slate-800 dark:text-white">{profile?.full_name || profile?.username}</h4>
+                    <h4 className="text-sm font-bold text-slate-800 dark:text-white">{profile?.full_name || profile?.username}</h4>
                     <p className="text-[10px] text-slate-400">@{profile?.username}</p>
                   </div>
                 </div>
 
                 {/* Caption */}
                 {selectedPost.content && (
-                  <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed flex-shrink-0">{selectedPost.content}</p>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed flex-shrink-0">
+                    {selectedPost.content}
+                  </p>
                 )}
 
                 {/* Comments List */}
@@ -606,7 +767,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
                   ) : (
                     postComments.filter(c => !c.parent_comment_id).map(c => (
                       <div key={c.id} className="flex space-x-2 items-start text-xs">
-                        <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-600 font-bold flex items-center justify-center text-[10px] overflow-hidden flex-shrink-0">
+                        <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 font-bold flex items-center justify-center text-[10px] overflow-hidden flex-shrink-0">
                           {c.profiles?.avatar_url ? (
                             <img src={c.profiles.avatar_url} alt="avatar" className="w-full h-full object-cover" />
                           ) : (
@@ -616,8 +777,26 @@ export default function Profile({ session, profileUserId, onMessage }) {
                         <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded-xl flex-1">
                           <span className="font-bold text-[11px] text-slate-800 dark:text-white block">@{c.profiles?.username || 'user'}</span>
                           <span className="text-slate-600 dark:text-slate-300 text-[11px]">{c.content}</span>
-                          <div className="mt-1 flex items-center gap-3"><button type="button" onClick={() => toggleCommentLike(c.id)} className={`text-[10px] font-bold ${commentLikes.some(l => l.comment_id === c.id && l.user_id === session.user.id) ? 'text-pink-600' : 'text-slate-400'}`}>♥ {commentLikes.filter(l => l.comment_id === c.id).length}</button><button type="button" onClick={() => { setReplyingTo(c); setNewComment(''); }} className="text-[10px] font-bold text-purple-600 hover:underline">Reply</button></div>
-                          {postComments.filter(reply => reply.parent_comment_id === c.id).map(reply => <div key={reply.id} className="mt-2 ml-3 border-l-2 border-purple-200 pl-2"><span className="font-bold text-[10px] text-slate-700 dark:text-slate-200 block">@{reply.profiles?.username || 'user'}</span><span className="text-[10px] text-slate-500 dark:text-slate-300">{reply.content}</span><div><button type="button" onClick={() => toggleCommentLike(reply.id)} className={`text-[10px] font-bold ${commentLikes.some(l => l.comment_id === reply.id && l.user_id === session.user.id) ? 'text-pink-600' : 'text-slate-400'}`}>♥ {commentLikes.filter(l => l.comment_id === reply.id).length}</button></div></div>)}
+                          <div className="mt-1 flex items-center gap-3">
+                            <button type="button" onClick={() => toggleCommentLike(c.id)} className={`text-[10px] font-bold ${commentLikes.some(l => l.comment_id === c.id && l.user_id === session.user.id) ? 'text-rose-500' : 'text-slate-400'}`}>
+                              ♥ {commentLikes.filter(l => l.comment_id === c.id).length}
+                            </button>
+                            <button type="button" onClick={() => { setReplyingTo(c); setNewComment(''); }} className="text-[10px] font-bold text-purple-600 hover:underline">
+                              Reply
+                            </button>
+                          </div>
+                          {/* Replies */}
+                          {postComments.filter(reply => reply.parent_comment_id === c.id).map(reply => (
+                            <div key={reply.id} className="mt-2 ml-3 border-l-2 border-purple-200 dark:border-purple-800 pl-2">
+                              <span className="font-bold text-[10px] text-slate-700 dark:text-slate-200 block">@{reply.profiles?.username || 'user'}</span>
+                              <span className="text-[10px] text-slate-500 dark:text-slate-300">{reply.content}</span>
+                              <div>
+                                <button type="button" onClick={() => toggleCommentLike(reply.id)} className={`text-[10px] font-bold ${commentLikes.some(l => l.comment_id === reply.id && l.user_id === session.user.id) ? 'text-rose-500' : 'text-slate-400'}`}>
+                                  ♥ {commentLikes.filter(l => l.comment_id === reply.id).length}
+                                </button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     ))
@@ -627,19 +806,24 @@ export default function Profile({ session, profileUserId, onMessage }) {
 
               {/* Comment Input */}
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800 mt-2 flex-shrink-0">
-                {replyingTo && <div className="mb-2 flex items-center justify-between rounded-lg bg-purple-50 dark:bg-purple-400/10 px-2 py-1.5 text-[10px] text-purple-700 dark:text-purple-300"><span>Replying to @{replyingTo.profiles?.username || 'user'}</span><button type="button" onClick={() => setReplyingTo(null)}><X className="w-3 h-3" /></button></div>}
+                {replyingTo && (
+                  <div className="mb-2 flex items-center justify-between rounded-lg bg-purple-50 dark:bg-purple-400/10 px-2 py-1.5 text-[10px] text-purple-700 dark:text-purple-300">
+                    <span>Replying to @{replyingTo.profiles?.username || 'user'}</span>
+                    <button type="button" onClick={() => setReplyingTo(null)}><X className="w-3 h-3" /></button>
+                  </div>
+                )}
                 <div className="flex items-center space-x-2">
-                <input 
-                  type="text" 
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Add a comment..."
-                  className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-purple-500 text-slate-800 dark:text-white"
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
-                />
-                <button onClick={handleAddComment} className="bg-purple-600 text-white p-2 rounded-full hover:bg-purple-700">
-                  <Send className="w-3.5 h-3.5" />
-                </button>
+                  <input 
+                    type="text" 
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Add a comment..."
+                    className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-800 dark:text-white"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
+                  />
+                  <button onClick={handleAddComment} className="bg-purple-600 text-white p-2 rounded-full hover:bg-purple-700 transition-all">
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -647,16 +831,15 @@ export default function Profile({ session, profileUserId, onMessage }) {
         </div>
       )}
 
-      {/* EDIT PROFILE MODAL (WITH DP & UNIQUE USERNAME) */}
+      {/* EDIT PROFILE MODAL */}
       {isEditing && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 w-full max-w-md space-y-4 relative shadow-2xl border border-slate-100 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
             <button onClick={() => setIsEditing(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
               <X className="w-5 h-5" />
             </button>
-            <h3 className="text-base font-extrabold text-slate-800 dark:text-white">Edit Profile</h3>
+            <h3 className="text-lg font-extrabold text-slate-800 dark:text-white">Edit Profile</h3>
             
-            {/* Status alerts */}
             {errorMsg && (
               <div className="p-3 rounded-2xl bg-red-50 text-red-600 text-xs flex items-center space-x-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -672,13 +855,13 @@ export default function Profile({ session, profileUserId, onMessage }) {
 
             <form onSubmit={handleUpdateProfile} className="space-y-3">
               
-              {/* DP Change Section */}
+              {/* Avatar Upload */}
               <div className="flex flex-col items-center space-y-1.5 pb-2">
-                <div className="relative w-16 h-16 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 border-2 border-purple-500/30 group">
+                <div className="relative w-20 h-20 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 border-2 border-purple-500/30 group">
                   {avatarUrl ? (
                     <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-400 font-bold text-lg">
+                    <div className="w-full h-full flex items-center justify-center text-slate-400 font-bold text-2xl">
                       {fullName?.[0] || username?.[0] || 'U'}
                     </div>
                   )}
@@ -693,34 +876,34 @@ export default function Profile({ session, profileUserId, onMessage }) {
                     />
                   </label>
                 </div>
-                <span className="text-[10px] text-purple-600 font-semibold cursor-pointer">
-                  {uploadingAvatar ? 'Uploading...' : 'Tap Avatar to Change DP'}
+                <span className="text-[10px] text-purple-600 font-semibold">
+                  {uploadingAvatar ? 'Uploading...' : 'Tap to change avatar'}
                 </span>
               </div>
 
-              {/* Display Name */}
+              {/* Full Name */}
               <div>
-                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">Display Name / Full Name</label>
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">Display Name</label>
                 <input 
                   type="text" 
                   value={fullName} 
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Enter your full name here"
-                  className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="Enter your full name"
+                  className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2 text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
-              {/* Unique Username */}
+              {/* Username */}
               <div>
-                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">Username (Must be Unique)</label>
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">Username (Unique)</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">@</span>
+                  <span className="absolute left-3 top-2 text-sm font-bold text-slate-400">@</span>
                   <input 
                     type="text" 
                     value={username} 
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Choose a unique username"
-                    className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl pl-7 pr-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl pl-7 pr-3 py-2 text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
               </div>
@@ -733,14 +916,14 @@ export default function Profile({ session, profileUserId, onMessage }) {
                   onChange={(e) => setBio(e.target.value)}
                   rows={2}
                   placeholder="Tell something about yourself..."
-                  className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                  className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2 text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
                 />
               </div>
 
               <button 
                 type="submit" 
                 disabled={saving || uploadingAvatar}
-                className="w-full bg-purple-600 text-white py-2.5 rounded-xl font-bold text-xs hover:bg-purple-700 transition disabled:opacity-50 flex items-center justify-center space-x-2"
+                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-2.5 rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-purple-500/25 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                 <span>Save Changes</span>
@@ -750,19 +933,92 @@ export default function Profile({ session, profileUserId, onMessage }) {
         </div>
       )}
 
-      {sharePost && <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3" onClick={() => setSharePost(null)}>
-        <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between mb-4"><h3 className="text-base font-extrabold text-slate-800 dark:text-white">Share post</h3><button onClick={() => setSharePost(null)} className="rounded-full bg-slate-100 dark:bg-slate-800 p-2"><X className="w-4 h-4" /></button></div>
-          <div className="grid grid-cols-2 gap-3">
-            <button onClick={copyPostLink} className="rounded-2xl bg-slate-100 dark:bg-slate-800 px-3 py-3 text-xs font-bold text-slate-700 dark:text-slate-200">{shareCopied ? 'Copied!' : 'Copy link'}</button>
-            <a href={`https://wa.me/?text=${encodeURIComponent(postShareUrl(sharePost))}`} target="_blank" rel="noreferrer" className="rounded-2xl bg-emerald-500 px-3 py-3 text-center text-xs font-bold text-white">WhatsApp</a>
-            <button onClick={nativeSharePost} className="col-span-2 rounded-2xl bg-purple-600 px-3 py-3 text-xs font-bold text-white">More sharing options</button>
+      {/* SHARE POST MODAL */}
+      {sharePost && (
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3" onClick={() => setSharePost(null)}>
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-extrabold text-slate-800 dark:text-white">Share post</h3>
+              <button onClick={() => setSharePost(null)} className="rounded-full bg-slate-100 dark:bg-slate-800 p-2 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={copyPostLink} className="rounded-2xl bg-slate-100 dark:bg-slate-800 px-3 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                {shareCopied ? '✅ Copied!' : '📋 Copy link'}
+              </button>
+              <a href={`https://wa.me/?text=${encodeURIComponent(postShareUrl(sharePost))}`} target="_blank" rel="noreferrer" className="rounded-2xl bg-emerald-500 px-3 py-3 text-center text-sm font-bold text-white hover:bg-emerald-600 transition-all">
+                WhatsApp
+              </a>
+              <button onClick={nativeSharePost} className="col-span-2 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 px-3 py-3 text-sm font-bold text-white hover:shadow-lg hover:shadow-purple-500/25 transition-all">
+                More sharing options
+              </button>
+            </div>
           </div>
         </div>
-      </div>}
+      )}
 
-      {reportPost && <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setReportPost(null)}><div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}><div className="flex items-center justify-between mb-4"><h3 className="font-extrabold text-slate-800 dark:text-white">Report post</h3><button onClick={() => setReportPost(null)}><X className="w-5 h-5" /></button></div><p className="text-xs text-slate-500 mb-3">Why are you reporting this post?</p><div className="space-y-2">{['Spam','Harassment or bullying','Hate speech','Nudity or violence','Misinformation','Other'].map((reason) => <label key={reason} className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200"><input type="radio" name="report-reason" checked={reportReason === reason} onChange={() => setReportReason(reason)} />{reason}</label>)}</div>{reportReason === 'Other' && <textarea value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} placeholder="Tell us more..." rows={3} className="mt-3 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-xs" /> }<button onClick={submitPostReport} className="mt-4 w-full rounded-xl bg-rose-600 py-2.5 text-xs font-bold text-white">Submit report</button></div></div>}
-      {listMode && <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"><div className="bg-white dark:bg-slate-900 rounded-2xl p-4 w-full max-w-sm max-h-[70vh] overflow-y-auto"><div className="flex justify-between mb-3"><h3 className="font-bold">{listMode === 'followers' ? 'Followers' : 'Following'}</h3><button onClick={() => setListMode(null)}>✕</button></div>{peopleList.map((person) => <div key={person.id} className="flex items-center gap-3 py-2"><div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-bold">{(person.full_name || person.username || 'U')[0].toUpperCase()}</div><div><p className="text-sm font-bold">{person.full_name || person.username}</p><p className="text-xs text-slate-400">@{person.username}</p></div></div>)}</div></div>}
+      {/* REPORT POST MODAL */}
+      {reportPost && (
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setReportPost(null)}>
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-extrabold text-slate-800 dark:text-white">Report post</h3>
+              <button onClick={() => setReportPost(null)} className="hover:bg-slate-100 dark:hover:bg-slate-800 p-2 rounded-full transition-all">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-500 mb-3">Why are you reporting this post?</p>
+            <div className="space-y-2">
+              {['Spam', 'Harassment or bullying', 'Hate speech', 'Nudity or violence', 'Misinformation', 'Other'].map((reason) => (
+                <label key={reason} className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200 cursor-pointer">
+                  <input type="radio" name="report-reason" checked={reportReason === reason} onChange={() => setReportReason(reason)} className="accent-rose-500" />
+                  {reason}
+                </label>
+              ))}
+            </div>
+            {reportReason === 'Other' && (
+              <textarea 
+                value={reportDetails} 
+                onChange={(e) => setReportDetails(e.target.value)} 
+                placeholder="Tell us more..." 
+                rows={3} 
+                className="mt-3 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
+              />
+            )}
+            <button onClick={submitPostReport} className="mt-4 w-full rounded-xl bg-rose-600 py-2.5 text-sm font-bold text-white hover:bg-rose-700 transition-all">
+              Submit report
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* FOLLOWERS/FOLLOWING LIST MODAL */}
+      {listMode && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 w-full max-w-sm max-h-[70vh] overflow-y-auto">
+            <div className="flex justify-between mb-3">
+              <h3 className="font-bold text-slate-800 dark:text-white">{listMode === 'followers' ? 'Followers' : 'Following'}</h3>
+              <button onClick={() => setListMode(null)} className="hover:bg-slate-100 dark:hover:bg-slate-800 p-1 rounded-full">✕</button>
+            </div>
+            {peopleList.map((person) => (
+              <div key={person.id} className="flex items-center gap-3 py-2 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center text-xs font-bold overflow-hidden">
+                  {person.avatar_url ? (
+                    <img src={person.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    (person.full_name || person.username || 'U')[0].toUpperCase()
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800 dark:text-white">{person.full_name || person.username}</p>
+                  <p className="text-xs text-slate-400">@{person.username}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

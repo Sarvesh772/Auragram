@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Search, Hash, User, Grid, Heart, MessageCircle, TrendingUp } from 'lucide-react';
+import { Search, Hash, User, Grid, Heart, MessageCircle, TrendingUp, Users, Image, Loader2, X } from 'lucide-react';
 import { RenderFormattedText } from './MentionInput';
 
 export default function Explore({ session, onViewProfile }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'users', 'hashtags', 'posts'
+  const [activeFilter, setActiveFilter] = useState('all');
   const [users, setUsers] = useState([]);
   const [posts, setPosts] = useState([]);
   const [trendingTags, setTrendingTags] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedPost, setSelectedPost] = useState(null);
 
   useEffect(() => {
     fetchExploreData();
@@ -18,14 +19,12 @@ export default function Explore({ session, onViewProfile }) {
   async function fetchExploreData() {
     setLoading(true);
 
-    // Fetch Users
     const { data: usersData } = await supabase
       .from('profiles')
       .select('id, username, full_name, avatar_url, bio')
       .neq('id', session.user.id)
       .limit(20);
 
-    // Fetch Posts
     const { data: postsData } = await supabase
       .from('posts')
       .select('*')
@@ -63,7 +62,6 @@ export default function Explore({ session, onViewProfile }) {
 
       setPosts(formattedPosts);
 
-      // Extract Trending Hashtags from posts content
       const tagCounts = {};
       postsData.forEach(p => {
         if (p.content) {
@@ -88,7 +86,6 @@ export default function Explore({ session, onViewProfile }) {
     setLoading(false);
   }
 
-  // Filtered Logic
   const filteredUsers = users.filter(u => 
     u.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     u.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -102,109 +99,137 @@ export default function Explore({ session, onViewProfile }) {
     t.tag.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const getFilteredContent = () => {
+    switch(activeFilter) {
+      case 'users':
+        return { users: filteredUsers, posts: [], tags: [] };
+      case 'hashtags':
+        return { users: [], posts: [], tags: filteredTags };
+      case 'posts':
+        return { users: [], posts: filteredPosts, tags: [] };
+      default:
+        return { users: filteredUsers, posts: filteredPosts, tags: filteredTags };
+    }
+  };
+
+  const { users: displayUsers, posts: displayPosts, tags: displayTags } = getFilteredContent();
+
   return (
-    <div className="w-full min-w-0 p-3 sm:p-4 md:p-6 space-y-5 max-w-2xl mx-auto pb-24 overflow-x-hidden">
-      {/* Search Input Bar */}
-      <div className="relative">
-        <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search accounts, #hashtags, posts..."
-          className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl pl-12 pr-4 py-3 text-sm text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600/50"
-        />
-      </div>
+    <div className="w-full min-h-screen bg-slate-50 dark:bg-slate-950 p-3 sm:p-4 md:p-6 pb-24">
+      <div className="max-w-4xl mx-auto space-y-5">
+        
+        {/* HEADER */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold text-slate-800 dark:text-white">
+            Explore
+          </h1>
+          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+            <TrendingUp className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            <span>Discover</span>
+          </div>
+        </div>
 
-      {/* Filter Tabs */}
-      <div className="flex gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 overflow-x-auto whitespace-nowrap scrollbar-hide">
-        <button
-          onClick={() => setActiveFilter('all')}
-            className={`shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold transition ${
-            activeFilter === 'all'
-              ? 'bg-purple-600 text-white shadow-md shadow-purple-500/20'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-          }`}
-        >
-          Top
-        </button>
-        <button
-          onClick={() => setActiveFilter('users')}
-            className={`shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition ${
-            activeFilter === 'users'
-              ? 'bg-purple-600 text-white shadow-md shadow-purple-500/20'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-          }`}
-        >
-          <User className="w-3.5 h-3.5" />
-          <span>Accounts</span>
-        </button>
-        <button
-          onClick={() => setActiveFilter('hashtags')}
-            className={`shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition ${
-            activeFilter === 'hashtags'
-              ? 'bg-purple-600 text-white shadow-md shadow-purple-500/20'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-          }`}
-        >
-          <Hash className="w-3.5 h-3.5" />
-          <span>Hashtags</span>
-        </button>
-        <button
-          onClick={() => setActiveFilter('posts')}
-            className={`shrink-0 px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition ${
-            activeFilter === 'posts'
-              ? 'bg-purple-600 text-white shadow-md shadow-purple-500/20'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-          }`}
-        >
-          <Grid className="w-3.5 h-3.5" />
-          <span>Posts</span>
-        </button>
-      </div>
-
-      {loading ? (
-        <p className="text-center text-slate-400 py-10 text-sm font-medium">Loading explore...</p>
-      ) : (
-        <div className="space-y-6">
-          
-          {/* HASHTAGS SECTION */}
-          {(activeFilter === 'all' || activeFilter === 'hashtags') && filteredTags.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2 text-slate-800 dark:text-white font-bold text-sm">
-                <TrendingUp className="w-4 h-4 text-purple-600" />
-                <span>Trending Hashtags</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {filteredTags.map((t, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setSearchQuery(t.tag)}
-                    className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-purple-50 dark:hover:bg-purple-950/30 transition text-left border border-slate-100 dark:border-slate-800"
-                  >
-                    <div>
-                      <p className="font-bold text-xs text-purple-600 dark:text-purple-400">{t.tag}</p>
-                      <p className="text-[10px] text-slate-400">{t.count} {t.count === 1 ? 'post' : 'posts'}</p>
-                    </div>
-                    <Hash className="w-4 h-4 text-slate-300" />
-                  </button>
-                ))}
-              </div>
-            </div>
+        {/* SEARCH INPUT BAR */}
+        <div className="relative">
+          <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search accounts, #hashtags, posts..."
+            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl pl-12 pr-4 py-3.5 text-sm text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600/50 focus:border-transparent transition-all duration-200"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
           )}
+        </div>
 
-          {/* ACCOUNTS SECTION */}
-          {(activeFilter === 'all' || activeFilter === 'users') && filteredUsers.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Accounts</h3>
-              <div className="space-y-2">
-                {filteredUsers.map(user => (
-                  <div
-                    key={user.id}
-                    onClick={() => onViewProfile?.(user.id)}
-                    className="min-w-0 flex items-center justify-between p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-purple-300 cursor-pointer transition shadow-2xs"
-                  >
-                    <div className="flex items-center space-x-3">
+        {/* FILTER TABS */}
+        <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto scrollbar-hide">
+          {[
+            { id: 'all', icon: <TrendingUp className="w-3.5 h-3.5" />, label: 'Top' },
+            { id: 'users', icon: <User className="w-3.5 h-3.5" />, label: 'Accounts' },
+            { id: 'hashtags', icon: <Hash className="w-3.5 h-3.5" />, label: 'Hashtags' },
+            { id: 'posts', icon: <Grid className="w-3.5 h-3.5" />, label: 'Posts' }
+          ].map((filter) => (
+            <button
+              key={filter.id}
+              onClick={() => setActiveFilter(filter.id)}
+              className={`shrink-0 flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 ${
+                activeFilter === filter.id
+                  ? 'bg-purple-600 text-white shadow-md shadow-purple-500/20'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              {filter.icon}
+              <span>{filter.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* LOADING STATE */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-16">
+            <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+            <p className="text-sm text-slate-400 mt-3 font-medium">Loading explore...</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            
+            {/* HASHTAGS SECTION */}
+            {displayTags.length > 0 && (activeFilter === 'all' || activeFilter === 'hashtags') && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-purple-600" />
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-white">
+                      Trending Hashtags
+                    </h3>
+                  </div>
+                  <span className="text-xs text-slate-400">{displayTags.length} tags</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {displayTags.map((t, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSearchQuery(t.tag)}
+                      className="flex items-center justify-between p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-purple-300 dark:hover:border-purple-500 hover:shadow-md transition-all duration-200 text-left"
+                    >
+                      <div>
+                        <p className="font-bold text-xs text-purple-600 dark:text-purple-400">{t.tag}</p>
+                        <p className="text-[10px] text-slate-400">{t.count} {t.count === 1 ? 'post' : 'posts'}</p>
+                      </div>
+                      <Hash className="w-4 h-4 text-slate-300 dark:text-slate-600" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ACCOUNTS SECTION */}
+            {displayUsers.length > 0 && (activeFilter === 'all' || activeFilter === 'users') && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-purple-600" />
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-white">
+                      Accounts
+                    </h3>
+                  </div>
+                  <span className="text-xs text-slate-400">{displayUsers.length} users</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {displayUsers.map(user => (
+                    <div
+                      key={user.id}
+                      onClick={() => onViewProfile?.(user.id)}
+                      className="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-purple-300 dark:hover:border-purple-500 cursor-pointer transition-all duration-200 hover:shadow-md"
+                    >
                       <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
                         {user.avatar_url ? (
                           <img src={user.avatar_url} alt="avatar" className="w-full h-full object-cover" />
@@ -212,68 +237,160 @@ export default function Explore({ session, onViewProfile }) {
                           (user.username || 'U')[0].toUpperCase()
                         )}
                       </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-sm text-slate-800 dark:text-white truncate">@{user.username}</p>
-                        <p className="text-xs text-slate-400 truncate">{user.full_name || 'Auragram Member'}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm text-slate-800 dark:text-white truncate">
+                          {user.full_name || user.username}
+                        </p>
+                        <p className="text-xs text-slate-400 truncate">@{user.username}</p>
                       </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* POSTS GRID SECTION */}
+            {displayPosts.length > 0 && (activeFilter === 'all' || activeFilter === 'posts') && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Grid className="w-4 h-4 text-purple-600" />
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-white">
+                      Posts
+                    </h3>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* POSTS GRID SECTION */}
-          {(activeFilter === 'all' || activeFilter === 'posts') && filteredPosts.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Posts</h3>
-              <div className="grid grid-cols-3 gap-1.5 rounded-2xl overflow-hidden">
-                {filteredPosts.map(post => {
-                  const media = post.mediaList?.[0];
-                  return (
-                    <div
-                      key={post.id}
-                      className="relative aspect-square bg-slate-100 dark:bg-slate-800 group overflow-hidden cursor-pointer"
-                    >
-                      {media ? (
-                        media.type === 'video' ? (
-                          <video src={media.url} className="w-full h-full object-cover" />
+                  <span className="text-xs text-slate-400">{displayPosts.length} posts</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5 rounded-2xl overflow-hidden">
+                  {displayPosts.map(post => {
+                    const media = post.mediaList?.[0];
+                    const hasMedia = media && media.url;
+                    
+                    return (
+                      <div
+                        key={post.id}
+                        onClick={() => setSelectedPost(post)}
+                        className="relative aspect-square bg-slate-100 dark:bg-slate-800 group overflow-hidden cursor-pointer"
+                      >
+                        {hasMedia ? (
+                          // MEDIA POSTS - Show image/video
+                          <>
+                            {media.type === 'video' ? (
+                              <video src={media.url} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                            ) : (
+                              <img src={media.url} alt="post" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                            )}
+                            
+                            {/* Overlay for media posts */}
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-4 text-white">
+                              <div className="flex items-center gap-1.5 text-xs font-bold">
+                                <Heart className="w-4 h-4 fill-white" />
+                                <span>{post.likesCount}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-xs font-bold">
+                                <MessageCircle className="w-4 h-4 fill-white" />
+                                <span>{post.commentsCount}</span>
+                              </div>
+                            </div>
+                          </>
                         ) : (
-                          <img src={media.url} alt="post" className="w-full h-full object-cover" />
-                        )
-                      ) : (
-                        <div className="p-3 w-full h-full bg-purple-50 dark:bg-slate-800 flex items-center justify-center text-center">
-                          <p className="text-[10px] font-medium text-slate-600 dark:text-slate-300 line-clamp-3">
-                            <RenderFormattedText text={post.content} onViewProfile={onViewProfile} />
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Hover Overlay */}
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center space-x-3 text-white">
-                        <div className="flex items-center space-x-1 text-xs font-bold">
-                          <Heart className="w-4 h-4 fill-white" />
-                          <span>{post.likesCount}</span>
-                        </div>
-                        <div className="flex items-center space-x-1 text-xs font-bold">
-                          <MessageCircle className="w-4 h-4 fill-white" />
-                          <span>{post.commentsCount}</span>
-                        </div>
+                          // TEXT POSTS - Only content, clean preview
+                          <div className="w-full h-full bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 flex items-center justify-center">
+                            <p className="text-xs font-medium text-slate-700 dark:text-slate-300 line-clamp-6 leading-relaxed text-center">
+                              <RenderFormattedText text={post.content} onViewProfile={onViewProfile} />
+                            </p>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* NO RESULTS FOUND */}
+            {displayUsers.length === 0 && displayPosts.length === 0 && displayTags.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center mb-3">
+                  <Search className="w-8 h-8 text-purple-400" />
+                </div>
+                <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                  No results found for "{searchQuery}"
+                </p>
+                <p className="text-xs text-slate-400 mt-1">Try searching for something else</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* POST DETAIL MODAL */}
+      {selectedPost && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setSelectedPost(null)}>
+          <div className="relative max-w-4xl w-full max-h-[90vh] bg-white dark:bg-slate-900 rounded-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setSelectedPost(null)}
+              className="absolute top-3 right-3 z-10 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            
+            <div className="flex flex-col md:flex-row h-full max-h-[90vh]">
+              {/* Modal - Media */}
+              <div className="flex-1 bg-black flex items-center justify-center p-2 min-h-[300px] md:min-h-0">
+                {selectedPost.mediaList?.[0]?.type === 'video' ? (
+                  <video src={selectedPost.mediaList[0].url} playsInline muted className="max-h-full max-w-full rounded-lg" />
+                ) : selectedPost.mediaList?.[0]?.url ? (
+                  <img src={selectedPost.mediaList[0].url} alt="post" className="max-h-full max-w-full rounded-lg object-contain" />
+                ) : (
+                  // Modal - Text post content
+                  <div className="max-h-full max-w-full p-6 text-center">
+                    <p className="text-white text-lg leading-relaxed">
+                      <RenderFormattedText text={selectedPost.content} onViewProfile={onViewProfile} />
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Modal - Details */}
+              <div className="w-full md:w-80 p-4 bg-white dark:bg-slate-900 flex flex-col">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
+                    {selectedPost.profiles?.avatar_url ? (
+                      <img src={selectedPost.profiles.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      (selectedPost.profiles?.username || 'U')[0].toUpperCase()
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm text-slate-800 dark:text-white">
+                      {selectedPost.profiles?.full_name || selectedPost.profiles?.username}
+                    </p>
+                    <p className="text-xs text-slate-400">@{selectedPost.profiles?.username}</p>
+                  </div>
+                </div>
+                
+                {selectedPost.content && (
+                  <div className="flex-1 overflow-y-auto mb-3">
+                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                      <RenderFormattedText text={selectedPost.content} onViewProfile={onViewProfile} />
+                    </p>
+                  </div>
+                )}
+                
+                <div className="flex items-center gap-6 pt-3 border-t border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 text-sm">
+                  <div className="flex items-center gap-1.5">
+                    <Heart className="w-4 h-4" />
+                    <span>{selectedPost.likesCount}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <MessageCircle className="w-4 h-4" />
+                    <span>{selectedPost.commentsCount}</span>
+                  </div>
+                </div>
               </div>
             </div>
-          )}
-
-          {/* NO RESULTS FOUND */}
-          {filteredUsers.length === 0 && filteredPosts.length === 0 && filteredTags.length === 0 && (
-            <p className="text-center text-slate-400 py-12 text-xs font-semibold">
-              No results found for "{searchQuery}"
-            </p>
-          )}
-
+          </div>
         </div>
       )}
     </div>

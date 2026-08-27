@@ -8,6 +8,15 @@ export default function Notifications({ session, onViewProfile }) {
   const [loading, setLoading] = useState(true);
   const [selectedNotif, setSelectedNotif] = useState(null);
 
+  const notificationText = (type) => ({
+    like: 'liked your post.',
+    comment: 'commented on your post.',
+    reply: 'replied to your comment.',
+    follow: 'started following you.',
+    followback: 'followed you back.',
+    mention: 'mentioned you in a post or comment.'
+  }[type] || 'interacted with your content.');
+
   useEffect(() => {
     let channel;
 
@@ -202,14 +211,11 @@ export default function Notifications({ session, onViewProfile }) {
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-medium text-slate-800 dark:text-slate-200 leading-snug">
                     <span className="font-extrabold text-slate-900 dark:text-white">@{notif.actor?.username || 'user'}</span>{' '}
-                    {notif.type === 'like' && 'liked your post.'}
-                    {notif.type === 'comment' && 'commented on your post.'}
-                    {notif.type === 'follow' && 'started following you.'}
-                    {notif.type === 'mention' && 'mentioned you in a post or comment.'}
+                    {notificationText(notif.type)}
                   </p>
 
                   {/* Comment/Mention Text Preview */}
-                  {notif.comment_text && (notif.type === 'comment' || notif.type === 'mention') && (
+                  {notif.comment_text && (notif.type === 'comment' || notif.type === 'reply' || notif.type === 'mention') && (
                     <div className="mt-1.5 p-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 italic truncate max-w-sm">
                       <RenderFormattedText text={`"${notif.comment_text}"`} onViewProfile={onViewProfile} />
                     </div>
@@ -288,7 +294,7 @@ export default function Notifications({ session, onViewProfile }) {
                   {selectedNotif.post.media_url && (
                     <div className="rounded-xl overflow-hidden max-h-52 bg-black/5">
                       {selectedNotif.post.media_type === 'video' ? (
-                        <video src={selectedNotif.post.media_url} controls className="w-full max-h-52 object-contain" />
+                        <video src={selectedNotif.post.media_url} playsInline muted className="w-full max-h-52 object-contain" />
                       ) : (
                         <img src={selectedNotif.post.media_url} alt="post media" className="w-full max-h-52 object-contain" />
                       )}

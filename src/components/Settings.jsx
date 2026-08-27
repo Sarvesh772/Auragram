@@ -380,7 +380,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode }) {
 
               {previewPost.media_url && (
                 previewPost.media_type === 'video' ? (
-                  <video src={previewPost.media_url} controls className="w-full rounded-2xl max-h-80 bg-black" />
+                  <video src={previewPost.media_url} playsInline muted className="w-full rounded-2xl max-h-80 bg-black" />
                 ) : (
                   <img src={previewPost.media_url} className="w-full rounded-2xl max-h-80 object-cover" alt="Saved Preview" />
                 )

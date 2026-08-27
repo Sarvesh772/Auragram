@@ -60,6 +60,11 @@ function MessagesWrapper({ session }) {
   );
 }
 
+function ReelsWrapper({ session }) {
+  const [searchParams] = useSearchParams();
+  return <Reels session={session} initialReelId={searchParams.get('reel')} onViewProfile={(id) => window.history.pushState({}, '', `/profile/${id}`)} />;
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
@@ -220,7 +225,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<FeedWrapper session={session} />} />
             <Route path="/explore" element={<Explore session={session} onViewProfile={(id) => navigate(`/profile/${id}`)} />} />
-            <Route path="/reels" element={<Reels session={session} onViewProfile={(id) => navigate(`/profile/${id}`)} />} />
+            <Route path="/reels" element={<ReelsWrapper session={session} />} />
             <Route path="/messages" element={<MessagesWrapper session={session} />} />
             <Route path="/notifications" element={<Notifications session={session} onViewProfile={(id) => navigate(`/profile/${id}`)} />} />
             <Route path="/profile" element={<ProfileWrapper session={session} />} />

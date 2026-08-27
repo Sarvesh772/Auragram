@@ -35,7 +35,7 @@ async function processMentions(text, actorId, postId) {
   }
 }
 
-export default function Reels({ session, onViewProfile }) {
+export default function Reels({ session, onViewProfile, initialReelId }) {
   const [reels, setReels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
@@ -43,12 +43,19 @@ export default function Reels({ session, onViewProfile }) {
   const [menuReelId, setMenuReelId] = useState(null);
   const [editingReel, setEditingReel] = useState(null);
   const [editText, setEditText] = useState('');
+  const [reportReel, setReportReel] = useState(null);
+  const [reportReason, setReportReason] = useState('Spam');
+  const [reportDetails, setReportDetails] = useState('');
+  const [reportMessage, setReportMessage] = useState('');
+  const [videoProgress, setVideoProgress] = useState({});
 
   // Active Comments Drawer State
   const [activeReelId, setActiveReelId] = useState(null);
   const [commentsMap, setCommentsMap] = useState({});
   const [commentTextMap, setCommentTextMap] = useState({});
   const [loadingComments, setLoadingComments] = useState({});
+  const [commentLikes, setCommentLikes] = useState({});
+  const [replyingTo, setReplyingTo] = useState(null);
 
   // Refs for video elements
   const videoRefs = useRef({});
@@ -57,6 +64,13 @@ export default function Reels({ session, onViewProfile }) {
     fetchReels();
     fetchBookmarks();
   }, []);
+
+  useEffect(() => {
+    if (initialReelId && reels.length) {
+      const index = reels.findIndex((reel) => reel.id === initialReelId);
+      if (index >= 0) setTimeout(() => document.querySelector(`[data-reel-card="${initialReelId}"]`)?.scrollIntoView({ behavior: 'smooth' }), 100);
+    }
+  }, [initialReelId, reels]);
 
   async function fetchBookmarks() {
     const { data } = await supabase.from('bookmarks').select('post_id').eq('user_id', session.user.id);
@@ -90,6 +104,18 @@ export default function Reels({ session, onViewProfile }) {
     setEditingReel(null);
   }
 
+  async function copyReelLink(reel) { await navigator.clipboard?.writeText(`${window.location.origin}/reels?reel=${encodeURIComponent(reel.id)}`); setMenuReelId(null); }
+  async function submitReelReport() {
+    if (!reportReel) return;
+    const reason = reportReason === 'Other' ? reportDetails.trim() : reportReason;
+    if (!reason) return;
+    const { error } = await supabase.from('reports').insert([{ reporter_id: session.user.id, reported_user_id: reportReel.user_id, post_id: reportReel.id, reason }]);
+    if (error) { setReportMessage(`Report failed: ${error.message}`); return; }
+    setReportReel(null); setReportDetails(''); setReportReason('Spam');
+    setReportMessage('Reel report submitted successfully.');
+    setTimeout(() => setReportMessage(''), 2400);
+  }
+
   // HELPER FUNCTION FOR NOTIFICATIONS
   async function sendNotification({ recipientId, actorId, type, postId = null }) {
     if (!recipientId || recipientId === actorId) return;
@@ -112,6 +138,17 @@ export default function Reels({ session, onViewProfile }) {
   async function fetchReels() {
     setLoading(true);
 
+    const [{ data: mutedRows }, { data: blockedRows }, { data: blockedByRows }] = await Promise.all([
+      supabase.from('muted_users').select('muted_id').eq('muter_id', session.user.id),
+      supabase.from('blocked_users').select('blocked_id').eq('blocker_id', session.user.id),
+      supabase.from('blocked_users').select('blocker_id').eq('blocked_id', session.user.id)
+    ]);
+    const hiddenUsers = new Set([
+      ...(mutedRows || []).map(r => r.muted_id),
+      ...(blockedRows || []).map(r => r.blocked_id),
+      ...(blockedByRows || []).map(r => r.blocker_id)
+    ]);
+
     const { data: reelsData, error } = await supabase
       .from('posts')
       .select('*')
@@ -123,8 +160,9 @@ export default function Reels({ session, onViewProfile }) {
       return;
     }
 
-    const userIds = [...new Set(reelsData.map(r => r.user_id))];
-    const reelIds = reelsData.map(r => r.id);
+    const visibleReels = reelsData.filter(r => !hiddenUsers.has(r.user_id));
+    const userIds = [...new Set(visibleReels.map(r => r.user_id))];
+    const reelIds = visibleReels.map(r => r.id);
 
     const [profilesRes, likesRes, commentsRes] = await Promise.all([
       supabase.from('profiles').select('*').in('id', userIds),
@@ -134,7 +172,7 @@ export default function Reels({ session, onViewProfile }) {
 
     const profilesMap = (profilesRes.data || []).reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
 
-    const formattedReels = reelsData.map(reel => ({
+    const formattedReels = visibleReels.map(reel => ({
       ...reel,
       profiles: profilesMap[reel.user_id] || null,
       likes: (likesRes.data || []).filter(l => l.post_id === reel.id),
@@ -220,7 +258,8 @@ export default function Reels({ session, onViewProfile }) {
     const newCommentObj = {
       post_id: reelId,
       user_id: session.user.id,
-      content: text.trim()
+      content: text.trim(),
+      parent_comment_id: replyingTo?.id || null
     };
 
     const { data, error } = await supabase
@@ -245,6 +284,7 @@ export default function Reels({ session, onViewProfile }) {
         [reelId]: [...(prev[reelId] || []), createdComment]
       }));
       setCommentTextMap(prev => ({ ...prev, [reelId]: '' }));
+      setReplyingTo(null);
 
       setReels(prev => prev.map(r => r.id === reelId ? { ...r, comments: [...r.comments, { id: data.id }] } : r));
 
@@ -255,6 +295,13 @@ export default function Reels({ session, onViewProfile }) {
         postId: reelId
       });
     }
+  }
+
+  async function toggleCommentLike(commentId, reelId) {
+    const liked = (commentLikes[reelId] || []).includes(commentId);
+    if (liked) await supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', session.user.id);
+    else await supabase.from('comment_likes').insert([{ comment_id: commentId, post_id: reelId, user_id: session.user.id }]);
+    setCommentLikes(prev => ({ ...prev, [reelId]: liked ? (prev[reelId] || []).filter(id => id !== commentId) : [...(prev[reelId] || []), commentId] }));
   }
 
   async function handleDeleteComment(reelId, commentId) {
@@ -270,10 +317,11 @@ export default function Reels({ session, onViewProfile }) {
   }
 
   async function handleShareReel(reel) {
-    const shareData = { title: 'Auragram Reel', text: reel.content || 'Check out this reel on Auragram', url: window.location.href };
+    const reelUrl = `${window.location.origin}/reels?reel=${encodeURIComponent(reel.id)}`;
+    const shareData = { title: 'Auragram Reel', text: reel.content || 'Check out this reel on Auragram', url: reelUrl };
     try {
       if (navigator.share) await navigator.share(shareData);
-      else await navigator.clipboard.writeText(window.location.href);
+      else await navigator.clipboard.writeText(reelUrl);
     } catch (error) {
       if (error?.name !== 'AbortError') console.error('Share failed:', error);
     }
@@ -331,6 +379,7 @@ export default function Reels({ session, onViewProfile }) {
             return (
               <div 
                 key={reel.id} 
+                data-reel-card={reel.id}
                 className="w-full h-[calc(100dvh-124px)] md:h-[100dvh] snap-start snap-always relative flex-shrink-0 flex items-center justify-center bg-black"
               >
                 {/* Video Player */}
@@ -340,10 +389,14 @@ export default function Reels({ session, onViewProfile }) {
                   src={reel.media_url}
                   className="w-full h-full object-cover"
                   loop
-                  autoPlay
+                  preload="none"
                   muted={isMuted}
                   playsInline
+                  onClick={(e) => { e.stopPropagation(); const video = e.currentTarget; video.paused ? video.play() : video.pause(); }}
+                  onTimeUpdate={(e) => { const video = e.currentTarget; setVideoProgress((prev) => ({ ...prev, [reel.id]: { current: video.currentTime, duration: video.duration || 0 } })); }}
                 />
+
+                <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/25 z-20 cursor-pointer" onClick={(e) => { e.stopPropagation(); const video = videoRefs.current[reel.id]; if (video?.duration) video.currentTime = ((e.clientX - e.currentTarget.getBoundingClientRect().left) / e.currentTarget.clientWidth) * video.duration; }}><div className="h-full bg-white transition-[width]" style={{ width: `${Math.min(100, ((videoProgress[reel.id]?.current || 0) / (videoProgress[reel.id]?.duration || 1)) * 100)}%` }} /></div>
 
                 {/* Gradient Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
@@ -445,99 +498,255 @@ export default function Reels({ session, onViewProfile }) {
                     >
                       <MoreVertical className="w-6 h-6" />
                     </button>
-                    {menuReelId === reel.id && isOwnReel && (
+                    {menuReelId === reel.id && (
                       <div className="absolute right-0 bottom-14 min-w-28 flex flex-col gap-1 bg-slate-950/95 p-1.5 rounded-xl shadow-2xl border border-white/20">
-                        <button onClick={() => { setEditingReel(reel); setEditText(reel.content || ''); setMenuReelId(null); }} className="text-left text-white hover:bg-white/15 px-3 py-2 rounded-lg text-xs font-semibold">Edit</button>
-                        <button onClick={() => handleDeleteReel(reel.id)} className="text-left text-rose-300 hover:bg-rose-500/20 px-3 py-2 rounded-lg text-xs font-semibold">Delete</button>
+                        {isOwnReel ? <><button onClick={() => { setEditingReel(reel); setEditText(reel.content || ''); setMenuReelId(null); }} className="text-left text-white hover:bg-white/15 px-3 py-2 rounded-lg text-xs font-semibold">Edit caption</button><button onClick={() => handleDeleteReel(reel.id)} className="text-left text-rose-300 hover:bg-rose-500/20 px-3 py-2 rounded-lg text-xs font-semibold">Delete reel</button></> : <><button onClick={() => setReportReel(reel)} className="text-left text-rose-300 hover:bg-rose-500/20 px-3 py-2 rounded-lg text-xs font-semibold">Report reel</button><button onClick={() => copyReelLink(reel)} className="text-left text-white hover:bg-white/15 px-3 py-2 rounded-lg text-xs font-semibold">Copy link</button></>}
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Bottom Comments Drawer Modal */}
-                {activeReelId === reel.id && (
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900 via-slate-900/95 to-slate-900/80 backdrop-blur-xl text-white rounded-t-3xl p-4 z-30 space-y-3 max-h-[70%] flex flex-col shadow-2xl border-t border-white/10 animate-in slide-in-from-bottom duration-300">
-                    {/* Comments Header */}
-                    <div className="flex items-center justify-between border-b border-white/10 pb-3 flex-shrink-0">
-                      <h4 className="text-xs font-black uppercase text-white/60 tracking-wider flex items-center gap-2">
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        Comments ({commentsCount})
-                      </h4>
-                      <button 
-                        onClick={() => setActiveReelId(null)} 
-                        className="p-2 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-all duration-200"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
+                {/* Bottom Comments Drawer Modal - FINAL PREMIUM VERSION (Icon Only) */}
+{activeReelId === reel.id && (
+  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0f0f0f] via-[#1a1a1a] to-[#1a1a1a]/95 backdrop-blur-xl text-white rounded-t-3xl p-0 z-30 max-h-[60%] md:max-h-[65%] flex flex-col shadow-2xl border-t border-white/10 animate-in slide-in-from-bottom duration-300">
+    
+    {/* Header */}
+    <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 flex-shrink-0 bg-gradient-to-r from-[#1a1a1a] to-transparent">
+      <div className="flex items-center gap-2">
+        <div className="w-1 h-5 bg-gradient-to-b from-rose-500 to-amber-500 rounded-full"></div>
+        <h4 className="text-sm font-semibold tracking-wide text-white/90">
+          Comments
+        </h4>
+        <span className="text-xs font-medium text-white/40 bg-white/5 px-2 py-0.5 rounded-full">
+          {commentsCount}
+        </span>
+      </div>
+      <button 
+        onClick={() => {
+          setActiveReelId(null);
+          setReplyingTo(null);
+        }} 
+        className="p-2 rounded-full hover:bg-white/10 text-white/40 hover:text-white transition-all duration-300 hover:scale-110"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </div>
 
-                    {/* Comments List */}
-                    <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar min-h-0">
-                      {loadingComments[reel.id] ? (
-                        <div className="flex justify-center py-8">
-                          <Loader2 className="w-5 h-5 animate-spin text-rose-500" />
-                        </div>
-                      ) : (commentsMap[reel.id] || []).length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-8 text-center">
-                          <MessageCircle className="w-8 h-8 text-white/20 mb-2" />
-                          <p className="text-xs text-white/40">No comments yet</p>
-                          <p className="text-[10px] text-white/30">Be the first to comment!</p>
-                        </div>
-                      ) : (
-                        commentsMap[reel.id].map(comment => (
-                          <div key={comment.id} className="flex justify-between items-start group">
-                            <div className="flex space-x-3 items-start">
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-500 to-amber-500 text-white font-bold flex items-center justify-center text-[10px] overflow-hidden flex-shrink-0 mt-0.5 shadow-lg">
-                                {comment.profiles?.avatar_url ? (
-                                  <img src={comment.profiles.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                                ) : (
-                                  (comment.profiles?.username || 'U')[0].toUpperCase()
-                                )}
-                              </div>
-                              <div className="bg-white/10 backdrop-blur-sm p-2.5 rounded-2xl text-xs max-w-[220px] border border-white/5">
-                                <span className="font-bold text-rose-400 block text-[10px] mb-0.5">
-                                  @{comment.profiles?.username || 'user'}
-                                </span>
-                                <p className="text-white/90 text-[11px] leading-snug">
-                                  <RenderFormattedText text={comment.content} onViewProfile={onViewProfile} />
-                                </p>
-                              </div>
-                            </div>
-
-                            {comment.user_id === session.user.id && (
-                              <button
-                                onClick={() => handleDeleteComment(reel.id, comment.id)}
-                                className="text-white/30 hover:text-rose-500 p-1.5 transition-all duration-200 hover:scale-110"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        ))
-                      )}
-                    </div>
-
-                   {/* Add Comment Input with @Mention Support */}
-<div className="flex items-center space-x-2 pt-3 border-t border-white/10 flex-shrink-0 w-full">
-  <div className="flex-1 min-w-0">
-    <MentionInput
-      value={commentTextMap[reel.id] || ''}
-      onChange={(val) => setCommentTextMap({ ...commentTextMap, [reel.id]: val })}
-      placeholder="Add a comment... (use @ to tag)"
-      onSend={() => handleAddComment(reel)}
-      currentUserId={session.user.id}
-      className="w-full bg-white/10 border border-white/10 rounded-full px-4 py-2.5 text-xs text-white placeholder-white/40 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all duration-200 truncate"
-    />
-  </div>
-  <button
-    onClick={() => handleAddComment(reel)}
-    className="bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white p-2.5 rounded-full transition-all duration-200 hover:scale-105 active:scale-90 shadow-lg shadow-rose-500/20 flex-shrink-0"
-  >
-    <Send className="w-4 h-4" />
-  </button>
-</div>
+    {/* Comments List */}
+    <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5 custom-scrollbar">
+      {loadingComments[reel.id] ? (
+        <div className="flex justify-center py-12">
+          <div className="w-8 h-8 border-2 border-rose-500/20 border-t-rose-500 rounded-full animate-spin"></div>
+        </div>
+      ) : (commentsMap[reel.id] || []).length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-rose-500/10 to-amber-500/10 flex items-center justify-center mb-4 border border-white/5">
+            <MessageCircle className="w-7 h-7 text-white/20" />
+          </div>
+          <p className="text-sm font-medium text-white/40">No comments yet</p>
+          <p className="text-xs text-white/20 mt-1">Be the first to share your thoughts</p>
+        </div>
+      ) : (
+        commentsMap[reel.id].map((comment) => {
+          const isLiked = (commentLikes[reel.id] || []).includes(comment.id);
+          const likeCount = (commentLikes[reel.id] || []).filter(id => id === comment.id).length;
+          
+          return (
+            <div key={comment.id} className="group space-y-2">
+              {/* Main Comment */}
+              <div className="flex gap-3">
+                {/* Avatar with Glow */}
+                <div className="relative flex-shrink-0">
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-rose-500/20 to-amber-500/20 blur-sm group-hover:blur-md transition-all duration-500"></div>
+                  <div className="relative w-9 h-9 rounded-full bg-gradient-to-br from-rose-400 to-amber-400 flex items-center justify-center text-xs font-bold overflow-hidden ring-2 ring-white/10 group-hover:ring-white/20 transition-all duration-300">
+                    {comment.profiles?.avatar_url ? (
+                      <img src={comment.profiles.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      (comment.profiles?.full_name || comment.profiles?.username || 'U')[0].toUpperCase()
+                    )}
                   </div>
-                )}
+                </div>
+                
+                {/* Comment Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-sm text-white/95">
+                      {comment.profiles?.full_name || comment.profiles?.username || 'User'}
+                    </span>
+                    <span className="text-xs text-white/40">
+                      @{comment.profiles?.username || 'user'}
+                    </span>
+                    <span className="text-[10px] text-white/30 tracking-wide">
+                      · {new Date(comment.created_at).toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                  
+                  <p className="text-sm text-white/90 leading-relaxed mt-0.5 pl-0.5">
+                    <RenderFormattedText text={comment.content} onViewProfile={onViewProfile} />
+                  </p>
+                  
+                  {/* Comment Actions */}
+                  <div className="flex items-center gap-4 mt-2">
+                    <button 
+                      onClick={() => toggleCommentLike(comment.id, reel.id)} 
+                      className={`flex items-center gap-1.5 text-xs font-medium transition-all duration-300 ${
+                        isLiked 
+                          ? 'text-rose-500' 
+                          : 'text-white/30 hover:text-white/70 hover:scale-105'
+                      }`}
+                    >
+                      <Heart className={`w-3.5 h-3.5 transition-all duration-300 ${isLiked ? 'fill-rose-500 scale-110' : ''}`} />
+                      {likeCount > 0 && <span>{likeCount}</span>}
+                    </button>
+                    
+                    <button 
+                      onClick={() => { 
+                        setReplyingTo(comment); 
+                        setCommentTextMap(prev => ({ ...prev, [reel.id]: '' }));
+                      }} 
+                      className="text-xs font-medium text-white/30 hover:text-white/70 hover:scale-105 transition-all duration-300"
+                    >
+                      Reply
+                    </button>
+                    
+                    {comment.user_id === session.user.id && (
+                      <button
+                        onClick={() => handleDeleteComment(reel.id, comment.id)}
+                        className="text-xs font-medium text-white/20 hover:text-rose-400 hover:scale-105 transition-all duration-300 ml-auto"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Replies */}
+              {comment.replies && comment.replies.length > 0 && (
+                <div className="ml-12 space-y-3 border-l-2 border-gradient-to-b from-rose-500/30 to-amber-500/30 pl-4">
+                  {comment.replies.map((reply) => {
+                    const isReplyLiked = (commentLikes[reel.id] || []).includes(reply.id);
+                    const replyLikeCount = (commentLikes[reel.id] || []).filter(id => id === reply.id).length;
+                    
+                    return (
+                      <div key={reply.id} className="group/reply">
+                        <div className="flex gap-3">
+                          {/* Reply Avatar */}
+                          <div className="relative flex-shrink-0">
+                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-purple-400 flex items-center justify-center text-[10px] font-bold overflow-hidden ring-2 ring-white/5 group-hover/reply:ring-white/20 transition-all duration-300">
+                              {reply.profiles?.avatar_url ? (
+                                <img src={reply.profiles.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                              ) : (
+                                (reply.profiles?.username || 'U')[0].toUpperCase()
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Reply Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-xs text-white/95">
+                                {reply.profiles?.full_name || reply.profiles?.username || 'User'}
+                              </span>
+                              <span className="text-[10px] text-white/40">
+                                @{reply.profiles?.username}
+                              </span>
+                              <span className="text-[9px] text-white/30">
+                                · {new Date(reply.created_at).toLocaleDateString('en-US', { 
+                                  month: 'short', 
+                                  day: 'numeric' 
+                                })}
+                              </span>
+                            </div>
+                            
+                            <p className="text-xs text-white/85 leading-relaxed mt-0.5">
+                              <RenderFormattedText text={reply.content} onViewProfile={onViewProfile} />
+                            </p>
+                            
+                            {/* Reply Actions */}
+                            <div className="flex items-center gap-4 mt-1.5">
+                              <button 
+                                onClick={() => toggleCommentLike(reply.id, reel.id)} 
+                                className={`flex items-center gap-1 text-[10px] font-medium transition-all duration-300 ${
+                                  isReplyLiked 
+                                    ? 'text-rose-500' 
+                                    : 'text-white/30 hover:text-white/70 hover:scale-105'
+                                }`}
+                              >
+                                <Heart className={`w-3 h-3 transition-all duration-300 ${isReplyLiked ? 'fill-rose-500 scale-110' : ''}`} />
+                                {replyLikeCount > 0 && <span>{replyLikeCount}</span>}
+                              </button>
+                              
+                              <button 
+                                onClick={() => { 
+                                  setReplyingTo(reply); 
+                                  setCommentTextMap(prev => ({ ...prev, [reel.id]: '' }));
+                                }} 
+                                className="text-[10px] font-medium text-white/30 hover:text-white/70 hover:scale-105 transition-all duration-300"
+                              >
+                                Reply
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })
+      )}
+    </div>
+
+    {/* Comment Input - Icon Only */}
+    <div className="border-t border-white/10 p-4 flex-shrink-0 bg-gradient-to-b from-transparent to-[#0f0f0f]">
+      {replyingTo && replyingTo.post_id === reel.id && (
+        <div className="flex items-center justify-between text-xs text-rose-400/80 mb-3 px-1">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-4 bg-gradient-to-b from-rose-500 to-amber-500 rounded-full"></div>
+            <span>Replying to @{replyingTo.profiles?.username || 'user'}</span>
+          </div>
+          <button 
+            onClick={() => setReplyingTo(null)} 
+            className="text-white/30 hover:text-white/60 transition-all duration-300 hover:rotate-90"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+      
+      <div className="flex items-center gap-3 bg-white/5 rounded-full px-4 py-1 border border-white/10 focus-within:border-rose-500/40 focus-within:ring-1 focus-within:ring-rose-500/40 transition-all duration-300">
+        <div className="flex-1">
+          <MentionInput
+            value={commentTextMap[reel.id] || ''}
+            onChange={(val) => setCommentTextMap({ ...commentTextMap, [reel.id]: val })}
+            placeholder={replyingTo ? "Write a reply..." : "Add a comment..."}
+            onSend={() => handleAddComment(reel)}
+            currentUserId={session.user.id}
+            className="w-full bg-transparent border-0 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-0"
+          />
+        </div>
+        <button
+          onClick={() => handleAddComment(reel)}
+          disabled={!commentTextMap[reel.id]?.trim()}
+          className={`p-2 rounded-full transition-all duration-300 ${
+            !commentTextMap[reel.id]?.trim() 
+              ? 'text-white/20 cursor-not-allowed' 
+              : 'bg-gradient-to-r from-rose-500 to-amber-500 text-white hover:shadow-lg hover:shadow-rose-500/25 hover:scale-110 active:scale-95'
+          }`}
+        >
+          <Send className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  </div>
+)}
               </div>
             );
           })}
@@ -563,6 +772,8 @@ export default function Reels({ session, onViewProfile }) {
           </div>
         </div>
       )}
+      {reportMessage && <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[80] rounded-full bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-xl">{reportMessage}</div>}
+      {reportReel && <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setReportReel(null)}><div className="bg-slate-900 rounded-2xl p-5 w-full max-w-sm space-y-3" onClick={(e) => e.stopPropagation()}><div className="flex items-center justify-between"><h3 className="font-bold text-white">Report reel</h3><button onClick={() => setReportReel(null)} className="text-slate-400">×</button></div><p className="text-xs text-slate-300">Why are you reporting this reel?</p><div className="space-y-2">{['Spam','Harassment or bullying','Hate speech','Misinformation','Other'].map((reason) => <label key={reason} className="flex items-center gap-2 text-xs text-slate-200"><input type="radio" name="reel-report-reason" checked={reportReason === reason} onChange={() => setReportReason(reason)} />{reason}</label>)}</div>{reportReason === 'Other' && <textarea value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} placeholder="Tell us more..." rows={3} className="w-full rounded-xl border border-slate-700 bg-slate-800 p-3 text-xs text-white outline-none" />}<div className="flex justify-end gap-2"><button onClick={() => setReportReel(null)} className="px-3 py-2 text-sm text-slate-300">Cancel</button><button onClick={submitReelReport} className="bg-rose-600 px-4 py-2 rounded-xl text-sm font-bold text-white">Submit report</button></div></div></div>}
     </div>
   );
 }

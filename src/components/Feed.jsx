@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import Story from './Story';
-import { Image as ImageIcon, Video, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight, MoreVertical, Flag } from 'lucide-react';
+import { Image as ImageIcon, Video, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight, MoreVertical, Flag, Play } from 'lucide-react';
 import MentionInput from './MentionInput';
 import { RenderFormattedText } from './MentionInput';
 
@@ -39,6 +39,8 @@ async function processMentions(text, actorId, postId) {
 // Media Carousel Component for Posts
 function PostMediaCarousel({ mediaItems }) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const videoRef = useRef(null);
 
   if (!mediaItems || mediaItems.length === 0) return null;
 
@@ -54,10 +56,21 @@ function PostMediaCarousel({ mediaItems }) {
 
   const currentItem = mediaItems[currentIndex];
 
+  const togglePlayback = (e) => {
+    e.stopPropagation();
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) { video.play().catch(() => {}); setPlaying(true); }
+    else { video.pause(); setPlaying(false); }
+  };
+
   return (
     <div className="relative w-full max-h-[480px] bg-black flex items-center justify-center overflow-hidden group">
       {currentItem.type === 'video' ? (
-        <video src={currentItem.url} controls className="w-full max-h-[480px] object-contain" />
+        <div className="relative w-full flex items-center justify-center" onClick={togglePlayback}>
+          <video ref={videoRef} src={currentItem.url} playsInline muted onEnded={() => setPlaying(false)} className="w-full max-h-[480px] object-contain" />
+          {!playing && <button type="button" aria-label="Play video" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/65 p-4 text-white shadow-lg backdrop-blur-sm"><Play className="h-6 w-6 fill-current" /></button>}
+        </div>
       ) : (
         <img src={currentItem.url} alt={`Slide ${currentIndex + 1}`} className="w-full max-h-[480px] object-cover" />
       )}
@@ -204,6 +217,17 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
   async function fetchPosts() {
     setLoading(true);
 
+    const [{ data: mutedRows }, { data: blockedRows }, { data: blockedByRows }] = await Promise.all([
+      supabase.from('muted_users').select('muted_id').eq('muter_id', session.user.id),
+      supabase.from('blocked_users').select('blocked_id').eq('blocker_id', session.user.id),
+      supabase.from('blocked_users').select('blocker_id').eq('blocked_id', session.user.id)
+    ]);
+    const hiddenUsers = new Set([
+      ...(mutedRows || []).map(r => r.muted_id),
+      ...(blockedRows || []).map(r => r.blocked_id),
+      ...(blockedByRows || []).map(r => r.blocker_id)
+    ]);
+
     const { data: postsData, error: postsError } = await supabase
       .from('posts')
       .select('*')
@@ -214,8 +238,9 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
       return;
     }
 
-    const userIds = [...new Set(postsData.map(p => p.user_id))];
-    const postIds = postsData.map(p => p.id);
+    const visiblePosts = postsData.filter(p => !hiddenUsers.has(p.user_id));
+    const userIds = [...new Set(visiblePosts.map(p => p.user_id))];
+    const postIds = visiblePosts.map(p => p.id);
 
     const [profilesRes, likesRes, commentsRes] = await Promise.all([
       supabase.from('profiles').select('*').in('id', userIds),
@@ -228,7 +253,7 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
       return acc;
     }, {});
 
-    const formattedPosts = postsData.map(post => {
+    const formattedPosts = visiblePosts.map(post => {
       // Normalizing media list for carousel
       let mediaList = [];
       if (post.media_urls && Array.isArray(post.media_urls) && post.media_urls.length > 0) {
@@ -413,7 +438,7 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
   }
 
   async function handleSharePost(post) {
-    const url = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
+    const url = `${window.location.origin}/?post=${encodeURIComponent(post.id)}`;
     if (navigator.share) await navigator.share({ title: 'Auragram post', text: post.content || 'Check this post', url });
     else await navigator.clipboard?.writeText(url);
   }
