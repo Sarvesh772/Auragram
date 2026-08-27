@@ -126,6 +126,8 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
   const [reportPost, setReportPost] = useState(null);
   const [reportReason, setReportReason] = useState('Spam');
   const [reportDetails, setReportDetails] = useState('');
+  const [editingPost, setEditingPost] = useState(null);
+  const [editContent, setEditContent] = useState('');
   const [reportMessage, setReportMessage] = useState('');
 
   async function submitReport() {
@@ -138,6 +140,22 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
     }
     if (error) { window.alert(`Report failed: ${error.message}`); return; }
     setReportPost(null); setReportDetails(''); setReportMessage('Report submitted successfully.'); setTimeout(() => setReportMessage(''), 2200);
+  }
+
+  async function deletePost(post) {
+    if (!post || post.user_id !== session.user.id) return;
+    const { error } = await supabase.from('posts').delete().eq('id', post.id).eq('user_id', session.user.id);
+    if (error) { window.alert(`Delete failed: ${error.message}`); return; }
+    setPosts((prev) => prev.filter((item) => item.id !== post.id));
+    setReportPost(null);
+  }
+
+  async function saveEditedPost() {
+    if (!editingPost) return;
+    const { error } = await supabase.from('posts').update({ content: editContent.trim() }).eq('id', editingPost.id).eq('user_id', session.user.id);
+    if (error) { window.alert(`Edit failed: ${error.message}`); return; }
+    setPosts((prev) => prev.map((item) => item.id === editingPost.id ? { ...item, content: editContent.trim() } : item));
+    setEditingPost(null); setReportPost(null);
   }
 
   useEffect(() => {
@@ -604,7 +622,8 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
           );
         })
       )}
-      {reportPost && <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-4" onClick={() => setReportPost(null)}><div className="bg-white dark:bg-slate-900 rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}><div className="flex justify-between mb-3"><b>Report post</b><button onClick={() => setReportPost(null)}><X className="w-4 h-4" /></button></div>{['Spam','Harassment or bullying','Hate speech','Misinformation','Other'].map(r => <label className="block text-xs py-1" key={r}><input type="radio" name="report" checked={reportReason === r} onChange={() => setReportReason(r)} /> {r}</label>)}{reportReason === 'Other' && <textarea className="w-full mt-2 p-2 border rounded" value={reportDetails} onChange={e => setReportDetails(e.target.value)} placeholder="Reason" />}<button onClick={submitReport} className="w-full mt-3 bg-rose-600 text-white rounded-xl py-2 text-xs font-bold">Submit report</button></div></div>}
+      {reportPost && <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-4" onClick={() => setReportPost(null)}><div className="bg-white dark:bg-slate-900 rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}><div className="flex justify-between mb-3"><b>{reportPost.user_id === session.user.id ? 'Post options' : 'Report post'}</b><button onClick={() => setReportPost(null)}><X className="w-4 h-4" /></button></div>{reportPost.user_id === session.user.id ? <div className="space-y-2"><button onClick={() => { setEditingPost(reportPost); setEditContent(reportPost.content || ''); setReportPost(null); }} className="w-full rounded-xl bg-purple-600 text-white py-2.5 text-xs font-bold">Edit post</button><button onClick={() => deletePost(reportPost)} className="w-full rounded-xl bg-rose-600 text-white py-2.5 text-xs font-bold">Delete post</button></div> : <><p className="mb-2 text-xs text-slate-500">Report this post because:</p>{['Spam','Harassment or bullying','Hate speech','Misinformation','Other'].map(r => <label className="block text-xs py-1" key={r}><input type="radio" name="report" checked={reportReason === r} onChange={() => setReportReason(r)} /> {r}</label>)}{reportReason === 'Other' && <textarea className="w-full mt-2 p-2 border rounded" value={reportDetails} onChange={e => setReportDetails(e.target.value)} placeholder="Reason" />}<button onClick={submitReport} className="w-full mt-3 bg-rose-600 text-white rounded-xl py-2 text-xs font-bold">Submit report</button></>}</div></div>}
+      {editingPost && <div className="fixed inset-0 z-[75] bg-black/60 flex items-center justify-center p-4"><div className="bg-white dark:bg-slate-900 rounded-2xl p-5 w-full max-w-md"><div className="flex justify-between mb-3"><b>Edit post</b><button onClick={() => setEditingPost(null)}><X className="w-4 h-4" /></button></div><textarea value={editContent} onChange={e => setEditContent(e.target.value)} rows={5} className="w-full rounded-xl border p-3 text-sm dark:bg-slate-800" /><button onClick={saveEditedPost} className="w-full mt-3 rounded-xl bg-purple-600 text-white py-2.5 text-xs font-bold">Save changes</button></div></div>}
     </div>
   );
 }
