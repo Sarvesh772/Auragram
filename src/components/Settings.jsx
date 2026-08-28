@@ -7,6 +7,9 @@ import {
   Globe, Users, Heart, Star, Award, Zap, Share2, UserCheck,
   Settings as SettingsIcon, TrendingUp, Mail, FileText, Image
 } from 'lucide-react';
+import HelpSupport from './HelpSupport';
+import About from './About';
+import Feedback from './Feedback';
 
 export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout }) {
   const [activeSubTab, setActiveSubTab] = useState(null);
@@ -20,6 +23,8 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
+  const [supportModal, setSupportModal] = useState(null);
+  const [feedbackText, setFeedbackText] = useState('');
 
   // Saved Posts State
   const [savedPosts, setSavedPosts] = useState([]);
@@ -246,6 +251,9 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6 pb-16">
+      {supportModal === 'help' && <HelpSupport onClose={() => setSupportModal(null)} />}
+      {supportModal === 'about' && <About onClose={() => setSupportModal(null)} />}
+      {supportModal === 'feedback' && <Feedback onClose={() => setSupportModal(null)} />}
       
       {/* Toast Messages */}
       {message.text && (
@@ -360,7 +368,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
             <div className="p-3">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-1">Support</p>
 
-              <div className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl">
+              <div onClick={() => setSupportModal('help')} className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl">
                 <div className="flex items-center space-x-3.5">
                   <div className="p-2 rounded-xl bg-yellow-50 dark:bg-yellow-900/30 text-yellow-500"><HelpCircle className="w-4 h-4" /></div>
                   <div><h3 className="text-sm font-bold text-slate-800 dark:text-white">Help & Support</h3><p className="text-[10px] text-slate-400">Get help with Auragram</p></div>
@@ -368,7 +376,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
                 <ChevronRight className="w-4 h-4 text-slate-400" />
               </div>
 
-              <div className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl">
+              <div onClick={() => setSupportModal('feedback')} className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl">
                 <div className="flex items-center space-x-3.5">
                   <div className="p-2 rounded-xl bg-violet-50 dark:bg-violet-900/30 text-violet-500"><MessageCircle className="w-4 h-4" /></div>
                   <div><h3 className="text-sm font-bold text-slate-800 dark:text-white">Send Feedback</h3><p className="text-[10px] text-slate-400">Share your thoughts with us</p></div>
@@ -376,10 +384,10 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
                 <ChevronRight className="w-4 h-4 text-slate-400" />
               </div>
 
-              <div className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl">
+              <div onClick={() => setSupportModal('about')} className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl">
                 <div className="flex items-center space-x-3.5">
                   <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-500"><Zap className="w-4 h-4" /></div>
-                  <div><h3 className="text-sm font-bold text-slate-800 dark:text-white">About Auragram</h3><p className="text-[10px] text-slate-400">Version 1.0.0</p></div>
+                  <div><h3 className="text-sm font-bold text-slate-800 dark:text-white">About Auragram</h3><p className="text-[10px] text-slate-400">Version 1.1.0</p></div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-400" />
               </div>
@@ -420,7 +428,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
 
           {/* Footer */}
           <div className="text-center">
-            <p className="text-[10px] text-slate-400">Auragram v1.0.0</p>
+            <p className="text-[10px] text-slate-400">Auragram v1.1.0</p>
             <p className="text-[10px] text-slate-400 mt-1">
               &copy; {new Date().getFullYear()} Auragram. All rights reserved.
             </p>

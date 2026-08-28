@@ -11,11 +11,13 @@ import Reels from './components/Reels';
 import Notifications from './components/Notifications';
 import Profile from './components/Profile';
 import Settings from './components/Settings';
+import Privacy from './components/Privacy';
+import Terms from './components/Terms';
 import RightPanel from './components/RightPanel';
 
 import { Home, Compass, MessageCircle, Clapperboard, Bell, Settings as SettingsIcon, User } from 'lucide-react';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 
 // Wrapper to handle dynamic /profile/:username and default logged-in user profile
 function ProfileWrapper({ session }) {
@@ -294,6 +296,8 @@ export default function App() {
             <Route path="/profile" element={<ProfileWrapper session={session} />} />
             <Route path="/profile/:username" element={<ProfileWrapper session={session} />} />
             <Route path="/settings" element={<Settings session={session} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />} />
+            <Route path="/privacy" element={<Privacy onBack={() => navigate(-1)} />} />
+            <Route path="/terms" element={<Terms onBack={() => navigate(-1)} />} />
           </Routes>
           
         </main>
