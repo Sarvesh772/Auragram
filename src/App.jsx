@@ -15,6 +15,8 @@ import RightPanel from './components/RightPanel';
 
 import { Home, Compass, MessageCircle, Clapperboard, Bell, Settings as SettingsIcon, User } from 'lucide-react';
 
+const APP_VERSION = '1.0.0';
+
 // Wrapper to handle dynamic /profile/:username and default logged-in user profile
 function ProfileWrapper({ session }) {
   const { username } = useParams();
@@ -72,6 +74,7 @@ export default function App() {
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [deletionRequest, setDeletionRequest] = useState(null);
   const [cancellingDeletion, setCancellingDeletion] = useState(false);
+  const [availableUpdate, setAvailableUpdate] = useState(null);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -89,6 +92,16 @@ export default function App() {
       localStorage.setItem('auragram_theme', 'light');
     }
   }, [isDarkMode]);
+
+  // Check the deployed web version without interrupting startup.
+  useEffect(() => {
+    fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((version) => {
+        if (version?.version && version.version !== APP_VERSION) setAvailableUpdate(version);
+      })
+      .catch(() => {});
+  }, []);
 
   // Auth Listener
   useEffect(() => {
@@ -215,6 +228,13 @@ export default function App() {
             </button>
             <button onClick={() => supabase.auth.signOut()} className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-3 font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">Sign out</button>
           </div>
+        </div>
+      )}
+      {availableUpdate && (
+        <div className="fixed left-1/2 top-3 z-[90] flex w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 items-center gap-3 rounded-2xl bg-purple-600 px-4 py-3 text-white shadow-xl">
+          <div className="min-w-0 flex-1 text-sm"><strong>New Auragram update available</strong><span className="ml-1 opacity-90">v{availableUpdate.version}</span></div>
+          <button onClick={() => window.location.reload()} className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-purple-700">Update now</button>
+          <button onClick={() => setAvailableUpdate(null)} aria-label="Dismiss" className="shrink-0 text-xl leading-none opacity-80">×</button>
         </div>
       )}
       <div className="w-full max-w-7xl flex relative">
