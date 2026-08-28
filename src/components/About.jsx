@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Sparkles, X, Camera, Clapperboard, MessageCircle, ShieldCheck } from 'lucide-react';
+import { Heart, X, Camera, Clapperboard, MessageCircle, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function About({ onClose }) {
@@ -21,8 +21,13 @@ export default function About({ onClose }) {
           <X className="h-5 w-5" />
         </button>
 
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-fuchsia-500 to-purple-700 text-white shadow-lg">
-          <Sparkles className="h-10 w-10" />
+        {/* Custom Logo Image */}
+        <div className="mx-auto h-20 w-20 overflow-hidden rounded-3xl shadow-lg">
+          <img 
+            src="/auragram.png" 
+            alt="Auragram Logo" 
+            className="h-full w-full object-cover"
+          />
         </div>
 
         <h2 className="mt-5 text-3xl font-black text-purple-600">Auragram</h2>
