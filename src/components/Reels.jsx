@@ -3,7 +3,6 @@ import { supabase } from '../supabaseClient';
 import { Heart, MessageCircle, Send, Bookmark, Music2, Volume2, VolumeX, Trash2, X, Loader2, MoreVertical } from 'lucide-react';
 import MentionInput from './MentionInput';
 import { RenderFormattedText } from './MentionInput';
-import { MusicBadge } from './AudioSelector';
 
 // Helper to extract @mentions and trigger notifications
 async function processMentions(text, actorId, postId) {
@@ -439,7 +438,7 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
                   )}
 {reel.audio_title && (
   <div className="pt-1">
-    <MusicBadge audioTitle={reel.audio_title} audioArtist={reel.audio_artist} />
+    {reel.audio_title && <div className="text-xs text-white/80">♪ {reel.audio_title}{reel.audio_artist ? ` · ${reel.audio_artist}` : ''}</div>}
   </div>
 )}
                 </div>

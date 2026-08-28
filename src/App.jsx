@@ -70,6 +70,8 @@ export default function App() {
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [deletionRequest, setDeletionRequest] = useState(null);
+  const [cancellingDeletion, setCancellingDeletion] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -104,6 +106,32 @@ export default function App() {
   }, []);
 
   // Notifications Unread Count Listener
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    supabase.from('account_deletion_requests').select('status, scheduled_for').eq('user_id', session.user.id).eq('status', 'pending').maybeSingle().then(({ data }) => {
+      if (data && new Date(data.scheduled_for) > new Date()) {
+        setDeletionRequest(data);
+      }
+    });
+  }, [session?.user?.id]);
+
+  const cancelDeletionRequest = async () => {
+    if (!session?.user?.id) return;
+    setCancellingDeletion(true);
+    const { error } = await supabase
+      .from('account_deletion_requests')
+      .update({ status: 'cancelled' })
+      .eq('user_id', session.user.id)
+      .eq('status', 'pending');
+    setCancellingDeletion(false);
+    if (error) {
+      alert(`Could not cancel request: ${error.message}`);
+      return;
+    }
+    setDeletionRequest(null);
+    localStorage.removeItem('auragram_deletion_notice');
+  };
+
   useEffect(() => {
     if (!session?.user?.id) return;
     const loadUnreadNotifs = async () => {
@@ -174,6 +202,21 @@ export default function App() {
 
   return (
     <div className={`min-h-screen flex justify-center transition-colors ${isDarkMode ? 'dark bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
+      {deletionRequest && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/75 p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-7 text-slate-900 shadow-2xl dark:bg-slate-900 dark:text-white">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-2xl dark:bg-rose-950/60">!</div>
+            <h2 className="text-2xl font-black">Deletion request active</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+              Your account is scheduled for permanent deletion on <strong>{new Date(deletionRequest.scheduled_for).toLocaleDateString()}</strong>. You can cancel this request anytime before that date.
+            </p>
+            <button onClick={cancelDeletionRequest} disabled={cancellingDeletion} className="mt-6 w-full rounded-xl bg-purple-600 px-4 py-3 font-bold text-white disabled:opacity-60">
+              {cancellingDeletion ? 'Cancelling…' : 'Cancel deletion and keep my account'}
+            </button>
+            <button onClick={() => supabase.auth.signOut()} className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-3 font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">Sign out</button>
+          </div>
+        </div>
+      )}
       <div className="w-full max-w-7xl flex relative">
         
         {/* Sidebar Left (Desktop Only) */}

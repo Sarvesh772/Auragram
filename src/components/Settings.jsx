@@ -16,6 +16,10 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
   const [bio, setBio] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [logoutConfirm, setLogoutConfirm] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
 
   // Saved Posts State
   const [savedPosts, setSavedPosts] = useState([]);
@@ -34,6 +38,11 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
     mentions: true,
     messages: true
   });
+  useEffect(() => {
+    const saved = localStorage.getItem('auragram_notification_settings');
+    if (saved) try { setNotificationSettings(prev => ({ ...prev, ...JSON.parse(saved) })); } catch {}
+  }, []);
+  useEffect(() => { localStorage.setItem('auragram_notification_settings', JSON.stringify(notificationSettings)); }, [notificationSettings]);
 
   // Stats State
   const [stats, setStats] = useState({
@@ -203,8 +212,20 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
   }
 
   async function handleLogout() {
+    setLogoutConfirm(false);
     await supabase.auth.signOut();
     if (onLogout) onLogout();
+  }
+
+  async function requestAccountDeletion() {
+    setDeleteError('');
+    if (!deletePassword) { setDeleteError('Password required.'); return; }
+    const { error: verifyError } = await supabase.auth.signInWithPassword({ email: session.user.email, password: deletePassword });
+    if (verifyError) { setDeleteError('Password incorrect.'); return; }
+    const { error } = await supabase.from('account_deletion_requests').upsert([{ user_id: session.user.id, requested_at: new Date().toISOString(), scheduled_for: new Date(Date.now() + 30 * 86400000).toISOString(), status: 'pending' }]);
+    if (error) { setDeleteError(error.message); return; }
+    await supabase.auth.signOut();
+    window.location.href = '/';
   }
 
   const RenderHeader = ({ title }) => (
@@ -219,6 +240,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
         <ArrowLeft className="w-5 h-5 text-slate-700 dark:text-slate-200" />
       </button>
       <h2 className="text-xl font-bold text-slate-800 dark:text-white">{title}</h2>
+      {deleteOpen && <div className="fixed inset-0 z-[95] bg-black/70 flex items-center justify-center p-4"><div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-5"><h3 className="text-lg font-bold text-rose-600">Delete account permanently?</h3><p className="mt-3 text-sm text-slate-600 dark:text-slate-300">This cannot be recovered. You have 30 days to contact support; after that all data is permanently removed.</p><input type="password" value={deletePassword} onChange={e => setDeletePassword(e.target.value)} placeholder="Enter password" className="mt-4 w-full rounded-xl border p-3 text-sm dark:bg-slate-800" />{deleteError && <p className="mt-2 text-xs text-rose-600">{deleteError}</p>}<div className="mt-4 flex justify-end gap-2"><button onClick={() => setDeleteOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-500">Cancel</button><button onClick={requestAccountDeletion} className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white">Confirm deletion</button></div></div></div>}
     </div>
   );
 
@@ -246,35 +268,12 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
       {/* MAIN SETTINGS MENU */}
       {activeSubTab === null && (
         <div className="space-y-6">
+          {deleteOpen && <div className="fixed inset-0 z-[95] bg-black/70 flex items-center justify-center p-4"><div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-5"><h3 className="text-lg font-bold text-rose-600">Delete account permanently?</h3><p className="mt-3 text-sm text-slate-600 dark:text-slate-300">This cannot be recovered. You have 30 days to contact support; after that all data is permanently removed.</p><input type="password" value={deletePassword} onChange={e => setDeletePassword(e.target.value)} placeholder="Enter password" className="mt-4 w-full rounded-xl border p-3 text-sm dark:bg-slate-800" />{deleteError && <p className="mt-2 text-xs text-rose-600">{deleteError}</p>}<div className="mt-4 flex justify-end gap-2"><button onClick={() => setDeleteOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-500">Cancel</button><button onClick={requestAccountDeletion} className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white">Confirm deletion</button></div></div></div>}
           <div className="flex items-center gap-3">
-            <SettingsIcon className="w-6 h-6 text-purple-600" />
             <h1 className="text-2xl font-black text-slate-800 dark:text-white">Settings</h1>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 text-center">
-              <FileText className="w-5 h-5 text-purple-600 mx-auto mb-1" />
-              <p className="text-xl font-bold text-slate-800 dark:text-white">{stats.posts}</p>
-              <p className="text-[10px] text-slate-400">Posts</p>
-            </div>
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 text-center">
-              <Heart className="w-5 h-5 text-rose-500 mx-auto mb-1" />
-              <p className="text-xl font-bold text-slate-800 dark:text-white">{stats.totalLikes}</p>
-              <p className="text-[10px] text-slate-400">Total Likes</p>
-            </div>
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 text-center">
-              <Users className="w-5 h-5 text-blue-500 mx-auto mb-1" />
-              <p className="text-xl font-bold text-slate-800 dark:text-white">{stats.followers}</p>
-              <p className="text-[10px] text-slate-400">Followers</p>
-            </div>
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 text-center">
-              <UserCheck className="w-5 h-5 text-emerald-500 mx-auto mb-1" />
-              <p className="text-xl font-bold text-slate-800 dark:text-white">{stats.following}</p>
-              <p className="text-[10px] text-slate-400">Following</p>
-            </div>
-          </div>
-
+          
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-xs overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
             
             {/* Account Section */}
@@ -390,15 +389,9 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
             <div className="p-3">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-1">Data</p>
 
-              <div className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl">
-                <div className="flex items-center space-x-3.5">
-                  <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500"><Download className="w-4 h-4" /></div>
-                  <div><h3 className="text-sm font-bold text-slate-800 dark:text-white">Download Your Data</h3><p className="text-[10px] text-slate-400">Export your posts and activity</p></div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-400" />
-              </div>
+             
 
-              <div className="flex items-center justify-between p-3 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer transition rounded-xl">
+              <div onClick={() => setDeleteOpen(true)} className="flex items-center justify-between p-3 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer transition rounded-xl">
                 <div className="flex items-center space-x-3.5">
                   <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-900/30 text-rose-500"><Trash2 className="w-4 h-4" /></div>
                   <div><h3 className="text-sm font-bold text-rose-600 dark:text-rose-400">Delete Account</h3><p className="text-[10px] text-slate-400">Permanently delete your account</p></div>
@@ -408,13 +401,18 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
             </div>
 
             {/* Logout */}
-            <div className="p-3">
-              <div onClick={handleLogout} className="flex items-center justify-between p-3 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer transition rounded-xl">
-                <div className="flex items-center space-x-3.5">
-                  <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-900/30 text-rose-500"><LogOut className="w-4 h-4" /></div>
-                  <div><h3 className="text-sm font-bold text-rose-600 dark:text-rose-400">Log Out</h3><p className="text-[10px] text-slate-400">Sign out from Auragram</p></div>
+            <div
+              onClick={() => setLogoutConfirm(true)}
+              className="flex items-center justify-between p-4 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer transition"
+            >
+              <div className="flex items-center space-x-3.5">
+                <div className="p-2 rounded-2xl bg-red-50 dark:bg-red-900/30 text-red-500">
+                  <LogOut className="w-5 h-5" />
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-400" />
+                <div>
+                  <h3 className="text-sm font-bold text-red-600 dark:text-red-400">Log Out</h3>
+                  <p className="text-[11px] text-slate-400">Sign out from Auragram</p>
+                </div>
               </div>
             </div>
 
@@ -423,12 +421,8 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
           {/* Footer */}
           <div className="text-center">
             <p className="text-[10px] text-slate-400">Auragram v1.0.0</p>
-            <p className="text-[10px] text-slate-300 mt-1">
-              {new Date().toLocaleDateString('en-US', { 
-                day: 'numeric', 
-                month: 'short', 
-                year: 'numeric' 
-              })}
+            <p className="text-[10px] text-slate-400 mt-1">
+              &copy; {new Date().getFullYear()} Auragram. All rights reserved.
             </p>
           </div>
         </div>
@@ -746,6 +740,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
           </div>
         </div>
       )}
+      {logoutConfirm && <div className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"><div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-2xl"><h3 className="text-lg font-bold text-slate-800 dark:text-white">Log out?</h3><p className="mt-2 text-sm text-slate-500">Are you sure you want to log out of Auragram?</p><div className="mt-5 flex justify-end gap-2"><button onClick={() => setLogoutConfirm(false)} className="rounded-xl px-4 py-2 text-sm font-bold text-slate-500">Cancel</button><button onClick={handleLogout} className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white">Log out</button></div></div></div>}
     </div>
   );
 }
