@@ -115,17 +115,17 @@ export default function Explore({ session, onViewProfile }) {
   const { users: displayUsers, posts: displayPosts, tags: displayTags } = getFilteredContent();
 
   return (
-    <div className="w-full min-h-screen bg-slate-50 dark:bg-slate-950 p-3 sm:p-4 md:p-6 pb-24">
-      <div className="max-w-4xl mx-auto space-y-5">
+    <div className="w-full min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 px-2.5 py-3 sm:p-4 md:p-6 pb-24">
+      <div className="max-w-4xl mx-auto space-y-4 sm:space-y-5">
         
         {/* HEADER */}
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-slate-800 dark:text-white">
+          <h1 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white">
             Explore
           </h1>
           <div className="flex items-center gap-1.5 text-xs text-slate-400">
             <TrendingUp className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-            <span>Discover</span>
+            <span className="hidden sm:inline">Discover</span>
           </div>
         </div>
 
@@ -137,7 +137,7 @@ export default function Explore({ session, onViewProfile }) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search accounts, #hashtags, posts..."
-            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl pl-12 pr-4 py-3.5 text-sm text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600/50 focus:border-transparent transition-all duration-200"
+            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-2xl pl-10 sm:pl-12 pr-10 py-3 sm:py-3.5 text-xs sm:text-sm text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-600/50 focus:border-transparent transition-all duration-200"
           />
           {searchQuery && (
             <button
@@ -150,7 +150,7 @@ export default function Explore({ session, onViewProfile }) {
         </div>
 
         {/* FILTER TABS */}
-        <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-1.5 sm:gap-2 border-b border-slate-200 dark:border-slate-800 pb-2.5 sm:pb-3 overflow-x-auto scrollbar-hide">
           {[
             { id: 'all', icon: <TrendingUp className="w-3.5 h-3.5" />, label: 'Top' },
             { id: 'users', icon: <User className="w-3.5 h-3.5" />, label: 'Accounts' },
@@ -160,7 +160,7 @@ export default function Explore({ session, onViewProfile }) {
             <button
               key={filter.id}
               onClick={() => setActiveFilter(filter.id)}
-              className={`shrink-0 flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 ${
+                className={`shrink-0 flex items-center gap-1 px-2.5 sm:gap-1.5 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-xs font-bold transition-all duration-200 ${
                 activeFilter === filter.id
                   ? 'bg-purple-600 text-white shadow-md shadow-purple-500/20'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'

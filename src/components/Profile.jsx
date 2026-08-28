@@ -6,7 +6,8 @@ import {
 } from 'lucide-react';
 
 export default function Profile({ session, profileUserId, onMessage }) {
-  const viewedUserId = profileUserId || session.user.id;
+  const [resolvedProfileId, setResolvedProfileId] = useState(null);
+  const viewedUserId = resolvedProfileId || (profileUserId && /^[0-9a-f-]{36}$/i.test(profileUserId) ? profileUserId : session.user.id);
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [activeTab, setActiveTab] = useState('text');
@@ -69,9 +70,11 @@ export default function Profile({ session, profileUserId, onMessage }) {
 
   async function handleSafetyAction(action) {
     setSafetyOpen(false);
-    if (action === 'report') await supabase.from('reports').insert([{ reporter_id: session.user.id, reported_user_id: viewedUserId, reason: 'Profile reported' }]);
-    if (action === 'block') await supabase.from('blocked_users').upsert([{ blocker_id: session.user.id, blocked_id: viewedUserId }]);
-    if (action === 'mute') await supabase.from('muted_users').upsert([{ muter_id: session.user.id, muted_id: viewedUserId }]);
+    let result = { error: null };
+    if (action === 'report') result = await supabase.from('reports').insert([{ reporter_id: session.user.id, reported_user_id: viewedUserId, reason: 'Profile reported' }]);
+    if (action === 'block') result = await supabase.from('blocked_users').upsert([{ blocker_id: session.user.id, blocked_id: viewedUserId }]);
+    if (action === 'mute') result = await supabase.from('muted_users').upsert([{ muter_id: session.user.id, muted_id: viewedUserId }]);
+    if (result.error) { setSafetyMessage(`${action} failed: ${result.error.message}`); setTimeout(() => setSafetyMessage(''), 3500); return; }
     setSafetyMessage(action === 'report' ? 'Report submitted.' : action === 'block' ? 'User blocked.' : 'User muted.');
     setTimeout(() => setSafetyMessage(''), 2200);
   }
@@ -93,6 +96,8 @@ export default function Profile({ session, profileUserId, onMessage }) {
   useEffect(() => {
     fetchProfileAndPosts();
   }, [session, viewedUserId]);
+
+  useEffect(() => { setResolvedProfileId(null); }, [profileUserId]);
 
   useEffect(() => {
     const refreshFollowStats = async () => {
@@ -135,6 +140,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
       profileData = result.data;
     }
     const targetId = profileData?.id || viewedUserId;
+    if (profileData?.id) setResolvedProfileId(profileData.id);
 
     if (profileData) {
       setProfile(profileData);
