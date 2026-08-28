@@ -18,12 +18,18 @@ export default function Explore({ session, onViewProfile }) {
 
   async function fetchExploreData() {
     setLoading(true);
+    const [{ data: blockedOut }, { data: blockedIn }] = await Promise.all([
+      supabase.from('blocked_users').select('blocked_id').eq('blocker_id', session.user.id),
+      supabase.from('blocked_users').select('blocker_id').eq('blocked_id', session.user.id)
+    ]);
+    const blockedIds = new Set([...(blockedOut || []).map(r => r.blocked_id), ...(blockedIn || []).map(r => r.blocker_id)]);
 
     const { data: usersData } = await supabase
       .from('profiles')
       .select('id, username, full_name, avatar_url, bio')
       .neq('id', session.user.id)
       .limit(20);
+    const visibleUsersData = (usersData || []).filter(u => !blockedIds.has(u.id));
 
     const { data: postsData } = await supabase
       .from('posts')
@@ -32,8 +38,9 @@ export default function Explore({ session, onViewProfile }) {
       .limit(30);
 
     if (postsData) {
-      const userIds = [...new Set(postsData.map(p => p.user_id))];
-      const postIds = postsData.map(p => p.id);
+      const visiblePostsData = postsData.filter(p => !blockedIds.has(p.user_id));
+      const userIds = [...new Set(visiblePostsData.map(p => p.user_id))];
+      const postIds = visiblePostsData.map(p => p.id);
 
       const [profilesRes, likesRes, commentsRes] = await Promise.all([
         supabase.from('profiles').select('id, username, full_name, avatar_url').in('id', userIds),
@@ -43,7 +50,7 @@ export default function Explore({ session, onViewProfile }) {
 
       const profilesMap = (profilesRes.data || []).reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
 
-      const formattedPosts = postsData.map(post => {
+      const formattedPosts = visiblePostsData.map(post => {
         let mediaList = [];
         if (post.media_urls && Array.isArray(post.media_urls) && post.media_urls.length > 0) {
           mediaList = post.media_urls;
@@ -63,7 +70,7 @@ export default function Explore({ session, onViewProfile }) {
       setPosts(formattedPosts);
 
       const tagCounts = {};
-      postsData.forEach(p => {
+      visiblePostsData.forEach(p => {
         if (p.content) {
           const tags = p.content.match(/#([a-zA-Z0-9_]+)/g);
           if (tags) {
@@ -82,7 +89,7 @@ export default function Explore({ session, onViewProfile }) {
       setTrendingTags(sortedTags);
     }
 
-    setUsers(usersData || []);
+    setUsers(visibleUsersData);
     setLoading(false);
   }
 

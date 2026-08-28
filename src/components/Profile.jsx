@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
   FileText, Image as ImageIcon, Film, Heart, MessageCircle, 
-  Send, Bookmark, Edit3, X, Sparkles, Loader2, Camera, AlertCircle, CheckCircle2, Pin, Play, Flag, MoreVertical, Copy, UserPlus, UserCheck, UserMinus
+  Send, Bookmark, Edit3, X, Sparkles, Loader2, Camera, AlertCircle, 
+  CheckCircle2, Pin, Play, Flag, MoreVertical, Copy, UserPlus, 
+  UserCheck, UserMinus, Users
 } from 'lucide-react';
 
 export default function Profile({ session, profileUserId, onMessage }) {
@@ -12,8 +14,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const [posts, setPosts] = useState([]);
   const [activeTab, setActiveTab] = useState('text');
   const [loading, setLoading] = useState(true);
-  // A username route (e.g. /profile/auragram) is resolved asynchronously;
-  // treat it as our own profile once the loaded profile id matches the session.
   const isOwnProfile = viewedUserId === session.user.id || profile?.id === session.user.id;
 
   // Modal View State
@@ -123,14 +123,68 @@ export default function Profile({ session, profileUserId, onMessage }) {
     return () => { supabase.removeChannel(channel); };
   }, [viewedUserId]);
 
-  async function openPeopleList(mode) {
-    const column = mode === 'followers' ? 'follower_id' : 'following_id';
-    const other = mode === 'followers' ? 'following_id' : 'follower_id';
-    const { data } = await supabase.from('follows').select(`${other}`).eq(column, viewedUserId);
-    const ids = (data || []).map((row) => row[other]);
-    const { data: profiles } = ids.length ? await supabase.from('profiles').select('id, username, full_name, avatar_url').in('id', ids) : { data: [] };
-    setPeopleList(profiles || []); setListMode(mode);
+async function openPeopleList(mode) {
+  // mode = 'followers' ya 'following'
+  
+  if (mode === 'followers') {
+    // Followers dekhte hain - jinhone humein follow kiya hai
+    // follower_id = jisne follow kiya, following_id = jise follow kiya
+    // Humein woh log chahiye jinka following_id = viewedUserId (humari ID)
+    const { data } = await supabase
+      .from('follows')
+      .select('follower_id')
+      .eq('following_id', viewedUserId);  // ← Yeh sahi hai!
+    
+    const ids = (data || []).map((row) => row.follower_id);
+    const { data: profiles } = ids.length 
+      ? await supabase.from('profiles').select('id, username, full_name, avatar_url').in('id', ids) 
+      : { data: [] };
+    
+    // Check follow status for each person
+    const profilesWithFollowStatus = await Promise.all((profiles || []).map(async (person) => {
+      if (person.id === session.user.id) return { ...person, isFollowing: false };
+      const { data: followData } = await supabase
+        .from('follows')
+        .select('id')
+        .eq('follower_id', session.user.id)
+        .eq('following_id', person.id)
+        .maybeSingle();
+      return { ...person, isFollowing: !!followData };
+    }));
+    
+    setPeopleList(profilesWithFollowStatus || []);
+    setListMode(mode);
+    
+  } else {
+    // Following dekhte hain - jinhumein hum follow karte hain
+    // follower_id = jisne follow kiya, following_id = jise follow kiya
+    // Humein woh log chahiye jinka follower_id = viewedUserId (humari ID)
+    const { data } = await supabase
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', viewedUserId);  // ← Yeh sahi hai!
+    
+    const ids = (data || []).map((row) => row.following_id);
+    const { data: profiles } = ids.length 
+      ? await supabase.from('profiles').select('id, username, full_name, avatar_url').in('id', ids) 
+      : { data: [] };
+    
+    // Check follow status for each person
+    const profilesWithFollowStatus = await Promise.all((profiles || []).map(async (person) => {
+      if (person.id === session.user.id) return { ...person, isFollowing: false };
+      const { data: followData } = await supabase
+        .from('follows')
+        .select('id')
+        .eq('follower_id', session.user.id)
+        .eq('following_id', person.id)
+        .maybeSingle();
+      return { ...person, isFollowing: !!followData };
+    }));
+    
+    setPeopleList(profilesWithFollowStatus || []);
+    setListMode(mode);
   }
+}
 
   async function fetchProfileAndPosts() {
     setLoading(true);
@@ -384,120 +438,132 @@ export default function Profile({ session, profileUserId, onMessage }) {
       {safetyMessage && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-4 py-2 rounded-full text-xs font-bold shadow-xl">{safetyMessage}</div>}
       {profileLinkCopied && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-4 py-2 rounded-full text-xs font-bold shadow-xl">Profile link copied</div>}
 
-{/* PROFILE HEADER CARD */}
-{profile && (
-  <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 sm:p-6 rounded-3xl space-y-4 shadow-sm w-full box-border">
-    
-    {/* Right Side Action Buttons - Copy & Edit stacked vertically */}
-    <div className="absolute top-3 right-3 flex flex-col gap-2">
-      {/* Copy Profile Link Button */}
-      <button 
-        onClick={copyProfileLink} 
-        className="rounded-full border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800 p-2 text-slate-500 hover:text-purple-600 transition-all hover:scale-110"
-        title="Copy profile link"
-      >
-        <Copy className="w-4 h-4" />
-      </button>
-      
-      {/* Edit Profile Button - Only for own profile */}
-      {isOwnProfile && (
-        <button 
-          onClick={() => setIsEditing(true)}
-          className="rounded-full border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800 p-2 text-slate-500 hover:text-purple-600 transition-all hover:scale-110"
-          title="Edit profile"
-        >
-          <Edit3 className="w-4 h-4" />
-        </button>
-      )}
-    </div>
-
-    {/* Profile Info Row */}
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-      
-      {/* Avatar & Name/Bio */}
-      <div className="flex items-center space-x-4 min-w-0 flex-1">
-        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-extrabold flex items-center justify-center text-2xl shadow-md overflow-hidden flex-shrink-0 ring-2 ring-purple-500/20">
-          {profile.avatar_url ? (
-            <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-          ) : (
-            (profile.full_name || profile.username || 'U')[0].toUpperCase()
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <h2 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white truncate">
-            {profile.full_name || profile.username || 'User'}
-          </h2>
-          <p className="text-sm font-bold text-purple-600 dark:text-purple-400 truncate">
-            @{profile.username || 'username'}
-          </p>
-          {profile.bio && (
-            <p className="text-sm text-slate-600 dark:text-slate-300 font-medium mt-1 break-words whitespace-normal leading-relaxed">
-              {profile.bio}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Follow/Message Buttons - Only for other profiles */}
-      {!isOwnProfile && (
-        <div className="flex items-center gap-2 flex-shrink-0 self-start sm:self-center">
-          <button 
-            onClick={toggleFollow}
-            className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
-              followState === 'following' 
-                ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600' 
-                : 'bg-purple-600 text-white hover:bg-purple-700 shadow-md hover:shadow-purple-500/25'
-            }`}
-          >
-            {followState === 'following' ? 'Following' : followState === 'followback' ? 'Follow Back' : 'Follow'}
-          </button>
+      {/* PROFILE HEADER CARD */}
+      {profile && (
+        <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 sm:p-6 rounded-3xl space-y-4 shadow-sm w-full box-border">
           
-          <button 
-            onClick={() => onMessage?.(viewedUserId)} 
-            className="px-4 py-2 rounded-full border border-purple-300 text-purple-600 text-sm font-bold hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all"
-          >
-            Message
-          </button>
-          
-          {/* More Options Dropdown */}
-          <div className="relative">
+          {/* Right Side Action Buttons - Copy & Edit stacked vertically */}
+          <div className="absolute top-3 right-3 flex flex-col gap-2">
             <button 
-              onClick={() => setSafetyOpen(v => !v)} 
-              className="rounded-full border border-slate-200 dark:border-slate-700 p-2 text-slate-500 hover:text-slate-700 dark:hover:text-white transition-all hover:bg-slate-100 dark:hover:bg-slate-800"
+              onClick={copyProfileLink} 
+              className="rounded-full border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800 p-2 text-slate-500 hover:text-purple-600 transition-all hover:scale-110"
+              title="Copy profile link"
             >
-              <MoreVertical className="w-4 h-4" />
+              <Copy className="w-4 h-4" />
             </button>
             
-            {safetyOpen && (
-              <div className="absolute right-0 top-11 z-20 w-48 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-1 shadow-xl">
-                <button onClick={() => handleSafetyAction('block')} className="w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all">
-                  {isBlocked ? 'Unblock user' : 'Block user'}
+            {isOwnProfile && (
+              <button 
+                onClick={() => setIsEditing(true)}
+                className="rounded-full border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800 p-2 text-slate-500 hover:text-purple-600 transition-all hover:scale-110"
+                title="Edit profile"
+              >
+                <Edit3 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Profile Info Row */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            
+            {/* Avatar & Name/Bio */}
+            <div className="flex items-center space-x-4 min-w-0 flex-1">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-extrabold flex items-center justify-center text-2xl shadow-md overflow-hidden flex-shrink-0 ring-2 ring-purple-500/20">
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                ) : (
+                  (profile.full_name || profile.username || 'U')[0].toUpperCase()
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white truncate">
+                  {profile.full_name || profile.username || 'User'}
+                </h2>
+                <p className="text-sm font-bold text-purple-600 dark:text-purple-400 truncate">
+                  @{profile.username || 'username'}
+                </p>
+                {profile.bio && (
+                  <p className="text-sm text-slate-600 dark:text-slate-300 font-medium mt-1 break-words whitespace-normal leading-relaxed">
+                    {profile.bio}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Follow/Message Buttons - Only for other profiles */}
+            {!isOwnProfile && (
+              <div className="flex items-center gap-2 flex-shrink-0 self-start sm:self-center">
+                <button 
+                  onClick={toggleFollow}
+                  className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
+                    followState === 'following' 
+                      ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600' 
+                      : 'bg-purple-600 text-white hover:bg-purple-700 shadow-md hover:shadow-purple-500/25'
+                  }`}
+                >
+                  {followState === 'following' ? 'Following' : followState === 'followback' ? 'Follow Back' : 'Follow'}
                 </button>
+                
+                <button 
+                  onClick={() => onMessage?.(viewedUserId)} 
+                  className="px-4 py-2 rounded-full border border-purple-300 text-purple-600 text-sm font-bold hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all"
+                >
+                  Message
+                </button>
+                
+                {/* More Options Dropdown */}
+                <div className="relative">
+                  <button 
+                    onClick={() => setSafetyOpen(v => !v)} 
+                    className="rounded-full border border-slate-200 dark:border-slate-700 p-2 text-slate-500 hover:text-slate-700 dark:hover:text-white transition-all hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                  
+                  {safetyOpen && (
+                    <div className="absolute right-0 top-11 z-20 w-48 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-1 shadow-xl">
+                      <button onClick={() => handleSafetyAction('block')} className="w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all">
+                        {isBlocked ? 'Unblock user' : 'Block user'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
+
+          {/* Stats Row */}
+          <div className="grid grid-cols-3 gap-2 border-t border-slate-200/60 dark:border-slate-800 pt-3 text-center">
+            <div>
+              <b className="block text-sm font-bold text-purple-600">{posts.length}</b>
+              <span className="text-[10px] text-slate-500 font-medium">Posts</span>
+            </div>
+            <button 
+              onClick={() => openPeopleList('followers')} 
+              className="hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl py-1 transition-all group"
+            >
+              <b className="block text-sm font-bold text-purple-600 group-hover:text-purple-700 transition-colors">
+                {followersCount}
+              </b>
+              <span className="text-[10px] text-slate-500 font-medium group-hover:text-purple-600 transition-colors">
+                Followers
+              </span>
+            </button>
+            <button 
+              onClick={() => openPeopleList('following')} 
+              className="hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl py-1 transition-all group"
+            >
+              <b className="block text-sm font-bold text-purple-600 group-hover:text-purple-700 transition-colors">
+                {followingCount}
+              </b>
+              <span className="text-[10px] text-slate-500 font-medium group-hover:text-purple-600 transition-colors">
+                Following
+              </span>
+            </button>
+          </div>
         </div>
       )}
-    </div>
-
-    {/* Stats Row */}
-    <div className="grid grid-cols-3 gap-2 border-t border-slate-200/60 dark:border-slate-800 pt-3 text-center">
-      <div>
-        <b className="block text-sm font-bold text-purple-600">{posts.length}</b>
-        <span className="text-[10px] text-slate-500 font-medium">Posts</span>
-      </div>
-      <button onClick={() => openPeopleList('followers')} className="hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl py-1 transition-all">
-        <b className="block text-sm font-bold text-purple-600">{followersCount}</b>
-        <span className="text-[10px] text-slate-500 font-medium">Followers</span>
-      </button>
-      <button onClick={() => openPeopleList('following')} className="hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl py-1 transition-all">
-        <b className="block text-sm font-bold text-purple-600">{followingCount}</b>
-        <span className="text-[10px] text-slate-500 font-medium">Following</span>
-      </button>
-    </div>
-  </div>
-)}
 
       {/* TABS: Text | Photos | Reels */}
       <div className="w-full flex border-b border-slate-200 dark:border-slate-800 text-xs font-bold">
@@ -568,7 +634,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
                       </div>
                     </div>
                     
-                    {/* Pin Button */}
                     {isOwnProfile && (
                       <button 
                         onClick={() => togglePinned(post)} 
@@ -584,19 +649,16 @@ export default function Profile({ session, profileUserId, onMessage }) {
                     )}
                   </div>
 
-                  {/* Pinned Badge */}
                   {post.is_pinned && (
                     <div className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-400/15 px-2 py-1 text-[10px] font-extrabold text-amber-700 dark:text-amber-300">
                       <Pin className="w-3 h-3" /> Pinned to profile
                     </div>
                   )}
 
-                  {/* Post Content */}
                   <p className="text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-line">
                     {post.content}
                   </p>
 
-                  {/* Post Actions */}
                   <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-2.5 text-slate-500 text-xs font-semibold">
                     <div className="flex items-center space-x-4">
                       <div className="flex items-center space-x-1 hover:text-purple-600 cursor-pointer transition-colors">
@@ -632,7 +694,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
                   >
                     <img src={post.media_url} alt="photo" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     
-                    {/* Pinned Badge */}
                     {post.is_pinned && (
                       <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-1 text-[10px] font-extrabold text-amber-950 shadow">
                         <Pin className="w-3 h-3" /> Pinned
@@ -641,7 +702,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
                     
                     <span className="absolute top-2 right-2 z-10 rounded-full bg-black/55 px-2 py-1 text-[10px] font-bold text-white">Photo</span>
                     
-                    {/* Hover Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition flex items-end justify-between p-3 text-white font-bold text-xs">
                       <div className="flex items-center gap-3">
                         <span className="flex items-center gap-1"><Heart className="w-4 h-4 fill-white" />{post.likes?.length || 0}</span>
@@ -679,7 +739,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
                   >
                     <video src={post.media_url} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     
-                    {/* Pinned Badge */}
                     {post.is_pinned && (
                       <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-1 text-[10px] font-extrabold text-amber-950 shadow">
                         <Pin className="w-3 h-3" /> Pinned
@@ -688,12 +747,10 @@ export default function Profile({ session, profileUserId, onMessage }) {
                     
                     <span className="absolute top-2 right-2 z-10 rounded-full bg-black/55 px-2 py-1 text-[10px] font-bold text-white">Reel</span>
                     
-                    {/* Play Icon */}
                     <span className="absolute inset-0 flex items-center justify-center text-white/90 group-hover:scale-110 transition">
                       <span className="rounded-full bg-black/45 p-3"><Play className="w-5 h-5 fill-white" /></span>
                     </span>
                     
-                    {/* Hover Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition flex items-end justify-between p-3 text-white font-bold text-xs">
                       <div className="flex items-center gap-3">
                         <span className="flex items-center gap-1"><Heart className="w-4 h-4 fill-white" />{post.likes?.length || 0}</span>
@@ -724,7 +781,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
           <div className={`bg-white dark:bg-slate-900 rounded-3xl overflow-hidden w-full max-h-[92vh] flex flex-col md:flex-row relative shadow-2xl my-auto ${selectedPost.media_url ? 'max-w-2xl' : 'max-w-4xl min-h-[70vh] md:min-h-[78vh]'}`}>
             
-            {/* Close Button */}
             <button 
               onClick={() => setSelectedPost(null)}
               className="absolute top-3 right-3 bg-black/60 hover:bg-black text-white p-2 rounded-full z-20 transition-all hover:scale-110"
@@ -732,7 +788,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
               <X className="w-4 h-4" />
             </button>
 
-            {/* Media */}
             {selectedPost.media_url && (
               <div className="md:w-1/2 bg-black flex items-center justify-center min-h-[220px] sm:min-h-[280px] max-h-[50vh] md:max-h-[85vh] relative overflow-hidden">
                 {selectedPost.media_type === 'video' ? (
@@ -743,11 +798,9 @@ export default function Profile({ session, profileUserId, onMessage }) {
               </div>
             )}
 
-            {/* Details & Comments */}
             <div className={`${selectedPost.media_url ? 'md:w-1/2 h-[320px] md:h-auto' : 'w-full h-[70vh] md:h-[78vh]'} p-5 sm:p-7 flex flex-col justify-between bg-white dark:bg-slate-900`}>
               <div className="space-y-3 overflow-hidden flex-1 flex flex-col">
                 
-                {/* User Info */}
                 <div className="flex items-center space-x-2.5 border-b border-slate-100 dark:border-slate-800 pb-3 flex-shrink-0">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
                     {profile?.avatar_url ? (
@@ -762,14 +815,12 @@ export default function Profile({ session, profileUserId, onMessage }) {
                   </div>
                 </div>
 
-                {/* Caption */}
                 {selectedPost.content && (
                   <p className="text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed flex-shrink-0">
                     {selectedPost.content}
                   </p>
                 )}
 
-                {/* Comments List */}
                 <div className="space-y-2 flex-1 overflow-y-auto pr-1">
                   <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Comments</h5>
                   {loadingComments ? (
@@ -797,7 +848,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
                               Reply
                             </button>
                           </div>
-                          {/* Replies */}
                           {postComments.filter(reply => reply.parent_comment_id === c.id).map(reply => (
                             <div key={reply.id} className="mt-2 ml-3 border-l-2 border-purple-200 dark:border-purple-800 pl-2">
                               <span className="font-bold text-[10px] text-slate-700 dark:text-slate-200 block">@{reply.profiles?.username || 'user'}</span>
@@ -816,7 +866,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
                 </div>
               </div>
 
-              {/* Comment Input */}
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800 mt-2 flex-shrink-0">
                 {replyingTo && (
                   <div className="mb-2 flex items-center justify-between rounded-lg bg-purple-50 dark:bg-purple-400/10 px-2 py-1.5 text-[10px] text-purple-700 dark:text-purple-300">
@@ -867,7 +916,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
 
             <form onSubmit={handleUpdateProfile} className="space-y-3">
               
-              {/* Avatar Upload */}
               <div className="flex flex-col items-center space-y-1.5 pb-2">
                 <div className="relative w-20 h-20 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 border-2 border-purple-500/30 group">
                   {avatarUrl ? (
@@ -893,7 +941,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
                 </span>
               </div>
 
-              {/* Full Name */}
               <div>
                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">Display Name</label>
                 <input 
@@ -905,7 +952,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
                 />
               </div>
 
-              {/* Username */}
               <div>
                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">Username (Unique)</label>
                 <div className="relative">
@@ -920,7 +966,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
                 </div>
               </div>
 
-              {/* Bio */}
               <div>
                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">Bio</label>
                 <textarea 
@@ -1007,27 +1052,121 @@ export default function Profile({ session, profileUserId, onMessage }) {
 
       {/* FOLLOWERS/FOLLOWING LIST MODAL */}
       {listMode && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 w-full max-w-sm max-h-[70vh] overflow-y-auto">
-            <div className="flex justify-between mb-3">
-              <h3 className="font-bold text-slate-800 dark:text-white">{listMode === 'followers' ? 'Followers' : 'Following'}</h3>
-              <button onClick={() => setListMode(null)} className="hover:bg-slate-100 dark:hover:bg-slate-800 p-1 rounded-full">✕</button>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 w-full max-w-md max-h-[75vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="text-lg font-extrabold text-slate-800 dark:text-white flex items-center gap-2">
+                {listMode === 'followers' ? (
+                  <>
+                    <UserPlus className="w-5 h-5 text-purple-600" />
+                    Followers
+                  </>
+                ) : (
+                  <>
+                    <UserCheck className="w-5 h-5 text-purple-600" />
+                    Following
+                  </>
+                )}
+                <span className="text-sm font-normal text-slate-400">
+                  ({peopleList.length})
+                </span>
+              </h3>
+              <button 
+                onClick={() => setListMode(null)} 
+                className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-all hover:scale-110"
+              >
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
             </div>
-            {peopleList.map((person) => (
-              <div key={person.id} className="flex items-center gap-3 py-2 border-b border-slate-100 dark:border-slate-800 last:border-0">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center text-xs font-bold overflow-hidden">
-                  {person.avatar_url ? (
-                    <img src={person.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    (person.full_name || person.username || 'U')[0].toUpperCase()
-                  )}
+
+            {/* People List */}
+            {peopleList.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3">
+                  <Users className="w-8 h-8 text-slate-300 dark:text-slate-600" />
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-800 dark:text-white">{person.full_name || person.username}</p>
-                  <p className="text-xs text-slate-400">@{person.username}</p>
-                </div>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  No {listMode === 'followers' ? 'followers' : 'following'} yet
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {listMode === 'followers' 
+                    ? 'When someone follows you, they\'ll appear here' 
+                    : 'When you follow someone, they\'ll appear here'}
+                </p>
               </div>
-            ))}
+            ) : (
+              <div className="space-y-2">
+                {peopleList.map((person) => (
+                  <div 
+                    key={person.id} 
+                    onClick={() => {
+                      setListMode(null);
+                      window.location.href = `/profile/${person.username}`;
+                    }}
+                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer group"
+                  >
+                    {/* Avatar */}
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center text-sm font-bold overflow-hidden flex-shrink-0 ring-2 ring-purple-500/20 group-hover:ring-purple-500/40 transition-all">
+                      {person.avatar_url ? (
+                        <img src={person.avatar_url} alt={person.username} className="w-full h-full object-cover" />
+                      ) : (
+                        (person.full_name || person.username || 'U')[0].toUpperCase()
+                      )}
+                    </div>
+                    
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 dark:text-white truncate">
+                        {person.full_name || person.username}
+                      </p>
+                      <p className="text-xs text-slate-400 truncate">@{person.username}</p>
+                    </div>
+                    
+                    {/* Follow/Unfollow Button */}
+                    {person.id !== session.user.id && (
+                      <button 
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const newState = !person.isFollowing;
+                          // Update UI instantly
+                          setPeopleList(prev => prev.map(p => 
+                            p.id === person.id ? { ...p, isFollowing: newState } : p
+                          ));
+                          // Update database
+                          if (newState) {
+                            await supabase
+                              .from('follows')
+                              .insert([{ follower_id: session.user.id, following_id: person.id }]);
+                          } else {
+                            await supabase
+                              .from('follows')
+                              .delete()
+                              .eq('follower_id', session.user.id)
+                              .eq('following_id', person.id);
+                          }
+                          // Refresh counts
+                          const [{ count: followers }, { count: following }] = await Promise.all([
+                            supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', viewedUserId),
+                            supabase.from('follows').select('following_id', { count: 'exact', head: true }).eq('follower_id', viewedUserId)
+                          ]);
+                          setFollowersCount(followers || 0);
+                          setFollowingCount(following || 0);
+                        }}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all hover:scale-105 ${
+                          person.isFollowing 
+                            ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600' 
+                            : 'bg-purple-600 text-white hover:bg-purple-700 shadow-md shadow-purple-500/25'
+                        }`}
+                      >
+                        {person.isFollowing ? 'Following' : 'Follow'}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

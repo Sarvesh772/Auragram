@@ -18,6 +18,21 @@ export default function Settings({ session, isDarkMode, setIsDarkMode }) {
   const [savedPosts, setSavedPosts] = useState([]);
   const [loadingSaved, setLoadingSaved] = useState(false);
   const [previewPost, setPreviewPost] = useState(null); // Full Preview Modal State
+  const [blockedUsers, setBlockedUsers] = useState([]);
+  const [loadingBlocked, setLoadingBlocked] = useState(false);
+
+  async function fetchBlockedUsers() {
+    setLoadingBlocked(true);
+    const { data } = await supabase.from('blocked_users').select('blocked_id').eq('blocker_id', session.user.id);
+    const ids = (data || []).map(row => row.blocked_id);
+    const { data: profiles } = ids.length ? await supabase.from('profiles').select('id, username, full_name, avatar_url').in('id', ids) : { data: [] };
+    setBlockedUsers(profiles || []); setLoadingBlocked(false);
+  }
+
+  async function unblockUser(userId) {
+    const { error } = await supabase.from('blocked_users').delete().eq('blocker_id', session.user.id).eq('blocked_id', userId);
+    if (!error) setBlockedUsers(prev => prev.filter(user => user.id !== userId));
+  }
 
   useEffect(() => {
     getProfile();
@@ -207,6 +222,11 @@ export default function Settings({ session, isDarkMode, setIsDarkMode }) {
             </div>
 
             {/* EDIT PROFILE */}
+            <div onClick={() => { setActiveSubTab('blocked'); fetchBlockedUsers(); }} className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition">
+              <div className="flex items-center space-x-3.5"><div className="p-2.5 rounded-2xl bg-rose-50 dark:bg-rose-900/30 text-rose-600"><User className="w-5 h-5" /></div><div><h3 className="text-sm font-bold text-slate-800 dark:text-white">Blocked Accounts</h3><p className="text-[11px] text-slate-400">Manage blocked users</p></div></div><ChevronRight className="w-5 h-5 text-slate-400" />
+            </div>
+
+            {/* EDIT PROFILE */}
             <div
               onClick={() => setActiveSubTab('profile')}
               className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition"
@@ -281,6 +301,10 @@ export default function Settings({ session, isDarkMode, setIsDarkMode }) {
       )}
 
       {/* 2. SAVED POSTS VIEW */}
+      {activeSubTab === 'blocked' && (
+        <div className="space-y-4"><button onClick={() => setActiveSubTab(null)} className="flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-300"><ArrowLeft className="w-4 h-4" /> Settings</button><h2 className="text-xl font-black text-slate-800 dark:text-white">Blocked Accounts</h2>{loadingBlocked ? <Loader2 className="w-5 h-5 animate-spin text-purple-600" /> : blockedUsers.length === 0 ? <p className="text-sm text-slate-400">No blocked accounts.</p> : <div className="space-y-2">{blockedUsers.map(user => <div key={user.id} className="flex items-center gap-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-3"><div className="w-10 h-10 rounded-full overflow-hidden bg-purple-600 text-white flex items-center justify-center font-bold">{user.avatar_url ? <img src={user.avatar_url} className="w-full h-full object-cover" /> : (user.username || 'U')[0].toUpperCase()}</div><div className="flex-1 min-w-0"><p className="text-sm font-bold text-slate-800 dark:text-white truncate">{user.full_name || user.username}</p><p className="text-xs text-slate-400">@{user.username}</p></div><button onClick={() => unblockUser(user.id)} className="rounded-xl bg-purple-600 px-3 py-2 text-xs font-bold text-white">Unblock</button></div>)}</div>}</div>
+      )}
+
       {activeSubTab === 'saved' && (
         <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-xs">
           <RenderHeader title="Saved Posts" />

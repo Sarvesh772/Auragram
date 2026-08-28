@@ -138,13 +138,11 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
   async function fetchReels() {
     setLoading(true);
 
-    const [{ data: mutedRows }, { data: blockedRows }, { data: blockedByRows }] = await Promise.all([
-      supabase.from('muted_users').select('muted_id').eq('muter_id', session.user.id),
+    const [{ data: blockedRows }, { data: blockedByRows }] = await Promise.all([
       supabase.from('blocked_users').select('blocked_id').eq('blocker_id', session.user.id),
       supabase.from('blocked_users').select('blocker_id').eq('blocked_id', session.user.id)
     ]);
     const hiddenUsers = new Set([
-      ...(mutedRows || []).map(r => r.muted_id),
       ...(blockedRows || []).map(r => r.blocked_id),
       ...(blockedByRows || []).map(r => r.blocker_id)
     ]);
