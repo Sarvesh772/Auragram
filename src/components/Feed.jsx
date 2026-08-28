@@ -109,6 +109,7 @@ function PostMediaCarousel({ mediaItems }) {
           </div>
         </>
       )}
+      {sharePost && <div className="fixed inset-0 z-[75] bg-black/60 flex items-center justify-center p-4" onClick={() => setSharePost(null)}><div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 p-5 space-y-3" onClick={e => e.stopPropagation()}><div className="flex justify-between"><h3 className="font-bold text-slate-800 dark:text-white">Share post</h3><button onClick={() => setSharePost(null)}><X className="w-5 h-5" /></button></div><button onClick={async () => { await navigator.clipboard?.writeText(`${window.location.origin}/?post=${sharePost.id}`); setShareCopied(true); setTimeout(() => setShareCopied(false), 1600); }} className="w-full rounded-xl bg-slate-100 dark:bg-slate-800 py-3 text-sm font-bold">{shareCopied ? 'Link copied!' : 'Copy link'}</button><a href={`https://wa.me/?text=${encodeURIComponent(`${window.location.origin}/?post=${sharePost.id}`)}`} target="_blank" rel="noreferrer" className="block w-full rounded-xl bg-emerald-500 py-3 text-center text-sm font-bold text-white">WhatsApp</a></div></div>}
     </div>
   );
 }
@@ -142,6 +143,8 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
   const [editingPost, setEditingPost] = useState(null);
   const [editContent, setEditContent] = useState('');
   const [reportMessage, setReportMessage] = useState('');
+  const [sharePost, setSharePost] = useState(null);
+  const [shareCopied, setShareCopied] = useState(false);
 
   async function submitReport() {
     if (!reportPost) return;
@@ -436,9 +439,7 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
   }
 
   async function handleSharePost(post) {
-    const url = `${window.location.origin}/?post=${encodeURIComponent(post.id)}`;
-    if (navigator.share) await navigator.share({ title: 'Auragram post', text: post.content || 'Check this post', url });
-    else await navigator.clipboard?.writeText(url);
+    setSharePost(post);
   }
 
   return (

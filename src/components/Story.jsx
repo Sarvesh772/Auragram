@@ -90,9 +90,15 @@ export default function Story({ session, onSelectUser }) {
 
     const followedRes = await supabase.from('follows').select('following_id').eq('follower_id', session.user.id);
     const followedIds = new Set((followedRes.data || []).map((row) => row.following_id));
+    const [{ data: blockedOut }, { data: blockedIn }] = await Promise.all([
+      supabase.from('blocked_users').select('blocked_id').eq('blocker_id', session.user.id),
+      supabase.from('blocked_users').select('blocker_id').eq('blocked_id', session.user.id)
+    ]);
+    const blockedIds = new Set([...(blockedOut || []).map(r => r.blocked_id), ...(blockedIn || []).map(r => r.blocker_id)]);
     const closeRes = await supabase.from('story_close_friends').select('story_id').eq('user_id', session.user.id).in('story_id', storiesData.map((story) => story.id));
     const closeStoryIds = new Set((closeRes.data || []).map((row) => row.story_id));
     const visibleStories = storiesData.filter((story) => {
+      if (blockedIds.has(story.user_id)) return false;
       if (story.user_id === session.user.id || story.privacy === 'public' || !story.privacy) return true;
       if (story.privacy === 'followers') return followedIds.has(story.user_id);
       if (story.privacy === 'close_friends') return closeStoryIds.has(story.id);

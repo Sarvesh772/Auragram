@@ -46,6 +46,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [safetyMessage, setSafetyMessage] = useState('');
   const [isBlocked, setIsBlocked] = useState(false);
+  const [blockedByUser, setBlockedByUser] = useState(false);
   const [profileLinkCopied, setProfileLinkCopied] = useState(false);
   const [reportPost, setReportPost] = useState(null);
   const [reportReason, setReportReason] = useState('Spam');
@@ -203,6 +204,8 @@ async function openPeopleList(mode) {
     if (targetId !== session.user.id) {
       const { data: blockRow } = await supabase.from('blocked_users').select('blocked_id').eq('blocker_id', session.user.id).eq('blocked_id', targetId).maybeSingle();
       setIsBlocked(Boolean(blockRow));
+      const { data: blockedByRow } = await supabase.from('blocked_users').select('blocker_id').eq('blocker_id', targetId).eq('blocked_id', session.user.id).maybeSingle();
+      setBlockedByUser(Boolean(blockedByRow));
     }
 
     if (profileData) {
@@ -431,6 +434,7 @@ async function openPeopleList(mode) {
   const reelPosts = posts.filter(p => p.media_url && p.media_type === 'video');
 
   return (
+    blockedByUser ? <div className="min-h-screen flex items-center justify-center p-6 text-center"><div><h2 className="text-xl font-bold text-slate-800 dark:text-white">User unavailable</h2><p className="mt-2 text-sm text-slate-500">This profile is not available.</p></div></div> :
     <div className="w-full max-w-2xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 pb-20 box-border overflow-x-hidden">
       
       {/* Toast Messages */}
