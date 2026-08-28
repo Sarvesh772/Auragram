@@ -45,6 +45,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const [shareCopied, setShareCopied] = useState(false);
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [safetyMessage, setSafetyMessage] = useState('');
+  const [isBlocked, setIsBlocked] = useState(false);
   const [profileLinkCopied, setProfileLinkCopied] = useState(false);
   const [reportPost, setReportPost] = useState(null);
   const [reportReason, setReportReason] = useState('Spam');
@@ -72,10 +73,14 @@ export default function Profile({ session, profileUserId, onMessage }) {
     setSafetyOpen(false);
     let result = { error: null };
     if (action === 'report') result = await supabase.from('reports').insert([{ reporter_id: session.user.id, reported_user_id: viewedUserId, reason: 'Profile reported' }]);
-    if (action === 'block') result = await supabase.from('blocked_users').upsert([{ blocker_id: session.user.id, blocked_id: viewedUserId }]);
+    if (action === 'block') {
+      if (isBlocked) result = await supabase.from('blocked_users').delete().eq('blocker_id', session.user.id).eq('blocked_id', viewedUserId);
+      else result = await supabase.from('blocked_users').upsert([{ blocker_id: session.user.id, blocked_id: viewedUserId }]);
+    }
     if (action === 'mute') result = await supabase.from('muted_users').upsert([{ muter_id: session.user.id, muted_id: viewedUserId }]);
     if (result.error) { setSafetyMessage(`${action} failed: ${result.error.message}`); setTimeout(() => setSafetyMessage(''), 3500); return; }
-    setSafetyMessage(action === 'report' ? 'Report submitted.' : action === 'block' ? 'User blocked.' : 'User muted.');
+    if (action === 'block') setIsBlocked(!isBlocked);
+    setSafetyMessage(action === 'report' ? 'Report submitted.' : action === 'block' ? (isBlocked ? 'User unblocked.' : 'User blocked.') : 'User muted.');
     setTimeout(() => setSafetyMessage(''), 2200);
   }
 
@@ -141,6 +146,10 @@ export default function Profile({ session, profileUserId, onMessage }) {
     }
     const targetId = profileData?.id || viewedUserId;
     if (profileData?.id) setResolvedProfileId(profileData.id);
+    if (targetId !== session.user.id) {
+      const { data: blockRow } = await supabase.from('blocked_users').select('blocked_id').eq('blocker_id', session.user.id).eq('blocked_id', targetId).maybeSingle();
+      setIsBlocked(Boolean(blockRow));
+    }
 
     if (profileData) {
       setProfile(profileData);
@@ -462,11 +471,8 @@ export default function Profile({ session, profileUserId, onMessage }) {
             
             {safetyOpen && (
               <div className="absolute right-0 top-11 z-20 w-48 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-1 shadow-xl">
-                <button onClick={() => handleSafetyAction('mute')} className="w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
-                  Mute user
-                </button>
                 <button onClick={() => handleSafetyAction('block')} className="w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all">
-                  Block user
+                  {isBlocked ? 'Unblock user' : 'Block user'}
                 </button>
               </div>
             )}
