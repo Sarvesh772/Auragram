@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import { uploadToR2 } from '../lib/r2Upload';
 import { 
   Plus, X, Loader2, Trash2, ChevronLeft, ChevronRight, Eye, 
   Crop, Type, RotateCw, Wand2, ZoomIn, ZoomOut, Move, Send
@@ -324,28 +325,19 @@ export default function Story({ session, onSelectUser }) {
   async function uploadStoryFile(fileObj, mediaType, caption) {
     setStoryUploading(true);
     const fileExt = fileObj.name.split('.').pop();
-    const filePath = `stories/${session.user.id}_${Date.now()}.${fileExt}`;
-
-    const { error: uploadErr } = await supabase.storage
-      .from('media')
-      .upload(filePath, fileObj);
-
-    if (uploadErr) {
+    let publicUrl;
+    try { publicUrl = await uploadToR2(fileObj, `stories/${session.user.id}`); } catch (uploadErr) {
       alert('Upload failed: ' + uploadErr.message);
       setStoryUploading(false);
       return;
     }
-
-    const { data: urlData } = supabase.storage
-      .from('media')
-      .getPublicUrl(filePath);
 
     const storyId = crypto.randomUUID();
     const { error: storyInsertError } = await supabase.from('stories').insert([
       {
         id: storyId,
         user_id: session.user.id,
-        media_url: urlData.publicUrl,
+        media_url: publicUrl,
         media_type: mediaType,
         caption: caption || null,
         privacy: storyPrivacy

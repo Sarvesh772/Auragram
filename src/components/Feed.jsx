@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import { uploadToR2 } from '../lib/r2Upload';
 import Story from './Story';
 import { Image as ImageIcon, Video, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight, MoreVertical, Flag, Play } from 'lucide-react';
 import MentionInput from './MentionInput';
@@ -400,19 +401,14 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
       const fileName = `${Date.now()}_${Math.random()}.${fileExt}`;
       const filePath = `${session.user.id}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage.from('media').upload(filePath, item.file);
-
-      if (uploadError) {
+      try {
+        const publicUrl = await uploadToR2(item.file, `posts/${session.user.id}`);
+        uploadedMedia.push({ url: publicUrl, type: item.type });
+      } catch (uploadError) {
         setPostError('Upload failed: ' + uploadError.message);
         setUploading(false);
         return;
       }
-
-      const { data: publicUrlData } = supabase.storage.from('media').getPublicUrl(filePath);
-      uploadedMedia.push({
-        url: publicUrlData.publicUrl,
-        type: item.type
-      });
     }
 
     const postPayload = {
