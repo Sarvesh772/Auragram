@@ -118,6 +118,7 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
   const [posts, setPosts] = useState([]);
   const [bookmarkedPostIds, setBookmarkedPostIds] = useState(new Set());
   const [newContent, setNewContent] = useState('');
+  const [expandedCaptions, setExpandedCaptions] = useState(new Set());
   
   // Multi-file state
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -545,9 +546,10 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
               
               {post.content && (
                 <div className="px-4 pb-3">
-                  <p className="text-slate-700 dark:text-slate-200 text-sm">
+                  <p className={`text-slate-700 dark:text-slate-200 text-sm whitespace-pre-wrap break-words ${expandedCaptions.has(post.id) ? '' : 'line-clamp-4'}`}>
                     <RenderFormattedText text={post.content} onViewProfile={onViewProfile} />
                   </p>
+                  {(post.content.length > 220 || post.content.split('\n').length > 4) && <button onClick={() => setExpandedCaptions(prev => { const next = new Set(prev); next.has(post.id) ? next.delete(post.id) : next.add(post.id); return next; })} className="mt-1 text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline">{expandedCaptions.has(post.id) ? 'Show less' : 'Show more'}</button>}
                 </div>
               )}
               
