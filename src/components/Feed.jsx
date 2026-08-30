@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { uploadToR2 } from '../lib/r2Upload';
 import Story from './Story';
-import { Image as ImageIcon, Video, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight, MoreVertical, Flag, Play, Maximize2, Minimize2 } from 'lucide-react';
-import MentionInput from './MentionInput';
+import { Image as ImageIcon, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight, MoreVertical, Play, Maximize2, Minimize2 } from 'lucide-react';
 import { RenderFormattedText } from './MentionInput';
 
 // Helper for @mentions
@@ -121,6 +120,7 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
   
   // Composer expand state
   const [isComposerExpanded, setIsComposerExpanded] = useState(false);
+  const textareaRef = useRef(null);
   
   // Multi-file state
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -144,6 +144,15 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
   const [editingPost, setEditingPost] = useState(null);
   const [editContent, setEditContent] = useState('');
   const [reportMessage, setReportMessage] = useState('');
+
+  // Auto-resize Textarea dynamically based on content
+  const handleTextChange = (e) => {
+    setNewContent(e.target.value);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  };
 
   async function submitReport() {
     if (!reportPost) return;
@@ -422,6 +431,7 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
       setNewContent('');
       setSelectedFiles([]);
       setIsComposerExpanded(false);
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
       fetchPosts();
     } else if (insertError) {
       setPostError(insertError.message);
@@ -454,26 +464,25 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
         {postError && <p className="text-xs text-rose-500 mb-2 font-medium">{postError}</p>}
         
         <div className="flex items-start space-x-3 mb-3">
-          <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-sm overflow-hidden flex-shrink-0 mt-1">
+          <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-sm overflow-hidden flex-shrink-0 mt-0.5">
             {myProfile?.avatar_url ? <img src={myProfile.avatar_url} alt="Your profile" className="w-full h-full object-cover" /> : displayUsername[0]?.toUpperCase()}
           </div>
           
           <div className="flex-1 relative min-w-0">
-            <div className={`transition-all duration-200 ${isComposerExpanded ? 'min-h-[140px]' : 'min-h-[44px]'}`}>
-              <MentionInput
-                value={newContent}
-                onChange={setNewContent}
-                placeholder="What's orbiting your mind?"
-                currentUserId={session.user.id}
-                className="w-full bg-transparent focus:outline-none text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm font-medium pr-8"
-              />
-            </div>
+            <textarea
+              ref={textareaRef}
+              value={newContent}
+              onChange={handleTextChange}
+              placeholder="What's orbiting your mind?"
+              rows={isComposerExpanded ? 6 : 1}
+              className="w-full bg-transparent focus:outline-none text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm font-medium pr-8 resize-none overflow-hidden leading-normal border-none p-0"
+            />
 
             {/* Expand / Collapse Button */}
             <button
               type="button"
               onClick={() => setIsComposerExpanded(!isComposerExpanded)}
-              className="absolute right-0 top-1.5 text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 p-1 rounded-lg transition-colors"
+              className="absolute right-0 top-0 text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 p-1 rounded-lg transition-colors"
               title={isComposerExpanded ? "Collapse input" : "Expand input"}
             >
               {isComposerExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -632,12 +641,12 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
                     </div>
 
                     <div className="flex items-center space-x-2 pt-2 border-t border-slate-200/60 dark:border-slate-700">
-                      <MentionInput
+                      <input
+                        type="text"
                         value={commentTextMap[post.id] || ''}
-                        onChange={(val) => setCommentTextMap({ ...commentTextMap, [post.id]: val })}
+                        onChange={(e) => setCommentTextMap({ ...commentTextMap, [post.id]: e.target.value })}
                         placeholder="Add a comment... (use @ to tag)"
-                        onSend={() => handleAddComment(post)}
-                        currentUserId={session.user.id}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddComment(post)}
                         className="w-full min-w-0 flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-full px-4 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-purple-500 shadow-2xs"
                       />
                       <button 
