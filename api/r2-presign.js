@@ -12,6 +12,9 @@ export default async function handler(req, res) {
     const command = new PutObjectCommand({ Bucket: process.env.R2_BUCKET, Key: key, ContentType: contentType });
     const uploadUrl = await getSignedUrl(client, command, { expiresIn: 300 });
     const publicBase = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
-    return res.status(200).json({ uploadUrl, publicUrl: `${publicBase}/${key}` });
+    const bucket = process.env.R2_BUCKET;
+    // R2 public development URLs expose the bucket as the first path segment.
+    const bucketPath = publicBase.endsWith(`/${bucket}`) ? '' : `/${bucket}`;
+    return res.status(200).json({ uploadUrl, publicUrl: `${publicBase}${bucketPath}/${key}` });
   } catch (error) { return res.status(500).json({ error: 'Could not create upload URL' }); }
 }
