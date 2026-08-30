@@ -138,13 +138,13 @@ export default function MentionInput({ value, onChange, placeholder, onSend, cla
         </div>
       )}
 
-      <input
+      <textarea
         ref={inputRef}
-        type="text"
+        rows={2}
         value={value}
         onChange={handleChange}
         placeholder={placeholder}
-        className={className}
+        className={`${className || ''} resize-none min-h-[2.5rem] max-h-32 overflow-y-auto whitespace-pre-wrap leading-6`}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !showSuggestions && onSend) {
             onSend();
