@@ -505,16 +505,16 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
 
                 {/* Bottom Comments Drawer Modal - FINAL PREMIUM VERSION (Icon Only) */}
 {activeReelId === reel.id && (
-  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0f0f0f] via-[#1a1a1a] to-[#1a1a1a]/95 backdrop-blur-xl text-white rounded-t-3xl p-0 z-30 max-h-[60%] md:max-h-[65%] flex flex-col shadow-2xl border-t border-white/10 animate-in slide-in-from-bottom duration-300">
+  <div className="absolute inset-x-0 bottom-0 bg-white dark:bg-gradient-to-t dark:from-[#0f0f0f] dark:via-[#1a1a1a] dark:to-[#1a1a1a]/95 backdrop-blur-xl text-slate-900 dark:text-white rounded-t-3xl p-0 z-30 max-h-[60%] md:max-h-[65%] flex flex-col shadow-2xl border-t border-slate-200 dark:border-white/10 animate-in slide-in-from-bottom duration-300">
     
     {/* Header */}
-    <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 flex-shrink-0 bg-gradient-to-r from-[#1a1a1a] to-transparent">
+    <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-white/10 flex-shrink-0 bg-white dark:bg-[#1a1a1a]">
       <div className="flex items-center gap-2">
         <div className="w-1 h-5 bg-gradient-to-b from-rose-500 to-amber-500 rounded-full"></div>
-        <h4 className="text-sm font-semibold tracking-wide text-white/90">
+        <h4 className="text-sm font-semibold tracking-wide text-slate-900 dark:text-white/90">
           Comments
         </h4>
-        <span className="text-xs font-medium text-white/40 bg-white/5 px-2 py-0.5 rounded-full">
+        <span className="text-xs font-medium text-slate-500 dark:text-white/40 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full">
           {commentsCount}
         </span>
       </div>
@@ -523,7 +523,7 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
           setActiveReelId(null);
           setReplyingTo(null);
         }} 
-        className="p-2 rounded-full hover:bg-white/10 text-white/40 hover:text-white transition-all duration-300 hover:scale-110"
+        className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-all duration-300 hover:scale-110"
       >
         <X className="w-4 h-4" />
       </button>
@@ -567,13 +567,13 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
                 {/* Comment Content */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-sm text-white/95">
+                    <span className="font-semibold text-sm text-slate-900 dark:text-white/95">
                       {comment.profiles?.full_name || comment.profiles?.username || 'User'}
                     </span>
-                    <span className="text-xs text-white/40">
+                    <span className="text-xs text-slate-500 dark:text-white/40">
                       @{comment.profiles?.username || 'user'}
                     </span>
-                    <span className="text-[10px] text-white/30 tracking-wide">
+                    <span className="text-[10px] text-slate-400 dark:text-white/30 tracking-wide">
                       · {new Date(comment.created_at).toLocaleDateString('en-US', { 
                         month: 'short', 
                         day: 'numeric',
@@ -582,7 +582,7 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
                     </span>
                   </div>
                   
-                  <p className="text-sm text-white/90 leading-relaxed mt-0.5 pl-0.5">
+                  <p className="text-sm text-slate-800 dark:text-white/90 leading-relaxed mt-0.5 pl-0.5">
                     <RenderFormattedText text={comment.content} onViewProfile={onViewProfile} />
                   </p>
                   
@@ -593,7 +593,7 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
                       className={`flex items-center gap-1.5 text-xs font-medium transition-all duration-300 ${
                         isLiked 
                           ? 'text-rose-500' 
-                          : 'text-white/30 hover:text-white/70 hover:scale-105'
+                          : 'text-slate-400 dark:text-white/30 hover:text-slate-700 dark:hover:text-white/70 hover:scale-105'
                       }`}
                     >
                       <Heart className={`w-3.5 h-3.5 transition-all duration-300 ${isLiked ? 'fill-rose-500 scale-110' : ''}`} />
@@ -605,7 +605,7 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
                         setReplyingTo(comment); 
                         setCommentTextMap(prev => ({ ...prev, [reel.id]: '' }));
                       }} 
-                      className="text-xs font-medium text-white/30 hover:text-white/70 hover:scale-105 transition-all duration-300"
+                      className="text-xs font-medium text-slate-400 dark:text-white/30 hover:text-slate-700 dark:hover:text-white/70 hover:scale-105 transition-all duration-300"
                     >
                       Reply
                     </button>
@@ -613,7 +613,7 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
                     {comment.user_id === session.user.id && (
                       <button
                         onClick={() => handleDeleteComment(reel.id, comment.id)}
-                        className="text-xs font-medium text-white/20 hover:text-rose-400 hover:scale-105 transition-all duration-300 ml-auto"
+                        className="text-xs font-medium text-slate-400 dark:text-white/30 hover:text-red-500 dark:hover:text-red-400 hover:scale-105 transition-all duration-300 ml-auto"
                       >
                         Delete
                       </button>
@@ -702,9 +702,9 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
     </div>
 
     {/* Comment Input - Icon Only */}
-    <div className="border-t border-white/10 p-4 flex-shrink-0 bg-gradient-to-b from-transparent to-[#0f0f0f]">
+    <div className="border-t border-slate-200 dark:border-white/10 p-4 flex-shrink-0 bg-white dark:bg-gradient-to-b dark:from-[#1a1a1a] dark:to-[#0f0f0f]">
       {replyingTo && replyingTo.post_id === reel.id && (
-        <div className="flex items-center justify-between text-xs text-rose-400/80 mb-3 px-1">
+        <div className="flex items-center justify-between text-xs text-purple-600 dark:text-purple-300 mb-3 px-1">
           <div className="flex items-center gap-2">
             <div className="w-1 h-4 bg-gradient-to-b from-rose-500 to-amber-500 rounded-full"></div>
             <span>Replying to @{replyingTo.profiles?.username || 'user'}</span>
@@ -718,7 +718,7 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
         </div>
       )}
       
-      <div className="flex items-center gap-3 bg-white/5 rounded-full px-4 py-1 border border-white/10 focus-within:border-rose-500/40 focus-within:ring-1 focus-within:ring-rose-500/40 transition-all duration-300">
+      <div className="flex items-center space-x-2 pt-2 border-t border-slate-200/60 dark:border-slate-700">
         <div className="flex-1">
           <MentionInput
             value={commentTextMap[reel.id] || ''}
@@ -728,16 +728,16 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
             currentUserId={session.user.id}
             rows={1}
             compact
-            className="w-full bg-transparent border-0 py-1 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-0"
+            className="w-full min-w-0 flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-full px-4 py-2 text-xs text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-white/30 focus:outline-none focus:border-purple-500 shadow-2xs"
           />
         </div>
         <button
           onClick={() => handleAddComment(reel)}
           disabled={!commentTextMap[reel.id]?.trim()}
-          className={`p-2 rounded-full transition-all duration-300 ${
+          className={`p-2 rounded-full transition shadow-md shadow-purple-200 flex items-center justify-center ${
             !commentTextMap[reel.id]?.trim() 
-              ? 'text-white/20 cursor-not-allowed' 
-              : 'bg-gradient-to-r from-rose-500 to-amber-500 text-white hover:shadow-lg hover:shadow-rose-500/25 hover:scale-110 active:scale-95'
+              ? 'text-slate-400 dark:text-white/20 cursor-not-allowed' 
+              : 'bg-purple-600 hover:bg-purple-700 text-white active:scale-95'
           }`}
         >
           <Send className="w-4 h-4" />
