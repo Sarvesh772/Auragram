@@ -2,10 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { uploadToR2 } from '../lib/r2Upload';
 import Story from './Story';
-import { Image as ImageIcon, Video, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight, MoreVertical, Flag, Play } from 'lucide-react';
+import { Image as ImageIcon, Video, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight, MoreVertical, Flag, Play, Maximize2, Minimize2 } from 'lucide-react';
 import MentionInput from './MentionInput';
 import { RenderFormattedText } from './MentionInput';
-
 
 // Helper for @mentions
 async function processMentions(text, actorId, postId) {
@@ -120,13 +119,14 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
   const [newContent, setNewContent] = useState('');
   const [expandedCaptions, setExpandedCaptions] = useState(new Set());
   
+  // Composer expand state
+  const [isComposerExpanded, setIsComposerExpanded] = useState(false);
+  
   // Multi-file state
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [postError, setPostError] = useState('');
-
-// music selection state
 
   // Comments State
   const [activeCommentPostId, setActiveCommentPostId] = useState(null);
@@ -144,8 +144,6 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
   const [editingPost, setEditingPost] = useState(null);
   const [editContent, setEditContent] = useState('');
   const [reportMessage, setReportMessage] = useState('');
-  const [sharePost, setSharePost] = useState(null);
-  const [shareCopied, setShareCopied] = useState(false);
 
   async function submitReport() {
     if (!reportPost) return;
@@ -256,7 +254,6 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
     }, {});
 
     const formattedPosts = visiblePosts.map(post => {
-      // Normalizing media list for carousel
       let mediaList = [];
       if (post.media_urls && Array.isArray(post.media_urls) && post.media_urls.length > 0) {
         mediaList = post.media_urls;
@@ -398,10 +395,6 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
     const uploadedMedia = [];
 
     for (const item of selectedFiles) {
-      const fileExt = item.file.name.split('.').pop();
-      const fileName = `${Date.now()}_${Math.random()}.${fileExt}`;
-      const filePath = `${session.user.id}/${fileName}`;
-
       try {
         const publicUrl = await uploadToR2(item.file, `posts/${session.user.id}`);
         uploadedMedia.push({ url: publicUrl, type: item.type });
@@ -413,12 +406,12 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
     }
 
     const postPayload = {
-  user_id: session.user.id,
-  content: newContent,
-  media_urls: uploadedMedia,
-  media_url: uploadedMedia[0]?.url || null,
-  media_type: uploadedMedia[0]?.type || null,
-};
+      user_id: session.user.id,
+      content: newContent,
+      media_urls: uploadedMedia,
+      media_url: uploadedMedia[0]?.url || null,
+      media_type: uploadedMedia[0]?.type || null,
+    };
 
     const { data: createdPost, error: insertError } = await supabase.from('posts').insert([postPayload]).select('id').single();
 
@@ -428,6 +421,7 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
       await processMentions(newContent, session.user.id, createdPost.id);
       setNewContent('');
       setSelectedFiles([]);
+      setIsComposerExpanded(false);
       fetchPosts();
     } else if (insertError) {
       setPostError(insertError.message);
@@ -456,20 +450,35 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
       <Story session={session} />
 
       {/* Create Post Input */}
-      <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+      <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 transition-all">
         {postError && <p className="text-xs text-rose-500 mb-2 font-medium">{postError}</p>}
         
-        <div className="flex items-center space-x-3 mb-3">
-          <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
+        <div className="flex items-start space-x-3 mb-3">
+          <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-sm overflow-hidden flex-shrink-0 mt-1">
             {myProfile?.avatar_url ? <img src={myProfile.avatar_url} alt="Your profile" className="w-full h-full object-cover" /> : displayUsername[0]?.toUpperCase()}
           </div>
-          <MentionInput
-            value={newContent}
-            onChange={setNewContent}
-            placeholder="What's orbiting your mind?"
-            currentUserId={session.user.id}
-            className="w-full bg-transparent focus:outline-none text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm font-medium"
-          />
+          
+          <div className="flex-1 relative min-w-0">
+            <div className={`transition-all duration-200 ${isComposerExpanded ? 'min-h-[140px]' : 'min-h-[44px]'}`}>
+              <MentionInput
+                value={newContent}
+                onChange={setNewContent}
+                placeholder="What's orbiting your mind?"
+                currentUserId={session.user.id}
+                className="w-full bg-transparent focus:outline-none text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm font-medium pr-8"
+              />
+            </div>
+
+            {/* Expand / Collapse Button */}
+            <button
+              type="button"
+              onClick={() => setIsComposerExpanded(!isComposerExpanded)}
+              className="absolute right-0 top-1.5 text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 p-1 rounded-lg transition-colors"
+              title={isComposerExpanded ? "Collapse input" : "Expand input"}
+            >
+              {isComposerExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
 
         {/* Selected Media Grid Previews */}
@@ -497,7 +506,7 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
           <div className="flex flex-wrap gap-x-4 gap-y-2 min-w-0">
             <button 
               onClick={() => fileInputRef.current?.click()} 
-              className="flex items-center space-x-1.5 text-purple-600 font-medium text-xs md:text-sm"
+              className="flex items-center space-x-1.5 text-purple-600 font-medium text-xs md:text-sm hover:opacity-80 transition"
             >
               <ImageIcon className="w-4 h-4" /> 
               <span>Photo / Video</span>
