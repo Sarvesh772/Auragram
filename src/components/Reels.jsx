@@ -726,7 +726,9 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
             placeholder={replyingTo ? "Write a reply..." : "Add a comment..."}
             onSend={() => handleAddComment(reel)}
             currentUserId={session.user.id}
-            className="w-full bg-transparent border-0 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-0"
+            rows={1}
+            compact
+            className="w-full bg-transparent border-0 py-1 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-0"
           />
         </div>
         <button
