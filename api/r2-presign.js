@@ -12,12 +12,19 @@ export default async function handler(req, res) {
     const isChat = target === 'chat';
     const bucket = isChat ? process.env.R2_CHAT_BUCKET : process.env.R2_BUCKET;
     const configuredPublicUrl = isChat ? process.env.R2_CHAT_PUBLIC_URL : process.env.R2_PUBLIC_URL;
-    if (!bucket || !configuredPublicUrl) return res.status(500).json({ error: 'R2 bucket is not configured' });
+    const missing = [
+      ['R2_ENDPOINT', process.env.R2_ENDPOINT],
+      ['R2_ACCESS_KEY_ID', process.env.R2_ACCESS_KEY_ID],
+      ['R2_SECRET_ACCESS_KEY', process.env.R2_SECRET_ACCESS_KEY],
+      [isChat ? 'R2_CHAT_BUCKET' : 'R2_BUCKET', bucket],
+      [isChat ? 'R2_CHAT_PUBLIC_URL' : 'R2_PUBLIC_URL', configuredPublicUrl]
+    ].filter(([, value]) => !value).map(([name]) => name);
+    if (missing.length) return res.status(500).json({ error: `Missing R2 environment variable(s): ${missing.join(', ')}` });
     const command = new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType });
     const uploadUrl = await getSignedUrl(client, command, { expiresIn: 300 });
     const publicBase = configuredPublicUrl.replace(/\/$/, '');
     // R2 public development URLs expose the bucket as the first path segment.
     const bucketPath = publicBase.endsWith(`/${bucket}`) ? '' : `/${bucket}`;
     return res.status(200).json({ uploadUrl, publicUrl: `${publicBase}${bucketPath}/${key}` });
-  } catch (error) { return res.status(500).json({ error: 'Could not create upload URL' }); }
+  } catch (error) { console.error('R2 presign error:', error); return res.status(500).json({ error: `Could not create upload URL: ${error.message}` }); }
 }
