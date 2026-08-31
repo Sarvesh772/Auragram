@@ -609,20 +609,24 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
                         <p className="text-xs text-slate-400 text-center py-3">No comments yet. Start the conversation!</p>
                       ) : (
                         commentsMap[post.id].map(comment => (
-                          <div key={comment.id} className="flex justify-between items-start group">
-                            <div className="flex space-x-2.5 items-start">
+                          <div key={comment.id} className="flex justify-between items-start group py-1">
+                            <div className="flex space-x-3 items-start min-w-0">
                               {comment.profiles?.avatar_url ? (
-                                <img src={comment.profiles.avatar_url} className="w-7 h-7 rounded-full object-cover mt-0.5" alt="c-avatar" />
+                                <img src={comment.profiles.avatar_url} className="w-12 h-12 rounded-full object-cover mt-0.5 flex-shrink-0" alt="c-avatar" />
                               ) : (
-                                <div className="w-7 h-7 rounded-full bg-purple-200 text-purple-700 font-bold flex items-center justify-center text-[10px]">
+                                <div className="w-12 h-12 rounded-full bg-purple-200 text-purple-700 font-bold flex items-center justify-center text-sm flex-shrink-0">
                                   {(comment.profiles?.username || 'U')[0].toUpperCase()}
                                 </div>
                               )}
-                              <div className="bg-blue-50 dark:bg-slate-800 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-2xs max-w-[280px]">
-                                <span className="font-bold text-xs text-slate-800 dark:text-white block">{comment.profiles?.username || 'User'}</span>
-                                <p className="text-xs text-slate-600 dark:text-slate-200 mt-0.5 leading-snug">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-semibold text-sm text-slate-900 dark:text-white">{comment.profiles?.full_name || comment.profiles?.username || 'User'}</span>
+                                  <span className="text-xs text-slate-500 dark:text-slate-400">@{comment.profiles?.username || 'user'} · {new Date(comment.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                </div>
+                                <p className="text-sm text-slate-800 dark:text-slate-200 mt-1 leading-relaxed">
                                   <RenderFormattedText text={comment.content} onViewProfile={onViewProfile} />
                                 </p>
+                                <button className="text-xs font-medium text-slate-400 hover:text-purple-600 mt-2">Reply</button>
                               </div>
                             </div>
 
