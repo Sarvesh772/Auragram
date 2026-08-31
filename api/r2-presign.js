@@ -23,8 +23,7 @@ export default async function handler(req, res) {
     const command = new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType });
     const uploadUrl = await getSignedUrl(client, command, { expiresIn: 300 });
     const publicBase = configuredPublicUrl.replace(/\/$/, '');
-    // R2 public development URLs expose the bucket as the first path segment.
-    const bucketPath = publicBase.endsWith(`/${bucket}`) ? '' : `/${bucket}`;
-    return res.status(200).json({ uploadUrl, publicUrl: `${publicBase}${bucketPath}/${key}` });
+    // Public Development URLs address objects directly; do not prepend the bucket name.
+    return res.status(200).json({ uploadUrl, publicUrl: `${publicBase}/${key}` });
   } catch (error) { console.error('R2 presign error:', error); return res.status(500).json({ error: `Could not create upload URL: ${error.message}` }); }
 }
