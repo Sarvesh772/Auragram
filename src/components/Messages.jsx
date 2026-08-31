@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import { uploadToR2 } from '../lib/r2Upload';
 import { 
   Search, Send, Loader2, MessageSquare, ArrowLeft, Image as ImageIcon, 
   Check, CheckCheck, X, Download, Trash2, MoreVertical, Pin, PinOff, 
@@ -438,22 +439,7 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
       setUploadingImage(true);
       const uploadedUrls = [];
 
-      for (const file of files) {
-        const fileExt = file.name.split('.').pop();
-        const filePath = `chat-media/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('chat-attachments')
-          .upload(filePath, file);
-
-        if (uploadError) throw uploadError;
-
-        const { data: publicUrlData } = supabase.storage
-          .from('chat-attachments')
-          .getPublicUrl(filePath);
-
-        uploadedUrls.push(publicUrlData.publicUrl);
-      }
+      for (const file of files) uploadedUrls.push(await uploadToR2(file, `chat/${session.user.id}`, 'chat'));
 
       const formattedContent = `[IMAGES]:${JSON.stringify(uploadedUrls)}`;
 
@@ -485,7 +471,7 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
       console.error('Image upload failed:', err);
       setConfirmModal({
         title: 'Upload Failed',
-        message: 'Could not send images. Please verify storage bucket permissions.',
+        message: 'Could not send images. Please try again in a moment.',
         confirmText: 'OK',
         hideCancel: true,
       });
