@@ -9,8 +9,11 @@ export default async function handler(req, res) {
   try {
     const { key, contentType, target = 'media' } = req.body || {};
     if (!key || !contentType || !/^image\/(jpeg|png|webp|gif)|^video\//.test(contentType)) return res.status(400).json({ error: 'Invalid upload' });
+    if (typeof key !== 'string' || key.length > 512 || key.includes('..') || key.startsWith('/') || /[^a-zA-Z0-9_./-]/.test(key)) return res.status(400).json({ error: 'Invalid object key' });
     const isChat = target === 'chat';
     const isStory = target === 'story';
+    const allowedPrefix = isChat ? 'chat/' : isStory ? 'stories/' : 'posts/';
+    if (!key.startsWith(allowedPrefix)) return res.status(400).json({ error: 'Invalid upload folder' });
     const bucket = isChat ? process.env.R2_CHAT_BUCKET : isStory ? process.env.R2_STORY_BUCKET : process.env.R2_BUCKET;
     const configuredPublicUrl = isChat ? process.env.R2_CHAT_PUBLIC_URL : isStory ? process.env.R2_STORY_PUBLIC_URL : process.env.R2_PUBLIC_URL;
     const missing = [
