@@ -198,10 +198,10 @@ export default function Explore({ session, onViewProfile }) {
                       Trending Hashtags
                     </h3>
                   </div>
-                  <span className="text-xs text-slate-400">{displayTags.length} tags</span>
+                  <span className="text-xs text-slate-400">{activeFilter === 'hashtags' ? displayTags.length : Math.min(displayTags.length, 6)} tags</span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {displayTags.map((t, idx) => (
+                  {(activeFilter === 'hashtags' ? displayTags : displayTags.slice(0, 6)).map((t, idx) => (
                     <button
                       key={idx}
                       onClick={() => setSearchQuery(t.tag)}

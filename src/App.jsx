@@ -305,7 +305,7 @@ export default function App() {
         {/* Right Panel (Desktop Only) */}
         {!isFullWidthPage && (
           <div className="hidden lg:block">
-            <RightPanel session={session} />
+            <RightPanel session={session} onViewProfile={(id) => navigate(`/profile/${id}`)} onSeeAll={() => navigate('/explore')} />
           </div>
         )}
 

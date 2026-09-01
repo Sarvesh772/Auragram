@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { UserPlus, UserCheck, Loader2 } from 'lucide-react';
 
-export default function RightPanel({ session }) {
+export default function RightPanel({ session, onViewProfile, onSeeAll }) {
   const [suggestions, setSuggestions] = useState([]);
   const [followingIds, setFollowingIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
@@ -102,9 +102,9 @@ export default function RightPanel({ session }) {
           <h3 className="font-extrabold text-sm text-slate-800 dark:text-slate-100">
             Suggested for you
           </h3>
-          <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400 cursor-pointer hover:underline">
+          <button onClick={onSeeAll} className="text-[11px] font-bold text-purple-600 dark:text-purple-400 cursor-pointer hover:underline">
             See All
-          </span>
+          </button>
         </div>
 
         {loading ? (
@@ -121,7 +121,7 @@ export default function RightPanel({ session }) {
               return (
                 <div key={user.id} className="flex items-center justify-between">
                   {/* User Profile Info */}
-                  <div className="flex items-center space-x-3 overflow-hidden">
+                  <button onClick={() => onViewProfile?.(user.username || user.id)} className="flex items-center space-x-3 overflow-hidden text-left">
                     <div className="w-9 h-9 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
                       {user.avatar_url ? (
                         <img 
@@ -141,7 +141,7 @@ export default function RightPanel({ session }) {
                         @{user.username || 'username'}
                       </p>
                     </div>
-                  </div>
+                  </button>
 
                   {/* Follow / Unfollow Button */}
                   <button
