@@ -161,10 +161,10 @@ export default function Story({ session, onSelectUser }) {
     }
 
     const isVideo = file.type.startsWith('video');
-    const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    const maxSize = isVideo ? 500 * 1024 * 1024 : 25 * 1024 * 1024;
 
     if ((!file.type.startsWith('image') && !isVideo) || file.size > maxSize) {
-      alert(`Choose a valid ${isVideo ? 'video (max 50MB)' : 'image (max 10MB)'}.`);
+      alert(`Choose a valid ${isVideo ? 'video (max 500MB)' : 'image (max 25MB)'}.`);
       e.target.value = '';
       return;
     }
@@ -326,7 +326,7 @@ export default function Story({ session, onSelectUser }) {
     setStoryUploading(true);
     const fileExt = fileObj.name.split('.').pop();
     let publicUrl;
-    try { publicUrl = await uploadToR2(fileObj, `stories/${session.user.id}`); } catch (uploadErr) {
+    try { publicUrl = await uploadToR2(fileObj, `stories/${session.user.id}`, 'story'); } catch (uploadErr) {
       alert('Upload failed: ' + uploadErr.message);
       setStoryUploading(false);
       return;

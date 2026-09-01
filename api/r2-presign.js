@@ -10,20 +10,21 @@ export default async function handler(req, res) {
     const { key, contentType, target = 'media' } = req.body || {};
     if (!key || !contentType || !/^image\/(jpeg|png|webp|gif)|^video\//.test(contentType)) return res.status(400).json({ error: 'Invalid upload' });
     const isChat = target === 'chat';
-    const bucket = isChat ? process.env.R2_CHAT_BUCKET : process.env.R2_BUCKET;
-    const configuredPublicUrl = isChat ? process.env.R2_CHAT_PUBLIC_URL : process.env.R2_PUBLIC_URL;
+    const isStory = target === 'story';
+    const bucket = isChat ? process.env.R2_CHAT_BUCKET : isStory ? process.env.R2_STORY_BUCKET : process.env.R2_BUCKET;
+    const configuredPublicUrl = isChat ? process.env.R2_CHAT_PUBLIC_URL : isStory ? process.env.R2_STORY_PUBLIC_URL : process.env.R2_PUBLIC_URL;
     const missing = [
       ['R2_ENDPOINT', process.env.R2_ENDPOINT],
       ['R2_ACCESS_KEY_ID', process.env.R2_ACCESS_KEY_ID],
       ['R2_SECRET_ACCESS_KEY', process.env.R2_SECRET_ACCESS_KEY],
-      [isChat ? 'R2_CHAT_BUCKET' : 'R2_BUCKET', bucket],
-      [isChat ? 'R2_CHAT_PUBLIC_URL' : 'R2_PUBLIC_URL', configuredPublicUrl]
+      [isChat ? 'R2_CHAT_BUCKET' : isStory ? 'R2_STORY_BUCKET' : 'R2_BUCKET', bucket],
+      [isChat ? 'R2_CHAT_PUBLIC_URL' : isStory ? 'R2_STORY_PUBLIC_URL' : 'R2_PUBLIC_URL', configuredPublicUrl]
     ].filter(([, value]) => !value).map(([name]) => name);
     if (missing.length) return res.status(500).json({ error: `Missing R2 environment variable(s): ${missing.join(', ')}` });
     const command = new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType });
     const uploadUrl = await getSignedUrl(client, command, { expiresIn: 300 });
     const publicBase = configuredPublicUrl.replace(/\/$/, '');
-    // Public Development URLs address objects directly; do not prepend the bucket name.
-    return res.status(200).json({ uploadUrl, publicUrl: `${publicBase}/${key}` });
+    const bucketPath = (isChat || isStory) ? '' : (publicBase.endsWith(`/${bucket}`) ? '' : `/${bucket}`);
+    return res.status(200).json({ uploadUrl, publicUrl: `${publicBase}${bucketPath}/${key}` });
   } catch (error) { console.error('R2 presign error:', error); return res.status(500).json({ error: `Could not create upload URL: ${error.message}` }); }
 }
