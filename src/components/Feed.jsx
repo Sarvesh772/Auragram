@@ -633,7 +633,7 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
                             {comment.user_id === session.user.id && (
                               <button 
                                 onClick={() => handleDeleteComment(post.id, comment.id)}
-                                className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 p-1 transition"
+                                className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-red-500 p-1 transition"
                                 title="Delete Comment"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
