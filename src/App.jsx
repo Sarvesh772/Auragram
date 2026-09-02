@@ -106,6 +106,17 @@ export default function App() {
       .catch(() => {});
   }, []);
 
+  // Enforce admin suspension decisions across the app.
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    supabase.from('profiles').select('account_status').eq('id', session.user.id).maybeSingle().then(async ({ data }) => {
+      if (data?.account_status === 'suspended') {
+        await supabase.auth.signOut();
+        window.alert('Your Auragram account has been suspended. Please contact support for help.');
+      }
+    });
+  }, [session?.user?.id]);
+
   // Auth Listener
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -206,8 +217,10 @@ export default function App() {
   else if (pathname.startsWith('/notifications')) activeTab = 'notifications';
   else if (pathname.startsWith('/profile')) activeTab = 'profile';
   else if (pathname.startsWith('/settings')) activeTab = 'settings';
+  else if (pathname.startsWith('/admin')) activeTab = 'admin';
 
   const isFullWidthPage = activeTab === 'messages' || activeTab === 'reels';
+  const isAdminPage = activeTab === 'admin';
   const showMobileTopBar = activeTab !== 'messages';
 
   const handleTabChange = (tab) => {
@@ -252,7 +265,7 @@ export default function App() {
 
         {/* Main Content Area */}
         <main className={`flex-1 transition-all ${
-          isFullWidthPage ? 'max-w-full h-[100dvh] overflow-hidden pb-0' : 'min-h-screen pb-24 md:pb-6 max-w-2xl border-r'
+          isFullWidthPage ? 'max-w-full h-[100dvh] overflow-hidden pb-0' : isAdminPage ? 'min-h-screen pb-24 md:pb-6 max-w-5xl mx-auto' : 'min-h-screen pb-24 md:pb-6 max-w-2xl border-r'
         } ${
           isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'
         }`}>
@@ -305,7 +318,7 @@ export default function App() {
         </main>
 
         {/* Right Panel (Desktop Only) */}
-        {!isFullWidthPage && (
+        {!isFullWidthPage && !isAdminPage && (
           <div className="hidden lg:block">
             <RightPanel session={session} onViewProfile={(id) => navigate(`/profile/${id}`)} onSeeAll={() => navigate('/explore')} />
           </div>
