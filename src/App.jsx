@@ -14,6 +14,7 @@ import Settings from './components/Settings';
 import Privacy from './components/Privacy';
 import Terms from './components/Terms';
 import RightPanel from './components/RightPanel';
+import Admin from './components/Admin';
 
 import { Home, Compass, MessageCircle, Clapperboard, Bell, Settings as SettingsIcon, User } from 'lucide-react';
 
@@ -298,6 +299,7 @@ export default function App() {
             <Route path="/settings" element={<Settings session={session} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />} />
             <Route path="/privacy" element={<Privacy onBack={() => navigate(-1)} />} />
             <Route path="/terms" element={<Terms onBack={() => navigate(-1)} />} />
+            <Route path="/admin" element={<Admin session={session} />} />
           </Routes>
           
         </main>
