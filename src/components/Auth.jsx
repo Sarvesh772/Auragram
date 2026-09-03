@@ -13,7 +13,11 @@ export default function Auth() {
   const [password, setPassword] = useState('');
 
   // UI Feedback States
-  const [errorMsg, setErrorMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState(() => {
+    const notice = localStorage.getItem('auragram_suspension_notice');
+    if (notice) localStorage.removeItem('auragram_suspension_notice');
+    return notice || '';
+  });
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
 

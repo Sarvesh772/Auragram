@@ -111,6 +111,7 @@ export default function App() {
     if (!session?.user?.id) return;
     supabase.from('profiles').select('account_status').eq('id', session.user.id).maybeSingle().then(async ({ data }) => {
       if (data?.account_status === 'suspended') {
+        localStorage.setItem('auragram_suspension_notice', 'Your Auragram account is suspended. Please contact Support@auragram.in for help.');
         await supabase.auth.signOut();
       }
     });
