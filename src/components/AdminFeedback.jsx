@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { MessageSquare, AlertCircle, Lightbulb, Bug, Calendar, Filter } from 'lucide-react';
+import { MessageSquare, Lightbulb, Bug, Calendar, Filter, ThumbsUp, Star } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 export default function AdminFeedback() {
@@ -53,146 +53,160 @@ export default function AdminFeedback() {
 
   return (
     <div>
-      {/* Header with Stats */}
-      <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-4 flex-wrap">
-            <div>
-              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                Total: <span className="text-slate-900 dark:text-white">{stats.total}</span>
+      <div className="flex justify-end p-3 border-b border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-1.5">
+              <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 dark:text-purple-400" />
+              <p className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
+                <span className="text-slate-900 dark:text-white">{stats.total}</span> total
               </p>
             </div>
             {stats.bug > 0 && (
-              <div>
-                <p className="text-sm font-semibold text-rose-600 dark:text-rose-400">
-                  🐛 Bugs: {stats.bug}
-                </p>
+              <div className="flex items-center gap-1">
+                <Bug className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-500" />
+                <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">{stats.bug}</p>
               </div>
             )}
             {stats.feature > 0 && (
-              <div>
-                <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                  💡 Features: {stats.feature}
-                </p>
+              <div className="flex items-center gap-1">
+                <Lightbulb className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-500" />
+                <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">{stats.feature}</p>
               </div>
             )}
             {stats.suggestion > 0 && (
-              <div>
-                <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">
-                  💬 Suggestions: {stats.suggestion}
-                </p>
+              <div className="flex items-center gap-1">
+                <ThumbsUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-500" />
+                <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">{stats.suggestion}</p>
               </div>
             )}
-          </div>
           <button 
             onClick={loadFeedback}
-            className="text-xs text-purple-600 dark:text-purple-400 hover:underline"
+            className="text-[10px] sm:text-xs text-purple-600 dark:text-purple-400 hover:underline font-medium"
           >
-            Refresh
+            ↻ Refresh
           </button>
-        </div>
       </div>
 
       {/* Filter Buttons */}
-      <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex gap-2 flex-wrap">
-        <button
+      <div className="p-3 sm:p-4 border-b border-slate-100 dark:border-slate-700 flex gap-1.5 flex-wrap">
+        <FilterButton 
+          active={filter === 'all'} 
           onClick={() => setFilter('all')}
-          className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-            filter === 'all'
-              ? 'bg-purple-600 text-white'
-              : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
-          }`}
-        >
-          All ({stats.total})
-        </button>
-        <button
+          label="All"
+          count={stats.total}
+          color="purple"
+        />
+        <FilterButton 
+          active={filter === 'bug'} 
           onClick={() => setFilter('bug')}
-          className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-            filter === 'bug'
-              ? 'bg-rose-600 text-white'
-              : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
-          }`}
-        >
-          🐛 Bug ({stats.bug})
-        </button>
-        <button
+          label="🐛 Bug"
+          count={stats.bug}
+          color="rose"
+        />
+        <FilterButton 
+          active={filter === 'feature'} 
           onClick={() => setFilter('feature')}
-          className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-            filter === 'feature'
-              ? 'bg-blue-600 text-white'
-              : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
-          }`}
-        >
-          💡 Feature ({stats.feature})
-        </button>
-        <button
+          label="💡 Feature"
+          count={stats.feature}
+          color="blue"
+        />
+        <FilterButton 
+          active={filter === 'suggestion'} 
           onClick={() => setFilter('suggestion')}
-          className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-            filter === 'suggestion'
-              ? 'bg-amber-600 text-white'
-              : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
-          }`}
-        >
-          💬 Suggestion ({stats.suggestion})
-        </button>
+          label="👍 Suggestion"
+          count={stats.suggestion}
+          color="amber"
+        />
       </div>
 
       {/* Feedback List */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="w-8 h-8 border-3 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 border-3 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto"></div>
+            <p className="text-xs text-slate-400 mt-2">Loading feedback...</p>
+          </div>
         </div>
       ) : filteredItems.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 mx-auto bg-slate-100 dark:bg-slate-700 rounded-3xl flex items-center justify-center mb-3">
-            <MessageSquare className="w-8 h-8 text-slate-400" />
+        <div className="text-center py-16">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto bg-slate-100 dark:bg-slate-700 rounded-3xl flex items-center justify-center mb-3">
+            <MessageSquare className="w-8 h-8 sm:w-10 sm:h-10 text-slate-400" />
           </div>
-          <p className="text-slate-500 dark:text-slate-400">No feedback {filter !== 'all' ? `of type "${filter}"` : ''} found</p>
+          <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 font-medium">No feedback found</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+            {filter !== 'all' ? `No ${filter} feedback available` : 'Be the first to receive feedback'}
+          </p>
         </div>
       ) : (
-        filteredItems.map((item, index) => {
-          const Icon = getTypeIcon(item.type);
-          return (
-            <div 
-              key={item.id} 
-              className={`p-5 border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-all ${
-                index === filteredItems.length - 1 ? 'border-b-0' : ''
-              }`}
-            >
-              <div className="flex items-start gap-4">
-                <div className={`p-2 rounded-xl flex-shrink-0 ${getTypeColor(item.type)}`}>
-                  <Icon className="w-4 h-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-3 mb-2">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getTypeColor(item.type)}`}>
-                      {item.type || 'Suggestion'}
-                    </span>
-                    <span className="text-xs text-slate-400 flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      {new Date(item.created_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </span>
+        <div className="divide-y divide-slate-100 dark:divide-slate-700">
+          {filteredItems.map((item, index) => {
+            const Icon = getTypeIcon(item.type);
+            return (
+              <div 
+                key={item.id} 
+                className={`p-3 sm:p-4 md:p-5 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-all ${
+                  index === filteredItems.length - 1 ? 'border-b-0' : ''
+                }`}
+              >
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl flex-shrink-0 ${getTypeColor(item.type)}`}>
+                    <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </div>
-                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                    {item.message}
-                  </p>
-                  {item.user_id && (
-                    <p className="text-xs text-slate-400 mt-2 font-mono">
-                      User ID: {item.user_id.slice(0, 8)}...
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] sm:text-xs font-semibold ${getTypeColor(item.type)}`}>
+                        {item.type || 'Suggestion'}
+                      </span>
+                      <span className="text-[10px] sm:text-xs text-slate-400 flex items-center gap-1">
+                        <Calendar className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                        {new Date(item.created_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed break-words">
+                      {item.message}
                     </p>
-                  )}
+                    {item.user_id && (
+                      <p className="text-[10px] sm:text-xs text-slate-400 mt-1.5 font-mono">
+                        ID: {item.user_id.slice(0, 8)}...
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })
+            );
+          })}
+        </div>
       )}
     </div>
+  );
+}
+
+// Filter Button Component
+function FilterButton({ active, onClick, label, count, color }) {
+  const colors = {
+    purple: active ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600',
+    rose: active ? 'bg-rose-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600',
+    blue: active ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600',
+    amber: active ? 'bg-amber-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-[10px] sm:text-xs font-semibold transition-all whitespace-nowrap ${colors[color]}`}
+    >
+      {label}
+      {count > 0 && (
+        <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] ${
+          active ? 'bg-white/20' : 'bg-slate-200 dark:bg-slate-600'
+        }`}>
+          {count}
+        </span>
+      )}
+    </button>
   );
 }

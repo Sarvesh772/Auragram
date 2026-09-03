@@ -171,17 +171,17 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 sm:p-6 transition-colors duration-200">
+    <div className="h-[100dvh] w-full overflow-y-auto md:overflow-hidden bg-gradient-to-br from-purple-50 via-slate-50 to-fuchsia-50 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950 flex items-stretch justify-center p-0 transition-colors duration-200">
       
       {/* CARD CONTAINER */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 sm:p-8 rounded-3xl shadow-xl w-full max-w-md space-y-6">
+      <div className="bg-white dark:bg-slate-900 p-6 sm:p-1 rounded-none shadow-none w-full h-full min-h-[100dvh] md:min-h-0 grid md:grid-cols-[1.3fr_.7fr] gap-8 md:gap-10 items-center">
+        <div className="hidden md:flex h-full max-h-full bg-gradient-to-br from-purple-600 via-fuchsia-500 to-pink-500 p-11 text-white flex-col justify-center"><p className="text-sm font-bold uppercase tracking-[.3em] text-purple-100">Welcome to Auragram</p><h2 className="mt-6 text-6xl lg:text-7xl font-black leading-[.95]">Connect.<br/>Share.<br/>Belong.</h2><p className="mt-8 max-w-md text-lg leading-8 text-purple-100">A friendly social space for meaningful connections, creativity and everyday moments.</p><div className="mt-10 grid grid-cols-3 gap-3 max-w-md"><div className="rounded-2xl bg-white/15 p-4"><b className="text-xl">01</b><p className="mt-1 text-xs text-purple-100">Share moments</p></div><div className="rounded-2xl bg-white/15 p-4"><b className="text-xl">02</b><p className="mt-1 text-xs text-purple-100">Meet people</p></div><div className="rounded-2xl bg-white/15 p-4"><b className="text-xl">03</b><p className="mt-1 text-xs text-purple-100">Stay connected</p></div></div></div>
+        <div className="space-y-6 w-full max-w-lg md:max-h-full md:overflow-y-auto justify-self-center py-2">
         
         {/* LOGO & TITLE */}
         <div className="text-center space-y-2">
           <div className="inline-flex items-center space-x-2">
-            <h1 className="text-3xl sm:text-4xl font-black text-slate-800 dark:text-white tracking-tight">
-              Auragram
-            </h1>
+            <h1 className="text-2xl font-black text-purple-600 px-3 tracking-tight">Auragram</h1>
           </div>
           <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-medium">
             {isRegistering ? 'Create a new account to get started' : 'Welcome back! Sign in to continue'}
@@ -215,7 +215,7 @@ export default function Auth() {
                   Display Name
                 </label>
                 <div className="relative">
-                  <User className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
+                  <User className="w-5 h-4 absolute left-3.5 top-3.5 text-slate-400" />
                   <input 
                     type="text" 
                     value={fullName}
@@ -343,6 +343,10 @@ export default function Auth() {
           >
             {isRegistering ? 'Already have an account? Sign In' : "Don't have an account? Register"}
           </button>
+        </div>
+
+        <p className="text-center text-[11px] text-slate-400 dark:text-slate-500">Need help? <a href="mailto:Support@auragram.in" className="font-semibold text-purple-600 hover:underline">Support@auragram.in</a></p>
+
         </div>
 
       </div>
