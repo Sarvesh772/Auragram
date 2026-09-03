@@ -15,6 +15,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const [activeTab, setActiveTab] = useState('text');
   const [loading, setLoading] = useState(true);
   const isOwnProfile = viewedUserId === session.user.id || profile?.id === session.user.id;
+  const isSuspended = ['suspended', 'banned'].includes(String(profile?.account_status || profile?.status || '').toLowerCase());
 
   // Modal View State
   const [selectedPost, setSelectedPost] = useState(null);
@@ -487,6 +488,11 @@ async function openPeopleList(mode) {
                 <p className="text-sm font-bold text-purple-600 dark:text-purple-400 truncate">
                   @{profile.username || 'username'}
                 </p>
+                {profile.account_status === 'suspended' && (
+                  <span className="inline-flex mt-1 items-center rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-bold text-rose-600 dark:bg-rose-900/30 dark:text-rose-300">
+                    Suspended
+                  </span>
+                )}
                 {profile.bio && (
                   <p className="text-sm text-slate-600 dark:text-slate-300 font-medium mt-1 break-words whitespace-normal leading-relaxed">
                     {profile.bio}
@@ -498,7 +504,7 @@ async function openPeopleList(mode) {
             {/* Follow/Message Buttons - Only for other profiles */}
             {!isOwnProfile && (
               <div className="flex items-center gap-2 flex-shrink-0 self-start sm:self-center">
-                <button 
+                {!isSuspended && <><button 
                   onClick={toggleFollow}
                   className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
                     followState === 'following' 
@@ -514,7 +520,8 @@ async function openPeopleList(mode) {
                   className="px-4 py-2 rounded-full border border-purple-300 text-purple-600 text-sm font-bold hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all"
                 >
                   Message
-                </button>
+                </button></>}
+                {isSuspended && <span className="text-xs font-semibold text-rose-500">This account is currently suspended</span>}
                 
                 {/* More Options Dropdown */}
                 <div className="relative">
@@ -613,7 +620,7 @@ async function openPeopleList(mode) {
           {/* TEXT TAB */}
           {activeTab === 'text' && (
             textPosts.length === 0 ? (
-              <p className="text-center text-sm text-slate-400 py-12 font-medium">No text thoughts posted yet.</p>
+              isSuspended ? <div className="mx-auto max-w-xl rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-center text-sm font-semibold text-rose-600 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300">This account has been suspended for policy violations.</div> : <p className="text-center text-sm text-slate-400 py-12 font-medium">No text thoughts posted yet.</p>
             ) : (
               textPosts.map(post => (
                 <div key={post.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm space-y-3">
@@ -687,7 +694,7 @@ async function openPeopleList(mode) {
           {/* PHOTOS TAB */}
           {activeTab === 'photos' && (
             photoPosts.length === 0 ? (
-              <p className="text-center text-sm text-slate-400 py-12 font-medium">No photo posts found.</p>
+              isSuspended ? <div className="mx-auto max-w-xl rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-center text-sm font-semibold text-rose-600 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300">This account has been suspended for policy violations.</div> : <p className="text-center text-sm text-slate-400 py-12 font-medium">No photo posts found.</p>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {photoPosts.map(post => (
@@ -732,7 +739,7 @@ async function openPeopleList(mode) {
           {/* REELS TAB */}
           {activeTab === 'reels' && (
             reelPosts.length === 0 ? (
-              <p className="text-center text-sm text-slate-400 py-12 font-medium">No video reels uploaded.</p>
+              isSuspended ? <div className="mx-auto max-w-xl rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-center text-sm font-semibold text-rose-600 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300">This account has been suspended for policy violations.</div> : <p className="text-center text-sm text-slate-400 py-12 font-medium">No video reels uploaded.</p>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {reelPosts.map(post => (
