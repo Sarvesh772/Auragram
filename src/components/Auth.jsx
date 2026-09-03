@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Loader2, CheckCircle2, XCircle, AlertCircle, Sparkles, User, Mail, Lock, IdCard } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, AlertCircle, User, Mail, Lock, IdCard } from 'lucide-react';
 
 export default function Auth() {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -63,7 +63,7 @@ export default function Auth() {
         console.error('Username check error:', err);
         setUsernameStatus(null);
       }
-    }, 400); // 400ms delay to avoid spamming database
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [username, isRegistering]);
@@ -77,7 +77,6 @@ export default function Auth() {
 
     try {
       if (isRegistering) {
-        // Validation Checks
         const cleanUsername = username.trim().toLowerCase().replace(/\s+/g, '');
         
         if (!fullName.trim()) {
@@ -92,7 +91,6 @@ export default function Auth() {
           throw new Error('Please enter a valid unique username');
         }
 
-        // 1. Sign Up in Supabase Auth
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: email.trim(),
           password,
@@ -106,7 +104,6 @@ export default function Auth() {
 
         if (authError) throw authError;
 
-        // 2. Ensure Profile Record Insertion/Upsert
         if (authData?.user) {
           const { error: profileError } = await supabase.from('profiles').upsert({
             id: authData.user.id,
@@ -120,14 +117,11 @@ export default function Auth() {
 
         setSuccessMsg('Account created successfully! Logging you in...');
       } else {
-        // LOG IN (Supports Email OR Username)
         let loginEmail = identifier.trim();
 
-        // If user typed a username instead of email (No @ symbol)
         if (!loginEmail.includes('@')) {
           const cleanUser = loginEmail.toLowerCase().replace(/\s+/g, '');
           
-          // Query user_id/email from profiles or rpc
           const { data: profileData, error: pError } = await supabase
             .from('profiles')
             .select('id')
@@ -137,10 +131,6 @@ export default function Auth() {
           if (pError || !profileData) {
             throw new Error('No account found with this username.');
           }
-
-          // Fetch user email if using admin/public view or rely on standard auth
-          // If public profile doesn't store email, you can store lowercased email or use RPC.
-          // Standard login with email is fallback:
         }
 
         const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -157,7 +147,6 @@ export default function Auth() {
     }
   }
 
-  // Toggle Mode
   const toggleAuthMode = () => {
     setIsRegistering(!isRegistering);
     setErrorMsg('');
@@ -171,181 +160,211 @@ export default function Auth() {
   };
 
   return (
-    <div className="h-[100dvh] w-full overflow-y-auto md:overflow-hidden bg-gradient-to-br from-purple-50 via-slate-50 to-fuchsia-50 dark:from-slate-950 dark:via-slate-900 dark:to-purple-950 flex items-stretch justify-center p-0 transition-colors duration-200">
+    <div className="h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 flex items-center justify-center transition-colors duration-200">
       
-      {/* CARD CONTAINER */}
-      <div className="bg-white dark:bg-slate-900 p-6 sm:p-1 rounded-none shadow-none w-full h-full min-h-[100dvh] md:min-h-0 grid md:grid-cols-[1.3fr_.7fr] gap-8 md:gap-10 items-center">
-        <div className="hidden md:flex h-full max-h-full bg-gradient-to-br from-purple-600 via-fuchsia-500 to-pink-500 p-11 text-white flex-col justify-center"><p className="text-sm font-bold uppercase tracking-[.3em] text-purple-100">Welcome to Auragram</p><h2 className="mt-6 text-6xl lg:text-7xl font-black leading-[.95]">Connect.<br/>Share.<br/>Belong.</h2><p className="mt-8 max-w-md text-lg leading-8 text-purple-100">A friendly social space for meaningful connections, creativity and everyday moments.</p><div className="mt-10 grid grid-cols-3 gap-3 max-w-md"><div className="rounded-2xl bg-white/15 p-4"><b className="text-xl">01</b><p className="mt-1 text-xs text-purple-100">Share moments</p></div><div className="rounded-2xl bg-white/15 p-4"><b className="text-xl">02</b><p className="mt-1 text-xs text-purple-100">Meet people</p></div><div className="rounded-2xl bg-white/15 p-4"><b className="text-xl">03</b><p className="mt-1 text-xs text-purple-100">Stay connected</p></div></div></div>
-        <div className="space-y-6 w-full max-w-lg md:max-h-full md:overflow-y-auto justify-self-center py-2">
+      {/* MAIN CONTAINER */}
+      <div className="bg-white dark:bg-slate-900 w-full h-full grid md:grid-cols-12 overflow-hidden">
         
-        {/* LOGO & TITLE */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center space-x-2">
-            <h1 className="text-2xl font-black text-purple-600 px-3 tracking-tight">Auragram</h1>
+        {/* LEFT BANNER SIDE */}
+        <div className="hidden md:flex md:col-span-7 lg:col-span-8 bg-gradient-to-br from-purple-600 via-fuchsia-600 to-pink-500 p-8 lg:p-12 text-white flex-col justify-between relative overflow-hidden">
+          <div className="relative z-10">
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-purple-200">
+              Welcome to Auragram
+            </p>
+            <h2 className="mt-4 lg:mt-6 text-4xl lg:text-6xl font-black tracking-tight leading-[1.05]">
+              Connect.<br />Share.<br />Belong.
+            </h2>
+            <p className="mt-4 max-w-md text-sm lg:text-base leading-relaxed text-purple-100/90 font-normal">
+              A friendly social space for meaningful connections, creativity, and everyday moments.
+            </p>
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-medium">
-            {isRegistering ? 'Create a new account to get started' : 'Welcome back! Sign in to continue'}
-          </p>
+
+          <div className="grid grid-cols-3 gap-3 max-w-md relative z-10">
+            <div className="rounded-2xl bg-white/10 backdrop-blur-md p-3.5 border border-white/10">
+              <b className="text-base lg:text-lg font-bold block text-white">01</b>
+              <p className="mt-0.5 text-[11px] lg:text-xs text-purple-100 font-medium">Share moments</p>
+            </div>
+            <div className="rounded-2xl bg-white/10 backdrop-blur-md p-3.5 border border-white/10">
+              <b className="text-base lg:text-lg font-bold block text-white">02</b>
+              <p className="mt-0.5 text-[11px] lg:text-xs text-purple-100 font-medium">Meet people</p>
+            </div>
+            <div className="rounded-2xl bg-white/10 backdrop-blur-md p-3.5 border border-white/10">
+              <b className="text-base lg:text-lg font-bold block text-white">03</b>
+              <p className="mt-0.5 text-[11px] lg:text-xs text-purple-100 font-medium">Stay connected</p>
+            </div>
+          </div>
         </div>
 
-        {/* ALERT MESSAGES */}
-        {errorMsg && (
-          <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/50 text-rose-600 dark:text-rose-300 p-3 rounded-2xl text-xs font-semibold flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
-
-        {successMsg && (
-          <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/50 text-emerald-600 dark:text-emerald-300 p-3 rounded-2xl text-xs font-semibold flex items-center space-x-2">
-            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-            <span>{successMsg}</span>
-          </div>
-        )}
-
-        {/* FORM */}
-        <form onSubmit={handleAuth} className="space-y-4">
+        {/* RIGHT FORM SIDE */}
+        <div className="md:col-span-5 lg:col-span-4 p-4 sm:p-8 flex flex-col justify-center items-center w-full h-full overflow-y-auto">
           
-          {/* ================= REGISTER FIELDS ================= */}
-          {isRegistering ? (
-            <>
-              {/* Display Name */}
-              <div>
-                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1">
-                  Display Name
-                </label>
-                <div className="relative">
-                  <User className="w-5 h-4 absolute left-3.5 top-3.5 text-slate-400" />
-                  <input 
-                    type="text" 
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Peter Parker"
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl pl-10 pr-4 py-2.5 text-xs sm:text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    required
-                  />
-                </div>
+          <div className="w-full max-w-sm space-y-4 my-auto">
+            
+            {/* LOGO & TITLE */}
+            <div className="text-center space-y-1">
+              <h1 className="text-2xl lg:text-3xl font-black text-purple-600 tracking-tight">Auragram</h1>
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">
+                {isRegistering ? 'Create a new account to get started' : 'Welcome back! Sign in to continue'}
+              </p>
+            </div>
+
+            {/* ALERT MESSAGES */}
+            {errorMsg && (
+              <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/50 text-rose-600 dark:text-rose-300 p-2.5 rounded-xl text-xs font-semibold flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{errorMsg}</span>
               </div>
+            )}
 
-              {/* Username with Realtime Status */}
-              <div>
-                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1">
-                  Username
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-2.5 text-sm font-bold text-slate-400">@</span>
-                  <input 
-                    type="text" 
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="choose_unique_username"
-                    className={`w-full bg-slate-50 dark:bg-slate-800 border rounded-2xl pl-8 pr-10 py-2.5 text-xs sm:text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 ${
-                      usernameStatus === 'available' ? 'border-emerald-500 focus:ring-emerald-500' :
-                      usernameStatus === 'taken' || usernameStatus === 'invalid' ? 'border-rose-500 focus:ring-rose-500' :
-                      'border-slate-200 dark:border-slate-700 focus:ring-purple-500'
-                    }`}
-                    required
-                  />
+            {successMsg && (
+              <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/50 text-emerald-600 dark:text-emerald-300 p-2.5 rounded-xl text-xs font-semibold flex items-center space-x-2">
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                <span>{successMsg}</span>
+              </div>
+            )}
 
-                  {/* Realtime Loading / Check Icon */}
-                  <div className="absolute right-3.5 top-3">
-                    {usernameStatus === 'checking' && <Loader2 className="w-4 h-4 animate-spin text-purple-600" />}
-                    {usernameStatus === 'available' && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-                    {(usernameStatus === 'taken' || usernameStatus === 'invalid') && <XCircle className="w-4 h-4 text-rose-500" />}
+            {/* FORM */}
+            <form onSubmit={handleAuth} className="space-y-3">
+              
+              {/* REGISTER FIELDS */}
+              {isRegistering ? (
+                <>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-0.5">
+                      Display Name
+                    </label>
+                    <div className="relative">
+                      <User className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                      <input 
+                        type="text" 
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="e.g. Peter Parker"
+                        className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-0.5">
+                      Username
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">@</span>
+                      <input 
+                        type="text" 
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="choose_unique_username"
+                        className={`w-full bg-slate-50 dark:bg-slate-800/60 border rounded-xl pl-8 pr-9 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 transition-all ${
+                          usernameStatus === 'available' ? 'border-emerald-500 focus:ring-emerald-500' :
+                          usernameStatus === 'taken' || usernameStatus === 'invalid' ? 'border-rose-500 focus:ring-rose-500' :
+                          'border-slate-200 dark:border-slate-700/80 focus:ring-purple-500'
+                        }`}
+                        required
+                      />
+
+                      <div className="absolute right-3 top-2.5">
+                        {usernameStatus === 'checking' && <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600" />}
+                        {usernameStatus === 'available' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />}
+                        {(usernameStatus === 'taken' || usernameStatus === 'invalid') && <XCircle className="w-3.5 h-3.5 text-rose-500" />}
+                      </div>
+                    </div>
+
+                    {usernameMsg && (
+                      <p className={`text-[10px] font-semibold mt-0.5 px-1 ${
+                        usernameStatus === 'available' ? 'text-emerald-600 dark:text-emerald-400' :
+                        usernameStatus === 'taken' || usernameStatus === 'invalid' ? 'text-rose-500' :
+                        'text-slate-400'
+                      }`}>
+                        {usernameMsg}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-0.5">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                      <input 
+                        type="email" 
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                        required
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                
+                /* LOGIN FIELDS */
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-0.5">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <IdCard className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                    <input 
+                      type="text" 
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
+                      placeholder="you@example.com"
+                      className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                      required
+                    />
                   </div>
                 </div>
+              )}
 
-                {/* Realtime Username Indicator Text */}
-                {usernameMsg && (
-                  <p className={`text-[11px] font-semibold mt-1 px-1 ${
-                    usernameStatus === 'available' ? 'text-emerald-600 dark:text-emerald-400' :
-                    usernameStatus === 'taken' || usernameStatus === 'invalid' ? 'text-rose-500' :
-                    'text-slate-400'
-                  }`}>
-                    {usernameMsg}
-                  </p>
-                )}
-              </div>
-
-              {/* Email Address */}
+              {/* Password */}
               <div>
-                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1">
-                  Email Address
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-0.5">
+                  Password
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
+                  <Lock className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                   <input 
-                    type="email" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl pl-10 pr-4 py-2.5 text-xs sm:text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    type="password" 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                     required
                   />
                 </div>
               </div>
-            </>
-          ) : (
-            
-            /* ================= LOGIN FIELDS ================= */
-            <div>
-              <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1">
-                Email Address
-              </label>
-              <div className="relative">
-                <IdCard className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
-                <input 
-                  type="text" 
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl pl-10 pr-4 py-2.5 text-xs sm:text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  required
-                />
-              </div>
-            </div>
-          )}
 
-          {/* Password (Common for both) */}
-          <div>
-            <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-1">
-              Password
-            </label>
-            <div className="relative">
-              <Lock className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
-              <input 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl pl-10 pr-4 py-2.5 text-xs sm:text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                required
-              />
+              {/* Submit Button */}
+              <button 
+                type="submit" 
+                disabled={loading || (isRegistering && usernameStatus === 'taken')}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition-all shadow-md shadow-purple-500/20 text-xs mt-1 disabled:opacity-50 flex items-center justify-center space-x-2 cursor-pointer"
+              >
+                {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>{isRegistering ? 'Create Account' : 'Sign In'}</span>
+              </button>
+            </form>
+
+            {/* TOGGLE BUTTON */}
+            <div className="text-center pt-2 border-t border-slate-100 dark:border-slate-800/80">
+              <button 
+                onClick={toggleAuthMode} 
+                className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline cursor-pointer"
+              >
+                {isRegistering ? 'Already have an account? Sign In' : "Don't have an account? Register"}
+              </button>
             </div>
+
+            <p className="text-center text-[10px] text-slate-400 dark:text-slate-500">
+              Need help? <a href="mailto:Support@auragram.in" className="font-semibold text-purple-600 hover:underline">Support@auragram.in</a>
+            </p>
+
           </div>
-
-          {/* Submit Button */}
-          <button 
-            type="submit" 
-            disabled={loading || (isRegistering && usernameStatus === 'taken')}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-2xl transition shadow-md shadow-purple-500/20 text-xs sm:text-sm mt-3 disabled:opacity-50 flex items-center justify-center space-x-2"
-          >
-            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            <span>{isRegistering ? 'Create Account' : 'Sign In'}</span>
-          </button>
-        </form>
-
-        {/* TOGGLE BUTTON */}
-        <div className="text-center pt-2 border-t border-slate-100 dark:border-slate-800">
-          <button 
-            onClick={toggleAuthMode} 
-            className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline"
-          >
-            {isRegistering ? 'Already have an account? Sign In' : "Don't have an account? Register"}
-          </button>
-        </div>
-
-        <p className="text-center text-[11px] text-slate-400 dark:text-slate-500">Need help? <a href="mailto:Support@auragram.in" className="font-semibold text-purple-600 hover:underline">Support@auragram.in</a></p>
 
         </div>
 
