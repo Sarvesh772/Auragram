@@ -106,8 +106,8 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
   async function copyReelLink(reel) { await navigator.clipboard?.writeText(`${window.location.origin}/reels?reel=${encodeURIComponent(reel.id)}`); setMenuReelId(null); }
   async function submitReelReport() {
     if (!reportReel) return;
-    const reason = reportReason === 'Other' ? reportDetails.trim() : reportReason;
-    if (!reason) return;
+    const reason = reportReason === 'Other' ? `Other: ${reportDetails.trim()}` : reportReason;
+    if (reportReason === 'Other' && !reportDetails.trim()) return;
     const { error } = await supabase.from('reports').insert([{ reporter_id: session.user.id, reported_user_id: reportReel.user_id, post_id: reportReel.id, reason }]);
     if (error) { setReportMessage(`Report failed: ${error.message}`); return; }
     setReportReel(null); setReportDetails(''); setReportReason('Spam');

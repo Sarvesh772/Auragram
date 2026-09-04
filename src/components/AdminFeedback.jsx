@@ -1,26 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { MessageSquare, Lightbulb, Bug, Calendar, Filter, ThumbsUp, Star } from 'lucide-react';
-import { supabase } from '../supabaseClient';
 
-export default function AdminFeedback() {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function AdminFeedback({ session, data }) {
   const [filter, setFilter] = useState('all');
-
-  useEffect(() => {
-    loadFeedback();
-  }, []);
-
-  async function loadFeedback() {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('feedback')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(100);
-    if (!error) setItems(data || []);
-    setLoading(false);
-  }
 
   const getTypeIcon = (type) => {
     switch(type?.toLowerCase()) {
@@ -41,49 +23,45 @@ export default function AdminFeedback() {
   };
 
   const filteredItems = filter === 'all' 
-    ? items 
-    : items.filter(item => item.type?.toLowerCase() === filter);
+    ? data 
+    : data.filter(item => item.type?.toLowerCase() === filter);
 
   const stats = {
-    total: items.length,
-    bug: items.filter(i => i.type?.toLowerCase() === 'bug').length,
-    feature: items.filter(i => i.type?.toLowerCase() === 'feature').length,
-    suggestion: items.filter(i => i.type?.toLowerCase() === 'suggestion').length
+    total: data.length,
+    bug: data.filter(i => i.type?.toLowerCase() === 'bug').length,
+    feature: data.filter(i => i.type?.toLowerCase() === 'feature').length,
+    suggestion: data.filter(i => i.type?.toLowerCase() === 'suggestion').length
   };
 
   return (
     <div>
-      <div className="flex justify-end p-3 border-b border-slate-100 dark:border-slate-700">
-            <div className="flex items-center gap-1.5">
-              <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 dark:text-purple-400" />
-              <p className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
-                <span className="text-slate-900 dark:text-white">{stats.total}</span> total
-              </p>
+      <div className="flex flex-wrap items-center justify-between gap-2 p-3 border-b border-slate-100 dark:border-slate-700">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 dark:text-purple-400" />
+            <p className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <span className="text-slate-900 dark:text-white">{stats.total}</span> total
+            </p>
+          </div>
+          {stats.bug > 0 && (
+            <div className="flex items-center gap-1">
+              <Bug className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-500" />
+              <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">{stats.bug} bugs</p>
             </div>
-            {stats.bug > 0 && (
-              <div className="flex items-center gap-1">
-                <Bug className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-500" />
-                <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">{stats.bug}</p>
-              </div>
-            )}
-            {stats.feature > 0 && (
-              <div className="flex items-center gap-1">
-                <Lightbulb className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-500" />
-                <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">{stats.feature}</p>
-              </div>
-            )}
-            {stats.suggestion > 0 && (
-              <div className="flex items-center gap-1">
-                <ThumbsUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-500" />
-                <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">{stats.suggestion}</p>
-              </div>
-            )}
-          <button 
-            onClick={loadFeedback}
-            className="text-[10px] sm:text-xs text-purple-600 dark:text-purple-400 hover:underline font-medium"
-          >
-            ↻ Refresh
-          </button>
+          )}
+          {stats.feature > 0 && (
+            <div className="flex items-center gap-1">
+              <Lightbulb className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-500" />
+              <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">{stats.feature} features</p>
+            </div>
+          )}
+          {stats.suggestion > 0 && (
+            <div className="flex items-center gap-1">
+              <ThumbsUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-500" />
+              <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">{stats.suggestion} suggestions</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Filter Buttons */}
@@ -119,14 +97,7 @@ export default function AdminFeedback() {
       </div>
 
       {/* Feedback List */}
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="text-center">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 border-3 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto"></div>
-            <p className="text-xs text-slate-400 mt-2">Loading feedback...</p>
-          </div>
-        </div>
-      ) : filteredItems.length === 0 ? (
+      {filteredItems.length === 0 ? (
         <div className="text-center py-16">
           <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto bg-slate-100 dark:bg-slate-700 rounded-3xl flex items-center justify-center mb-3">
             <MessageSquare className="w-8 h-8 sm:w-10 sm:h-10 text-slate-400" />
@@ -161,19 +132,18 @@ export default function AdminFeedback() {
                         {new Date(item.created_at).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
+                          year: 'numeric'
                         })}
                       </span>
+                      {item.user_id && (
+                        <span className="text-[10px] sm:text-xs text-slate-400">
+                          ID: {item.user_id.slice(0, 8)}...
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed break-words">
-                      {item.message}
+                      {item.message || item.content || 'No content provided'}
                     </p>
-                    {item.user_id && (
-                      <p className="text-[10px] sm:text-xs text-slate-400 mt-1.5 font-mono">
-                        ID: {item.user_id.slice(0, 8)}...
-                      </p>
-                    )}
                   </div>
                 </div>
               </div>

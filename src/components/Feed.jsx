@@ -156,8 +156,8 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
 
   async function submitReport() {
     if (!reportPost) return;
-    const reason = reportReason === 'Other' ? reportDetails.trim() : reportReason;
-    if (!reason) return;
+    const reason = reportReason === 'Other' ? `Other: ${reportDetails.trim()}` : reportReason;
+    if (reportReason === 'Other' && !reportDetails.trim()) return;
     let { error } = await supabase.from('reports').insert([{ reporter_id: session.user.id, reported_user_id: reportPost.user_id, post_id: reportPost.id, reason }]);
     if (error?.message?.includes('post_id')) {
       ({ error } = await supabase.from('reports').insert([{ reporter_id: session.user.id, reported_user_id: reportPost.user_id, reason }]));
