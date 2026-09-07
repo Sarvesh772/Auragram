@@ -4,7 +4,7 @@ import {
   FileText, Image as ImageIcon, Film, Heart, MessageCircle, 
   Send, Bookmark, Edit3, X, Sparkles, Loader2, Camera, AlertCircle, 
   CheckCircle2, Pin, Play, Flag, MoreVertical, Copy, UserPlus, 
-  UserCheck, UserMinus, Users, Eye, Trash2
+  UserCheck, UserMinus, Users, Eye, Trash2, Clipboard, Check, Share2
 } from 'lucide-react';
 import PostCaption from './PostCaption';
 
@@ -82,6 +82,7 @@ export function PostDetail({ post, profile, session, onBack, onShare, onReport, 
       .single();
     
     if (!error && data) {
+      if (post.user_id !== session.user.id) await supabase.from('notifications').insert([{ recipient_id: post.user_id, actor_id: session.user.id, type: 'comment', post_id: post.id, is_read: false }]);
       const { data: myProfile } = await supabase
         .from('profiles')
         .select('*')
@@ -134,7 +135,7 @@ export function PostDetail({ post, profile, session, onBack, onShare, onReport, 
       </div>
 
       {/* Post Content */}
-      <div className="max-w-2xl mx-auto px-4 py-4">
+      <div className="max-w-2xl mx-auto px-4 py-4 pb-28">
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5">
           {/* Post Header */}
           <div className="flex items-center justify-between mb-3">
@@ -189,17 +190,17 @@ export function PostDetail({ post, profile, session, onBack, onShare, onReport, 
           {/* Post Stats */}
           <div className="flex items-center gap-5 mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500">
             <button type="button" className="flex items-center gap-1 hover:text-rose-500 transition-colors">
-              <Heart className="w-4 h-4" /> {post.likes?.length || 0} likes
+              <Heart className="w-4 h-4" /> {post.likes?.length || 0}
             </button>
             <button type="button" className="flex items-center gap-1 hover:text-purple-600 transition-colors" onClick={() => commentInputRef.current?.focus()}>
-              <MessageCircle className="w-4 h-4" /> {comments.length} comments
+              <MessageCircle className="w-4 h-4" /> {comments.length}
             </button>
             <button type="button" onClick={() => onShare?.(post)} className="flex items-center gap-1 hover:text-purple-600 transition-colors" aria-label="Share post">
-              <Send className="w-4 h-4" /> Share
+              <Send className="w-4 h-4" />
             </button>
             {!isOwnPost && (
               <button type="button" onClick={() => onReport?.(post)} className="flex items-center gap-1 hover:text-rose-600 transition-colors" aria-label="Report post">
-                <Flag className="w-4 h-4" /> Report
+                <Flag className="w-4 h-4" />
               </button>
             )}
           </div>
@@ -400,10 +401,21 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const viewedUserId = resolvedProfileId || (profileUserId && /^[0-9a-f-]{36}$/i.test(profileUserId) ? profileUserId : session.user.id);
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
+  const [savedPostIds, setSavedPostIds] = useState(new Set());
   const [activeTab, setActiveTab] = useState('text');
   const [loading, setLoading] = useState(true);
   const isOwnProfile = viewedUserId === session.user.id || profile?.id === session.user.id;
   const isSuspended = ['suspended', 'banned'].includes(String(profile?.account_status || profile?.status || '').toLowerCase());
+
+  async function toggleSavedPost(postId) {
+    const saved = savedPostIds.has(postId);
+    setSavedPostIds(prev => { const next = new Set(prev); saved ? next.delete(postId) : next.add(postId); return next; });
+    if (saved) {
+      await supabase.from('bookmarks').delete().eq('post_id', postId).eq('user_id', session.user.id);
+    } else {
+      await supabase.from('bookmarks').insert([{ post_id: postId, user_id: session.user.id }]);
+    }
+  }
 
   // State for post detail view
   const [selectedPostForDetail, setSelectedPostForDetail] = useState(null);
@@ -853,7 +865,9 @@ export default function Profile({ session, profileUserId, onMessage }) {
             </button>
           </div>
           
-            <Bookmark className="w-4 h-4 hover:text-purple-600 cursor-pointer transition-colors" />
+            <button type="button" onClick={(e) => { e.stopPropagation(); toggleSavedPost(post.id); }} className="hover:text-purple-600 transition-colors" aria-label={savedPostIds.has(post.id) ? 'Unsave post' : 'Save post'}>
+              <Bookmark className={`w-4 h-4 ${savedPostIds.has(post.id) ? 'fill-purple-600 text-purple-600' : ''}`} />
+            </button>
         </div>
       </div>
     );
@@ -1173,13 +1187,13 @@ export default function Profile({ session, profileUserId, onMessage }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <button onClick={copyPostLink} className="rounded-2xl bg-slate-100 dark:bg-slate-800 px-3 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
-                {shareCopied ? '✅ Copied!' : '📋 Copy link'}
+                <span className="inline-flex items-center justify-center gap-1.5">{shareCopied ? <Check className="h-4 w-4" /> : <Clipboard className="h-4 w-4" />} {shareCopied ? 'Copied!' : 'Copy link'}</span>
               </button>
               <a href={`https://wa.me/?text=${encodeURIComponent(postShareUrl(sharePost))}`} target="_blank" rel="noreferrer" className="rounded-2xl bg-emerald-500 px-3 py-3 text-center text-sm font-bold text-white hover:bg-emerald-600 transition-all">
-                WhatsApp
+                <span className="inline-flex items-center justify-center gap-1.5"><Share2 className="h-4 w-4" /> WhatsApp</span>
               </a>
               <button onClick={nativeSharePost} className="col-span-2 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 px-3 py-3 text-sm font-bold text-white hover:shadow-lg hover:shadow-purple-500/25 transition-all">
-                More sharing options
+                <span className="inline-flex items-center justify-center gap-1.5"><Share2 className="h-4 w-4" /> More sharing options</span>
               </button>
             </div>
           </div>

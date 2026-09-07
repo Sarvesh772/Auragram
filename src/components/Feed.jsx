@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import { uploadToR2 } from '../lib/r2Upload';
 import Story from './Story';
 import { Image as ImageIcon, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight, MoreVertical, Play, Maximize2, Minimize2 } from 'lucide-react';
-import { RenderFormattedText } from './MentionInput';
+import MentionInput, { RenderFormattedText } from './MentionInput';
 import PostCaption from './PostCaption';
 import { PostDetail } from './Profile';
 
@@ -303,6 +303,7 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
       await supabase.from('likes').delete().eq('post_id', post.id).eq('user_id', session.user.id);
     } else {
       await supabase.from('likes').insert([{ post_id: post.id, user_id: session.user.id }]);
+      if (post.user_id !== session.user.id) await supabase.from('notifications').insert([{ recipient_id: post.user_id, actor_id: session.user.id, type: 'like', post_id: post.id, is_read: false }]);
     }
   }
 
@@ -357,6 +358,7 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
     const { data, error } = await supabase.from('comments').insert([newCommentObj]).select().single();
     if (!error && data) {
       await processMentions(text, session.user.id, postId);
+      if (post.user_id !== session.user.id) await supabase.from('notifications').insert([{ recipient_id: post.user_id, actor_id: session.user.id, type: 'comment', post_id: postId, is_read: false }]);
       const { data: myProfile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
       const createdComment = { ...data, profiles: myProfile };
 
@@ -472,13 +474,13 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
           </div>
           
           <div className="flex-1 relative min-w-0">
-            <textarea
-              ref={textareaRef}
+            <MentionInput
               value={newContent}
-              onChange={handleTextChange}
+              onChange={(value) => handleTextChange({ target: { value } })}
               placeholder="What's orbiting your mind?"
               rows={isComposerExpanded ? 6 : 1}
-              className="w-full bg-transparent focus:outline-none text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm font-medium pr-8 resize-none overflow-hidden leading-normal border-none p-0"
+              currentUserId={session.user.id}
+              className="w-full bg-transparent text-slate-700 dark:text-white placeholder-slate-400 text-sm font-medium"
             />
 
             {/* Expand / Collapse Button */}

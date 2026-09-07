@@ -4,11 +4,19 @@ import { supabase } from '../supabaseClient';
 // 1. Export Formatted Text Component for @Mentions Styling & Clicks
 export function RenderFormattedText({ text, onViewProfile }) {
   if (!text) return null;
-  const parts = text.split(/(@[a-zA-Z0-9_]+)/g);
+  const parts = text.split(/(https?:\/\/[^\s]+|www\.[^\s]+|@[a-zA-Z0-9_]+)/g);
 
   return (
     <span>
       {parts.map((part, index) => {
+        if (/^(https?:\/\/|www\.)/.test(part)) {
+          const href = part.startsWith('www.') ? `https://${part}` : part;
+          return (
+            <a key={index} href={href} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-purple-600 dark:text-purple-400 underline hover:text-purple-800 break-all">
+              {part}
+            </a>
+          );
+        }
         if (part.startsWith('@')) {
           const username = part.slice(1);
           return (
@@ -107,11 +115,11 @@ export default function MentionInput({ value, onChange, placeholder, onSend, cla
     <div className="relative w-full min-w-0 flex-1">
       {/* Auto-suggest Popup Dropdown */}
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute bottom-full left-0 mb-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden">
+        <div className="absolute top-full left-0 right-0 mt-2 max-w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden">
           <div className="p-2 border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
             Mention User
           </div>
-          <div className="max-h-44 overflow-y-auto">
+          <div className="max-h-[min(18rem,40vh)] overflow-y-auto">
             {suggestions.map((user) => (
               <button
                 key={user.id}
@@ -144,7 +152,7 @@ export default function MentionInput({ value, onChange, placeholder, onSend, cla
         value={value}
         onChange={handleChange}
         placeholder={placeholder}
-        className={`${className || ''} resize-none ${compact ? 'min-h-[2rem] max-h-24 leading-5' : 'min-h-[2.5rem] max-h-32 leading-6'} overflow-y-auto whitespace-pre-wrap`}
+        className={`${className || ''} resize-none outline-none border-0 ring-0 focus:outline-none focus:ring-0 ${compact ? 'min-h-[2rem] max-h-24 leading-5' : 'min-h-[2.5rem] max-h-32 leading-6'} overflow-y-auto whitespace-pre-wrap`}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !showSuggestions && onSend) {
             onSend();
