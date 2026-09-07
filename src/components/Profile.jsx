@@ -6,11 +6,12 @@ import {
   CheckCircle2, Pin, Play, Flag, MoreVertical, Copy, UserPlus, 
   UserCheck, UserMinus, Users, Eye, Trash2
 } from 'lucide-react';
+import PostCaption from './PostCaption';
 
 // ============================================================
 // POST DETAIL COMPONENT - Outside Profile Component
 // ============================================================
-function PostDetail({ post, profile, session, onBack, onShare, onReport, onViewProfile }) {
+export function PostDetail({ post, profile, session, onBack, onShare, onReport, onViewProfile }) {
   const isOwnPost = post.user_id === session?.user?.id;
   const [comments, setComments] = useState([]);
   const [commentLikes, setCommentLikes] = useState([]);
@@ -183,11 +184,7 @@ function PostDetail({ post, profile, session, onBack, onShare, onReport, onViewP
           )}
 
           {/* Post Content */}
-          {post.content && (
-            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
-              {post.content}
-            </p>
-          )}
+          {post.content && <PostCaption text={post.content} disableTruncation />}
 
           {/* Post Stats */}
           <div className="flex items-center gap-5 mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500">
@@ -830,11 +827,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
           )}
 
           {/* Content */}
-          {post.content && (
-            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line line-clamp-3">
-              {post.content}
-            </p>
-          )}
+          {post.content && <PostCaption text={post.content} />}
         </div>
 
         {/* Stats Bar */}

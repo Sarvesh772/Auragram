@@ -4,6 +4,8 @@ import { uploadToR2 } from '../lib/r2Upload';
 import Story from './Story';
 import { Image as ImageIcon, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight, MoreVertical, Play, Maximize2, Minimize2 } from 'lucide-react';
 import { RenderFormattedText } from './MentionInput';
+import PostCaption from './PostCaption';
+import { PostDetail } from './Profile';
 
 // Helper for @mentions
 async function processMentions(text, actorId, postId) {
@@ -132,6 +134,7 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
   const [activeCommentPostId, setActiveCommentPostId] = useState(null);
   const [commentsMap, setCommentsMap] = useState({});
   const [commentTextMap, setCommentTextMap] = useState({});
+  const [selectedPostForDetail, setSelectedPostForDetail] = useState(null);
   const [loadingComments, setLoadingComments] = useState({});
 
   const fileInputRef = useRef(null);
@@ -544,7 +547,7 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
           const commentsCount = post.comments?.length || 0;
 
           return (
-            <div id={`post-${post.id}`} key={post.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div id={`post-${post.id}`} key={post.id} onClick={(e) => { if (!e.target.closest('button,input,textarea')) setSelectedPostForDetail(post); }} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
               <div className="flex items-center justify-between p-4">
                 <button onClick={() => onViewProfile?.(post.user_id)} className="flex items-center space-x-3 text-left">
                   {post.profiles?.avatar_url ? (
@@ -562,14 +565,7 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
                 <button onClick={() => setReportPost(post)} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800" title="Post options"><MoreVertical className="w-5 h-5" /></button>
               </div>
               
-              {post.content && (
-                <div className="px-4 pb-3">
-                  <p className={`text-slate-700 dark:text-slate-200 text-sm whitespace-pre-wrap break-words ${expandedCaptions.has(post.id) ? '' : 'line-clamp-4'}`}>
-                    <RenderFormattedText text={post.content} onViewProfile={onViewProfile} />
-                  </p>
-                  {(post.content.length > 220 || post.content.split('\n').length > 4) && <button onClick={() => setExpandedCaptions(prev => { const next = new Set(prev); next.has(post.id) ? next.delete(post.id) : next.add(post.id); return next; })} className="mt-1 text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline">{expandedCaptions.has(post.id) ? 'Show less' : 'Show more'}</button>}
-                </div>
-              )}
+              {post.content && <PostCaption text={post.content} onViewProfile={onViewProfile} className="px-4 pb-3" />}
               
               {/* Render Carousel Post Media */}
               <PostMediaCarousel mediaItems={post.mediaList} />
@@ -669,6 +665,7 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
       )}
       {reportPost && <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-4" onClick={() => setReportPost(null)}><div className="bg-white dark:bg-slate-900 rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}><div className="flex justify-between mb-3"><b>{reportPost.user_id === session.user.id ? 'Post options' : 'Report post'}</b><button onClick={() => setReportPost(null)}><X className="w-4 h-4" /></button></div>{reportPost.user_id === session.user.id ? <div className="space-y-2"><button onClick={() => { setEditingPost(reportPost); setEditContent(reportPost.content || ''); setReportPost(null); }} className="w-full rounded-xl bg-purple-600 text-white py-2.5 text-xs font-bold">Edit post</button><button onClick={() => deletePost(reportPost)} className="w-full rounded-xl bg-rose-600 text-white py-2.5 text-xs font-bold">Delete post</button></div> : <><p className="mb-2 text-xs text-slate-500">Report this post because:</p>{['Spam','Harassment or bullying','Hate speech','Misinformation','Other'].map(r => <label className="block text-xs py-1" key={r}><input type="radio" name="report" checked={reportReason === r} onChange={() => setReportReason(r)} /> {r}</label>)}{reportReason === 'Other' && <textarea className="w-full mt-2 p-2 border rounded" value={reportDetails} onChange={e => setReportDetails(e.target.value)} placeholder="Reason" />}<button onClick={submitReport} className="w-full mt-3 bg-rose-600 text-white rounded-xl py-2 text-xs font-bold">Submit report</button></>}</div></div>}
       {editingPost && <div className="fixed inset-0 z-[75] bg-black/60 flex items-center justify-center p-4"><div className="bg-white dark:bg-slate-900 rounded-2xl p-5 w-full max-w-md"><div className="flex justify-between mb-3"><b>Edit post</b><button onClick={() => setEditingPost(null)}><X className="w-4 h-4" /></button></div><textarea value={editContent} onChange={e => setEditContent(e.target.value)} rows={5} className="w-full rounded-xl border p-3 text-sm dark:bg-slate-800" /><button onClick={saveEditedPost} className="w-full mt-3 rounded-xl bg-purple-600 text-white py-2.5 text-xs font-bold">Save changes</button></div></div>}
+      {selectedPostForDetail && <PostDetail post={selectedPostForDetail} profile={selectedPostForDetail.profiles} session={session} onBack={() => setSelectedPostForDetail(null)} onShare={handleSharePost} onReport={setReportPost} onViewProfile={onViewProfile} />}
     </div>
   );
 }
