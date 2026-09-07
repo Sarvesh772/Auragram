@@ -387,7 +387,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
               <div onClick={() => setSupportModal('about')} className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl">
                 <div className="flex items-center space-x-3.5">
                   <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-500"><Zap className="w-4 h-4" /></div>
-                  <div><h3 className="text-sm font-bold text-slate-800 dark:text-white">About Auragram</h3><p className="text-[10px] text-slate-400">Version 1.1.0</p></div>
+                  <div><h3 className="text-sm font-bold text-slate-800 dark:text-white">About Auragram</h3><p className="text-[10px] text-slate-400">Version 1.2.0</p></div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-400" />
               </div>
@@ -428,7 +428,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
 
           {/* Footer */}
           <div className="text-center">
-            <p className="text-[10px] text-slate-400">Auragram v1.1.0</p>
+            <p className="text-[10px] text-slate-400">Auragram v1.2.0</p>
             <p className="text-[10px] text-slate-400 mt-1">
               &copy; {new Date().getFullYear()} Auragram. All rights reserved.
             </p>

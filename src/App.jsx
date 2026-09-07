@@ -18,7 +18,7 @@ import Admin from './components/Admin';
 
 import { Home, Compass, MessageCircle, Clapperboard, Bell, Settings as SettingsIcon, User } from 'lucide-react';
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 
 // Wrapper to handle dynamic /profile/:username and default logged-in user profile
 function ProfileWrapper({ session }) {

@@ -45,7 +45,7 @@ export default function About({ onClose }) {
         </div>
 
         <div className="mt-6 rounded-2xl bg-slate-50 p-4 dark:bg-slate-800">
-          <p className="font-bold dark:text-white">Version 1.1.0</p>
+          <p className="font-bold dark:text-white">Version 1.2.0</p>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Made with <Heart className="mx-1 inline h-3.5 w-3.5 fill-rose-500 text-rose-500" /> for Auragram users
           </p>
