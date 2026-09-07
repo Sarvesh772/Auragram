@@ -4,9 +4,400 @@ import {
   FileText, Image as ImageIcon, Film, Heart, MessageCircle, 
   Send, Bookmark, Edit3, X, Sparkles, Loader2, Camera, AlertCircle, 
   CheckCircle2, Pin, Play, Flag, MoreVertical, Copy, UserPlus, 
-  UserCheck, UserMinus, Users
+  UserCheck, UserMinus, Users, Eye, Trash2
 } from 'lucide-react';
 
+// ============================================================
+// POST DETAIL COMPONENT - Outside Profile Component
+// ============================================================
+function PostDetail({ post, profile, session, onBack, onShare, onReport, onViewProfile }) {
+  const isOwnPost = post.user_id === session?.user?.id;
+  const [comments, setComments] = useState([]);
+  const [commentLikes, setCommentLikes] = useState([]);
+  const [loadingComments, setLoadingComments] = useState(true);
+  const [newComment, setNewComment] = useState('');
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const commentInputRef = useRef(null);
+
+  useEffect(() => {
+    fetchComments();
+  }, [post.id]);
+
+  useEffect(() => {
+    if (commentInputRef.current) {
+      setTimeout(() => commentInputRef.current.focus(), 100);
+    }
+  }, [replyingTo]);
+
+  async function fetchComments() {
+    setLoadingComments(true);
+    
+    const { data: commentsData } = await supabase
+      .from('comments')
+      .select('*')
+      .eq('post_id', post.id)
+      .order('created_at', { ascending: true });
+    
+    const { data: likesData } = await supabase
+      .from('comment_likes')
+      .select('comment_id, user_id')
+      .eq('post_id', post.id);
+    
+    setCommentLikes(likesData || []);
+    
+    if (commentsData && commentsData.length > 0) {
+      const userIds = [...new Set(commentsData.map(c => c.user_id))];
+      const { data: cProfiles } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', userIds);
+      const cProfilesMap = (cProfiles || []).reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
+      
+      setComments(commentsData.map(c => ({ ...c, profiles: cProfilesMap[c.user_id] || null })));
+    } else {
+      setComments([]);
+    }
+    
+    setLoadingComments(false);
+  }
+
+  async function handleAddComment() {
+    if (!newComment.trim()) return;
+    
+    const replyPrefix = replyingTo?.profiles?.username ? `@${replyingTo.profiles.username} ` : '';
+    const commentContent = `${replyPrefix}${newComment.trim()}`;
+    
+    const { data, error } = await supabase
+      .from('comments')
+      .insert([{ 
+        post_id: post.id, 
+        user_id: session.user.id, 
+        content: commentContent, 
+        parent_comment_id: replyingTo?.id || null 
+      }])
+      .select()
+      .single();
+    
+    if (!error && data) {
+      const { data: myProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+      
+      setComments([...comments, { ...data, profiles: myProfile }]);
+      setNewComment('');
+      setReplyingTo(null);
+    }
+  }
+
+  async function toggleCommentLike(commentId) {
+    const existing = commentLikes.find((like) => like.comment_id === commentId && like.user_id === session.user.id);
+    
+    if (existing) {
+      setCommentLikes((prev) => prev.filter((like) => !(like.comment_id === commentId && like.user_id === session.user.id)));
+      await supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', session.user.id);
+    } else {
+      const optimisticLike = { comment_id: commentId, post_id: post.id, user_id: session.user.id, id: `local-${commentId}` };
+      setCommentLikes((prev) => [...prev, optimisticLike]);
+      await supabase.from('comment_likes').insert([{ 
+        comment_id: commentId, 
+        post_id: post.id, 
+        user_id: session.user.id 
+      }]);
+    }
+  }
+
+  async function handleDeleteComment(commentId) {
+    const { error } = await supabase.from('comments').delete().eq('id', commentId).eq('user_id', session.user.id);
+    if (!error) {
+      setComments((prev) => prev.filter((comment) => comment.id !== commentId && comment.parent_comment_id !== commentId));
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-white dark:bg-slate-900 overflow-y-auto animate-in slide-in-from-bottom-4 duration-300">
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center gap-3">
+        <button 
+          onClick={onBack}
+          className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+        >
+          <svg className="w-5 h-5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <h2 className="text-sm font-bold text-slate-800 dark:text-white">Post</h2>
+      </div>
+
+      {/* Post Content */}
+      <div className="max-w-2xl mx-auto px-4 py-4">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5">
+          {/* Post Header */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                ) : (
+                  (profile?.full_name || profile?.username || 'U')[0].toUpperCase()
+                )}
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-slate-800 dark:text-white">
+                  {profile?.full_name || profile?.username || 'User'}
+                </h4>
+                <p className="text-xs text-slate-400">
+                  @{profile?.username} · {new Date(post.created_at).toLocaleString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Media */}
+          {post.media_url && (
+            <div className="mb-3 -mx-4 sm:-mx-5">
+              {post.media_type === 'video' ? (
+                <video 
+                  src={post.media_url} 
+                  className="w-full max-h-[500px] object-contain bg-black"
+                  controls
+                  playsInline
+                />
+              ) : (
+                <img 
+                  src={post.media_url} 
+                  alt="post" 
+                  className="w-full max-h-[500px] object-contain bg-black"
+                />
+              )}
+            </div>
+          )}
+
+          {/* Post Content */}
+          {post.content && (
+            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
+              {post.content}
+            </p>
+          )}
+
+          {/* Post Stats */}
+          <div className="flex items-center gap-5 mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500">
+            <button type="button" className="flex items-center gap-1 hover:text-rose-500 transition-colors">
+              <Heart className="w-4 h-4" /> {post.likes?.length || 0} likes
+            </button>
+            <button type="button" className="flex items-center gap-1 hover:text-purple-600 transition-colors" onClick={() => commentInputRef.current?.focus()}>
+              <MessageCircle className="w-4 h-4" /> {comments.length} comments
+            </button>
+            <button type="button" onClick={() => onShare?.(post)} className="flex items-center gap-1 hover:text-purple-600 transition-colors" aria-label="Share post">
+              <Send className="w-4 h-4" /> Share
+            </button>
+            {!isOwnPost && (
+              <button type="button" onClick={() => onReport?.(post)} className="flex items-center gap-1 hover:text-rose-600 transition-colors" aria-label="Report post">
+                <Flag className="w-4 h-4" /> Report
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Comments Section */}
+        <div className="mt-4">
+          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+            <MessageCircle className="w-4 h-4" />
+            Comments ({comments.length})
+          </h3>
+
+          {loadingComments ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+            </div>
+          ) : comments.length === 0 ? (
+            <div className="text-center py-8 bg-slate-50 dark:bg-slate-800/30 rounded-2xl">
+              <MessageCircle className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm text-slate-400">No comments yet</p>
+              <p className="text-xs text-slate-400/70">Be the first to comment</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {comments.filter(c => !c.parent_comment_id).map(comment => (
+                <div key={comment.id} className="flex gap-3">
+                  {(() => {
+                    const authorLiked = commentLikes.some((like) => like.comment_id === comment.id && like.user_id === post.user_id);
+                    return (
+                      <>
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white text-xs font-bold overflow-hidden flex-shrink-0">
+                    {comment.profiles?.avatar_url ? (
+                      <img src={comment.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      (comment.profiles?.full_name || comment.profiles?.username || 'U')[0].toUpperCase()
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl px-3 py-2.5 relative">
+                      <div className="flex items-start justify-between gap-2">
+                        <button type="button" onClick={() => onViewProfile?.(comment.user_id)} className="text-sm font-bold text-slate-900 dark:text-white hover:text-purple-600">
+                          {comment.profiles?.full_name || comment.profiles?.display_name || comment.profiles?.username || 'User'}
+                        </button>
+                        {comment.user_id === session.user.id && (
+                          <button type="button" onClick={() => setDeleteTarget(comment.id)} className="p-1 text-slate-400 hover:text-rose-500 rounded-full hover:bg-rose-50 transition-colors" aria-label="Delete comment">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed break-words">
+                        {comment.content}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4 mt-1.5 px-1">
+                      <button 
+                        onClick={() => toggleCommentLike(comment.id)}
+                        className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-rose-500 transition-colors"
+                      >
+                        <Heart className={`w-3.5 h-3.5 ${commentLikes.some(l => l.comment_id === comment.id && l.user_id === session.user.id) ? 'fill-rose-500 text-rose-500' : ''}`} />
+                        <span>{commentLikes.filter(l => l.comment_id === comment.id).length}</span>
+                      </button>
+                      {authorLiked && <span className="text-xs font-medium text-slate-500">Liked by post author</span>}
+                      <button 
+                        onClick={() => {
+                          setReplyingTo(comment);
+                          setNewComment('');
+                        }}
+                        className="text-xs font-medium text-slate-400 hover:text-purple-500 transition-colors"
+                      >
+                        Reply
+                      </button>
+                    </div>
+                    
+                    {/* Replies */}
+                    {comments.filter(reply => reply.parent_comment_id === comment.id).map(reply => (
+                      <div key={reply.id} className="flex gap-3 mt-3 ml-4 pl-4 border-l-2 border-purple-200 dark:border-purple-800/50">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-purple-400 flex items-center justify-center text-white text-[10px] font-bold overflow-hidden flex-shrink-0">
+                          {reply.profiles?.avatar_url ? (
+                            <img src={reply.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            (reply.profiles?.full_name || reply.profiles?.username || 'U')[0].toUpperCase()
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="bg-slate-50/70 dark:bg-slate-800/30 rounded-xl px-3 py-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="text-[10px] font-bold text-slate-800 dark:text-white">
+                                {reply.profiles?.full_name || reply.profiles?.display_name || reply.profiles?.username || 'User'}
+                              </span>
+                              {reply.user_id === session.user.id && (
+                                <button type="button" onClick={() => setDeleteTarget(reply.id)} className="p-0.5 text-slate-400 hover:text-rose-500" aria-label="Delete reply">
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                              {reply.content}
+                            </p>
+                          </div>
+                          <div className="mt-1">
+                            <button 
+                              onClick={() => toggleCommentLike(reply.id)}
+                              className="flex items-center gap-1 text-[10px] font-medium text-slate-400 hover:text-rose-500 transition-colors"
+                            >
+                              <Heart className={`w-3 h-3 ${commentLikes.some(l => l.comment_id === reply.id && l.user_id === session.user.id) ? 'fill-rose-500 text-rose-500' : ''}`} />
+                              <span>{commentLikes.filter(l => l.comment_id === reply.id).length}</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4" onClick={() => setDeleteTarget(null)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-slate-900">Delete comment?</h3>
+            <p className="mt-1 text-sm text-slate-500">This comment will be permanently removed.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setDeleteTarget(null)} className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">Cancel</button>
+              <button type="button" onClick={async () => { await handleDeleteComment(deleteTarget); setDeleteTarget(null); }} className="rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fixed Comment Input at Bottom */}
+      <div className="fixed md:sticky bottom-0 left-0 right-0 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 px-4 py-3">
+        <div className="max-w-2xl mx-auto">
+          {replyingTo && (
+            <div className="flex items-center justify-between bg-purple-50 dark:bg-purple-900/20 rounded-xl px-3 py-1.5 mb-2">
+              <span className="text-xs text-purple-600 dark:text-purple-300">
+                Replying to @{replyingTo.profiles?.username || 'user'}
+              </span>
+              <button 
+                onClick={() => setReplyingTo(null)}
+                className="hover:bg-purple-200/50 dark:hover:bg-purple-800/50 p-1 rounded-full transition-all"
+              >
+                <X className="w-3.5 h-3.5 text-purple-500" />
+              </button>
+            </div>
+          )}
+          
+          <div className="relative flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-full border border-purple-200 dark:border-purple-700 focus-within:border-purple-500 focus-within:ring-2 focus-within:ring-purple-500/25 transition-all overflow-visible">
+            <textarea 
+              ref={commentInputRef}
+              value={newComment}
+              onChange={(e) => {
+                setNewComment(e.target.value);
+                const match = e.target.value.match(/(?:^|\s)@([\w]*)$/);
+                setMentionQuery(match ? match[1].toLowerCase() : '');
+                e.currentTarget.style.height = 'auto';
+                e.currentTarget.style.height = `${Math.min(e.currentTarget.scrollHeight, 112)}px`;
+              }}
+              placeholder="Write a comment..."
+              rows={1}
+              className="flex-1 min-h-[42px] max-h-28 resize-none overflow-y-auto bg-transparent px-4 py-2.5 text-sm leading-5 text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none"
+              onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
+            />
+            {mentionQuery !== '' && (
+              <div className="absolute bottom-full left-3 right-3 mb-2 max-h-40 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                {comments.map(c => c.profiles).concat(profile).filter(Boolean).filter((p, i, a) => a.findIndex(x => x.id === p.id) === i).filter(p => (p.username || '').toLowerCase().startsWith(mentionQuery)).slice(0, 6).map(p => (
+                  <button key={p.id} type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-purple-50" onClick={() => { setNewComment(v => v.replace(/@[\w]*$/, `@${p.username} `)); setMentionQuery(''); }}>
+                    <span className="text-sm font-semibold text-slate-800">{p.full_name || p.display_name || p.username}</span>
+                    <span className="text-xs text-slate-400">@{p.username}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <button 
+              onClick={handleAddComment}
+              disabled={!newComment.trim()}
+              className="mr-1 p-2.5 rounded-full bg-purple-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:bg-purple-700 hover:shadow-lg hover:shadow-purple-500/25 active:scale-95"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// PROFILE COMPONENT
+// ============================================================
 export default function Profile({ session, profileUserId, onMessage }) {
   const [resolvedProfileId, setResolvedProfileId] = useState(null);
   const viewedUserId = resolvedProfileId || (profileUserId && /^[0-9a-f-]{36}$/i.test(profileUserId) ? profileUserId : session.user.id);
@@ -17,15 +408,8 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const isOwnProfile = viewedUserId === session.user.id || profile?.id === session.user.id;
   const isSuspended = ['suspended', 'banned'].includes(String(profile?.account_status || profile?.status || '').toLowerCase());
 
-  // Modal View State
-  const [selectedPost, setSelectedPost] = useState(null);
-  const commentInputRef = useRef(null);
-  const [showComments, setShowComments] = useState(false);
-  const [postComments, setPostComments] = useState([]);
-  const [newComment, setNewComment] = useState('');
-  const [replyingTo, setReplyingTo] = useState(null);
-  const [commentLikes, setCommentLikes] = useState([]);
-  const [loadingComments, setLoadingComments] = useState(false);
+  // State for post detail view
+  const [selectedPostForDetail, setSelectedPostForDetail] = useState(null);
 
   // Edit Profile State
   const [isEditing, setIsEditing] = useState(false);
@@ -277,71 +661,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
     }
   }
 
-  async function handleOpenPost(post, focus = false) {
-    setSelectedPost(post);
-    setShowComments(focus);
-    setLoadingComments(true);
-
-    const { data: commentsData } = await supabase
-      .from('comments')
-      .select('*')
-      .eq('post_id', post.id)
-      .order('created_at', { ascending: true });
-
-    const { data: likesData } = await supabase.from('comment_likes').select('comment_id, user_id').eq('post_id', post.id);
-    setCommentLikes(likesData || []);
-
-    if (commentsData && commentsData.length > 0) {
-      const userIds = [...new Set(commentsData.map(c => c.user_id))];
-      const { data: cProfiles } = await supabase.from('profiles').select('*').in('id', userIds);
-      const cProfilesMap = (cProfiles || []).reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
-
-      setPostComments(commentsData.map(c => ({ ...c, profiles: cProfilesMap[c.user_id] || null })));
-    } else {
-      setPostComments([]);
-    }
-
-    setLoadingComments(false);
-  }
-
-  useEffect(() => { 
-    if (selectedPost && showComments) {
-      setTimeout(() => commentInputRef.current?.focus(), 150); 
-    }
-  }, [selectedPost, showComments]);
-
-  async function handleAddComment() {
-    if (!newComment.trim() || !selectedPost) return;
-
-    const replyPrefix = replyingTo?.profiles?.username ? `@${replyingTo.profiles.username} ` : '';
-    const commentContent = `${replyPrefix}${newComment.trim()}`;
-    const { data, error } = await supabase
-      .from('comments')
-      .insert([{ post_id: selectedPost.id, user_id: session.user.id, content: commentContent, parent_comment_id: replyingTo?.id || null }])
-      .select()
-      .single();
-
-    if (!error && data) {
-      const { data: myProfile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-      setPostComments([...postComments, { ...data, profiles: myProfile }]);
-      setNewComment('');
-      setReplyingTo(null);
-      
-      setPosts(prev => prev.map(p => p.id === selectedPost.id ? { ...p, commentsCount: p.commentsCount + 1 } : p));
-    }
-  }
-
-  async function toggleCommentLike(commentId) {
-    const existing = commentLikes.find((like) => like.comment_id === commentId && like.user_id === session.user.id);
-    if (existing) {
-      await supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', session.user.id);
-      setCommentLikes((prev) => prev.filter((like) => like !== existing));
-    } else {
-      const { data } = await supabase.from('comment_likes').insert([{ comment_id: commentId, post_id: selectedPost.id, user_id: session.user.id }]).select().single();
-      if (data) setCommentLikes((prev) => [...prev, data]);
-    }
-  }
-
   async function handleAvatarUpload(e) {
     try {
       setUploadingAvatar(true);
@@ -432,6 +751,120 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const textPosts = posts.filter(p => !p.media_url);
   const photoPosts = posts.filter(p => p.media_url && p.media_type !== 'video');
   const reelPosts = posts.filter(p => p.media_url && p.media_type === 'video');
+
+  // Render single post component - Click to open detail page
+  function renderPost(post) {
+    return (
+      <div 
+        key={post.id} 
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 hover:ring-2 hover:ring-purple-500/20"
+      >
+        {/* Post Content Area - Click to open detail */}
+        <div 
+          onClick={() => setSelectedPostForDetail(post)}
+          className="cursor-pointer p-4 sm:p-5"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-3">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                ) : (
+                  (profile?.full_name || profile?.username || 'U')[0].toUpperCase()
+                )}
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-slate-800 dark:text-white">
+                  {profile?.full_name || profile?.username || 'User'}
+                </h4>
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] text-slate-400">
+                    @{profile?.username} · {new Date(post.created_at).toLocaleDateString('en-US', { 
+                      day: 'numeric', 
+                      month: 'short' 
+                    })}
+                  </p>
+                  {post.is_pinned && (
+                    <span className="inline-flex items-center gap-1 text-[9px] text-amber-600 dark:text-amber-400">
+                      <Pin className="w-3 h-3" /> Pinned
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {isOwnProfile && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); togglePinned(post); }} 
+                className={`p-1.5 rounded-full transition-all ${
+                  post.is_pinned 
+                    ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10' 
+                    : 'text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-500/10'
+                }`}
+                title={post.is_pinned ? 'Unpin post' : 'Pin post'}
+              >
+                <Pin className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Media */}
+          {post.media_url && (
+            <div className="mb-3 -mx-4 sm:-mx-5">
+              {post.media_type === 'video' ? (
+                <video 
+                  src={post.media_url} 
+                  className="w-full max-h-[400px] object-contain bg-black"
+                  muted 
+                  playsInline
+                />
+              ) : (
+                <img 
+                  src={post.media_url} 
+                  alt="post" 
+                  className="w-full max-h-[400px] object-contain bg-black"
+                />
+              )}
+            </div>
+          )}
+
+          {/* Content */}
+          {post.content && (
+            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line line-clamp-3">
+              {post.content}
+            </p>
+          )}
+        </div>
+
+        {/* Stats Bar */}
+        <div className="flex items-center justify-between px-4 sm:px-5 pb-3 text-slate-500 text-xs font-medium">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-1 hover:text-rose-500 cursor-pointer transition-colors">
+              <Heart className="w-4 h-4" />
+              <span>{post.likes?.length || 0}</span>
+            </div>
+            <div 
+              className="flex items-center space-x-1 hover:text-purple-600 cursor-pointer transition-colors"
+              onClick={() => setSelectedPostForDetail(post)}
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>{post.commentsCount || 0}</span>
+            </div>
+            <button 
+              type="button" 
+              onClick={(e) => { e.stopPropagation(); setSharePost(post); }} 
+              className="hover:text-purple-600 transition-colors"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+          
+            <Bookmark className="w-4 h-4 hover:text-purple-600 cursor-pointer transition-colors" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     blockedByUser ? <div className="min-h-screen flex items-center justify-center p-6 text-center"><div><h2 className="text-xl font-bold text-slate-800 dark:text-white">User unavailable</h2><p className="mt-2 text-sm text-slate-500">This profile is not available.</p></div></div> :
@@ -614,70 +1047,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
             textPosts.length === 0 ? (
               isSuspended ? <div className="mx-auto max-w-xl rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-center text-sm font-semibold text-rose-600 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300">This account has been suspended for policy violations.</div> : <p className="text-center text-sm text-slate-400 py-12 font-medium">No text thoughts posted yet.</p>
             ) : (
-              textPosts.map(post => (
-                <div key={post.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
-                        {profile?.avatar_url ? (
-                          <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                        ) : (
-                          (profile?.full_name || profile?.username || 'U')[0].toUpperCase()
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-extrabold text-slate-800 dark:text-white">
-                          {profile?.full_name || profile?.username || 'User'}
-                        </h4>
-                        <p className="text-[10px] text-slate-400">
-                          {new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {isOwnProfile && (
-                      <button 
-                        onClick={() => togglePinned(post)} 
-                        className={`p-2 rounded-full transition-all ${
-                          post.is_pinned 
-                            ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10' 
-                            : 'text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-500/10'
-                        }`}
-                        title={post.is_pinned ? 'Unpin post' : 'Pin post'}
-                      >
-                        <Pin className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-
-                  {post.is_pinned && (
-                    <div className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-400/15 px-2 py-1 text-[10px] font-extrabold text-amber-700 dark:text-amber-300">
-                      <Pin className="w-3 h-3" /> Pinned to profile
-                    </div>
-                  )}
-
-                  <p className="text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-line">
-                    {post.content}
-                  </p>
-
-                  <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-2.5 text-slate-500 text-xs font-semibold">
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-1 hover:text-purple-600 cursor-pointer transition-colors">
-                        <Heart className="w-4 h-4" />
-                        <span>{post.likes?.length || 0}</span>
-                      </div>
-                      <div className="flex items-center space-x-1 hover:text-purple-600 cursor-pointer transition-colors" onClick={() => handleOpenPost(post, true)}>
-                        <MessageCircle className="w-4 h-4" />
-                        <span>{post.commentsCount || 0}</span>
-                      </div>
-                      <button type="button" onClick={() => setSharePost(post)} title="Share post" className="hover:text-purple-600 transition-colors">
-                        <Send className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <Bookmark className="w-4 h-4 hover:text-purple-600 cursor-pointer transition-colors" />
-                  </div>
-                </div>
-              ))
+              textPosts.map(post => renderPost(post))
             )
           )}
 
@@ -686,43 +1056,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
             photoPosts.length === 0 ? (
               isSuspended ? <div className="mx-auto max-w-xl rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-center text-sm font-semibold text-rose-600 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300">This account has been suspended for policy violations.</div> : <p className="text-center text-sm text-slate-400 py-12 font-medium">No photo posts found.</p>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {photoPosts.map(post => (
-                  <div 
-                    key={post.id} 
-                    onClick={() => handleOpenPost(post)}
-                    className="relative group aspect-square rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 cursor-pointer shadow-sm ring-1 ring-slate-200/70 dark:ring-slate-700/70"
-                  >
-                    <img src={post.media_url} alt="photo" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    
-                    {post.is_pinned && (
-                      <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-1 text-[10px] font-extrabold text-amber-950 shadow">
-                        <Pin className="w-3 h-3" /> Pinned
-                      </span>
-                    )}
-                    
-                    <span className="absolute top-2 right-2 z-10 rounded-full bg-black/55 px-2 py-1 text-[10px] font-bold text-white">Photo</span>
-                    
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition flex items-end justify-between p-3 text-white font-bold text-xs">
-                      <div className="flex items-center gap-3">
-                        <span className="flex items-center gap-1"><Heart className="w-4 h-4 fill-white" />{post.likes?.length || 0}</span>
-                        <span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" />{post.commentsCount || 0}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {!isOwnProfile && <button onClick={(e) => { e.stopPropagation(); setReportPost(post); }} className="rounded-full bg-black/50 px-2 py-1 text-[10px]">Report</button>}
-                        {isOwnProfile && (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); togglePinned(post); }} 
-                            className={`rounded-full bg-black/50 p-2 transition-all ${post.is_pinned ? 'text-amber-300' : 'text-white'}`}
-                          >
-                            <Pin className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              photoPosts.map(post => renderPost(post))
             )
           )}
 
@@ -731,206 +1065,9 @@ export default function Profile({ session, profileUserId, onMessage }) {
             reelPosts.length === 0 ? (
               isSuspended ? <div className="mx-auto max-w-xl rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-center text-sm font-semibold text-rose-600 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300">This account has been suspended for policy violations.</div> : <p className="text-center text-sm text-slate-400 py-12 font-medium">No video reels uploaded.</p>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {reelPosts.map(post => (
-                  <div 
-                    key={post.id} 
-                    onClick={() => handleOpenPost(post)}
-                    className="relative group aspect-[9/16] rounded-2xl overflow-hidden bg-black cursor-pointer shadow-sm ring-1 ring-slate-200/70 dark:ring-slate-700/70"
-                  >
-                    <video src={post.media_url} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    
-                    {post.is_pinned && (
-                      <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-1 text-[10px] font-extrabold text-amber-950 shadow">
-                        <Pin className="w-3 h-3" /> Pinned
-                      </span>
-                    )}
-                    
-                    <span className="absolute top-2 right-2 z-10 rounded-full bg-black/55 px-2 py-1 text-[10px] font-bold text-white">Reel</span>
-                    
-                    <span className="absolute inset-0 flex items-center justify-center text-white/90 group-hover:scale-110 transition">
-                      <span className="rounded-full bg-black/45 p-3"><Play className="w-5 h-5 fill-white" /></span>
-                    </span>
-                    
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition flex items-end justify-between p-3 text-white font-bold text-xs">
-                      <div className="flex items-center gap-3">
-                        <span className="flex items-center gap-1"><Heart className="w-4 h-4 fill-white" />{post.likes?.length || 0}</span>
-                        <span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" />{post.commentsCount || 0}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {!isOwnProfile && <button onClick={(e) => { e.stopPropagation(); setReportPost(post); }} className="rounded-full bg-black/50 px-2 py-1 text-[10px]">Report</button>}
-                        {isOwnProfile && (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); togglePinned(post); }} 
-                            className={`rounded-full bg-black/50 p-2 transition-all ${post.is_pinned ? 'text-amber-300' : 'text-white'}`}
-                          >
-                            <Pin className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              reelPosts.map(post => renderPost(post))
             )
           )}
-        </div>
-      )}
-
-      {/* POST PREVIEW MODAL */}
-      {selectedPost && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden w-full max-w-5xl h-[85vh] max-h-[90vh] grid md:grid-cols-12 relative shadow-2xl my-auto">
-            
-            <button 
-              onClick={() => setSelectedPost(null)}
-              className="absolute top-3 right-3 bg-black/60 hover:bg-black text-white p-2 rounded-full z-20 transition-all hover:scale-110"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            {/* Left Image Section */}
-            {selectedPost.media_url ? (
-              <div className="md:col-span-7 h-full bg-neutral-950 flex items-center justify-center relative overflow-hidden">
-                {selectedPost.media_type === 'video' ? (
-                  <video src={selectedPost.media_url} playsInline muted autoPlay className="w-full h-full object-contain" />
-                ) : (
-                  <img src={selectedPost.media_url} alt="post" className="w-full h-full object-contain" />
-                )}
-              </div>
-            ) : null}
-
-            {/* Right Details & Comments Panel */}
-            <div className={`${selectedPost.media_url ? 'md:col-span-5' : 'md:col-span-12'} h-full flex flex-col bg-white dark:bg-slate-900 overflow-hidden`}>
-              
-              {/* SECTION A: Header (Top) */}
-              <div className="p-4 flex items-center space-x-3 border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
-                  {profile?.avatar_url ? (
-                    <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    (profile?.full_name || profile?.username || 'U')[0].toUpperCase()
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h4 className="text-sm font-bold text-slate-800 dark:text-white truncate">{profile?.full_name || profile?.username}</h4>
-                  <p className="text-[11px] text-slate-400 truncate">@{profile?.username}</p>
-                </div>
-              </div>
-
-              {/* SECTION B: Middle Scrollable Content (Caption + Comments) */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {/* Caption */}
-                {selectedPost.content && (
-                  <div className="text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed break-words whitespace-pre-line">
-                    {selectedPost.content}
-                  </div>
-                )}
-
-                {/* Toggled Comments Section */}
-                {showComments && (
-                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3">
-                    <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Comments</h5>
-                    {loadingComments ? (
-                      <p className="text-xs text-slate-400 py-2 text-center">Loading comments...</p>
-                    ) : postComments.length === 0 ? (
-                      <p className="text-xs text-slate-400 py-2 text-center">No comments yet.</p>
-                    ) : (
-                      postComments.filter(c => !c.parent_comment_id).map(c => (
-                        <div key={c.id} className="flex space-x-2 items-start text-xs">
-                          <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 font-bold flex items-center justify-center text-[10px] overflow-hidden flex-shrink-0">
-                            {c.profiles?.avatar_url ? (
-                              <img src={c.profiles.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                            ) : (
-                              (c.profiles?.full_name || c.profiles?.username || 'U')[0].toUpperCase()
-                            )}
-                          </div>
-                          <div className="bg-slate-50 dark:bg-slate-800/80 p-2.5 rounded-2xl flex-1">
-                            <span className="font-bold text-[11px] text-slate-800 dark:text-white block">@{c.profiles?.username || 'user'}</span>
-                            <span className="text-slate-600 dark:text-slate-300 text-[11px]">{c.content}</span>
-                            <div className="mt-1 flex items-center gap-3">
-                              <button type="button" onClick={() => toggleCommentLike(c.id)} className={`text-[10px] font-bold ${commentLikes.some(l => l.comment_id === c.id && l.user_id === session.user.id) ? 'text-rose-500' : 'text-slate-400'}`}>
-                                ♥ {commentLikes.filter(l => l.comment_id === c.id).length}
-                              </button>
-                              <button type="button" onClick={() => { setReplyingTo(c); setNewComment(''); }} className="text-[10px] font-bold text-purple-600 hover:underline">
-                                Reply
-                              </button>
-                            </div>
-                            {postComments.filter(reply => reply.parent_comment_id === c.id).map(reply => (
-                              <div key={reply.id} className="mt-2 ml-3 border-l-2 border-purple-200 dark:border-purple-800 pl-2">
-                                <span className="font-bold text-[10px] text-slate-700 dark:text-slate-200 block">@{reply.profiles?.username || 'user'}</span>
-                                <span className="text-[10px] text-slate-500 dark:text-slate-300">{reply.content}</span>
-                                <div>
-                                  <button type="button" onClick={() => toggleCommentLike(reply.id)} className={`text-[10px] font-bold ${commentLikes.some(l => l.comment_id === reply.id && l.user_id === session.user.id) ? 'text-rose-500' : 'text-slate-400'}`}>
-                                    ♥ {commentLikes.filter(l => l.comment_id === reply.id).length}
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* SECTION C: Fixed Bottom Action Bar & Input */}
-              <div className="border-t border-slate-100 dark:border-slate-800 p-3 bg-white dark:bg-slate-900 flex-shrink-0 space-y-2">
-                
-                {/* Action Bar */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <button type="button" className="flex items-center gap-1.5 text-slate-600 hover:text-rose-500 dark:text-slate-300">
-                      <Heart className="h-5 w-5" /> 
-                      <span className="text-xs font-semibold">{selectedPost.likes?.length || selectedPost.likesCount || 0}</span>
-                    </button>
-                    <button 
-                      type="button" 
-                      onClick={() => setShowComments(v => !v)} 
-                      className={`flex items-center gap-1.5 transition-colors ${showComments ? 'text-purple-600' : 'text-slate-600 hover:text-purple-600 dark:text-slate-300'}`}
-                    >
-                      <MessageCircle className="h-5 w-5" /> 
-                      <span className="text-xs font-semibold">{selectedPost.commentsCount || postComments.length || 0}</span>
-                    </button>
-                    <button type="button" onClick={() => setSharePost(selectedPost)} className="text-slate-600 hover:text-purple-600 dark:text-slate-300">
-                      <Send className="h-5 w-5" />
-                    </button>
-                  </div>
-                  <button type="button" className="text-slate-600 hover:text-purple-600 dark:text-slate-300">
-                    <Bookmark className="h-5 w-5" />
-                  </button>
-                </div>
-
-                {/* Comment Input Box (Toggled on Comment click) */}
-                {showComments && (
-                  <div className="pt-2 space-y-2">
-                    {replyingTo && (
-                      <div className="flex items-center justify-between rounded-lg bg-purple-50 dark:bg-purple-400/10 px-2.5 py-1 text-[10px] text-purple-700 dark:text-purple-300">
-                        <span>Replying to @{replyingTo.profiles?.username || 'user'}</span>
-                        <button type="button" onClick={() => setReplyingTo(null)}><X className="w-3 h-3" /></button>
-                      </div>
-                    )}
-                    <div className="flex items-center space-x-2">
-                      <input 
-                        ref={commentInputRef}
-                        type="text" 
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Add a comment..."
-                        className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-800 dark:text-white"
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
-                      />
-                      <button onClick={handleAddComment} className="bg-purple-600 text-white p-2 rounded-full hover:bg-purple-700 transition-all flex-shrink-0">
-                        <Send className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-            </div>
-          </div>
         </div>
       )}
 
@@ -1202,6 +1339,22 @@ export default function Profile({ session, profileUserId, onMessage }) {
           </div>
         </div>
       )}
+
+      {/* ============================================================
+          POST DETAIL VIEW - Full page overlay
+          ============================================================ */}
+      {selectedPostForDetail && (
+        <PostDetail
+          post={selectedPostForDetail}
+          profile={profile}
+          session={session}
+          onBack={() => setSelectedPostForDetail(null)}
+          onShare={setSharePost}
+          onReport={setReportPost}
+          onViewProfile={(id) => { setSelectedPostForDetail(null); setResolvedProfileId(id); }}
+        />
+      )}
+
     </div>
   );
 }
