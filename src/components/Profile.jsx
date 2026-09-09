@@ -427,8 +427,8 @@ export default function Profile({ session, profileUserId, onMessage }) {
       const response = await fetch('/api/razorpay-order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan, userId: session.user.id }) });
       const order = await response.json();
       if (!response.ok) throw new Error(order.error || 'Could not create payment order');
-      new window.Razorpay({ key: import.meta.env.VITE_RAZORPAY_KEY_ID, amount: order.amount, currency: order.currency, name: 'Auragram', description: `${plan === 'yearly' ? 'Yearly' : 'Monthly'} Blue Tick`, order_id: order.id, prefill: { email: session.user.email }, theme: { color: '#8b5cf6' }, handler: () => { alert('Payment successful. Your blue tick will appear shortly after verification.'); } }).open();
-    } catch (error) { alert(error.message); } finally { setVerificationLoading(false); }
+      new window.Razorpay({ key: import.meta.env.VITE_RAZORPAY_KEY_ID, amount: order.amount, currency: order.currency, name: 'Auragram', description: `${plan === 'yearly' ? 'Yearly' : 'Monthly'} Blue Tick`, order_id: order.id, prefill: { email: session.user.email }, theme: { color: '#8b5cf6' }, handler: () => { setSafetyMessage('Payment successful. Your blue tick will appear shortly after verification.'); setTimeout(() => setSafetyMessage(''), 5000); } }).open();
+    } catch (error) { setSafetyMessage(error.message); setTimeout(() => setSafetyMessage(''), 5000); } finally { setVerificationLoading(false); }
   }
 
   // State for post detail view
@@ -931,13 +931,13 @@ export default function Profile({ session, profileUserId, onMessage }) {
               </div>
 
               <div className="flex-1 min-w-0">
-                <h2 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white truncate">
-                  {profile.full_name || profile.username || 'User'}
+                <h2 className="flex items-center gap-1.5 text-lg sm:text-xl font-black text-slate-800 dark:text-white truncate">
+                  <span className="truncate">{profile.full_name || profile.username || 'User'}</span>
+                  {profile.is_verified && <BadgeCheck className="h-5 w-5 flex-shrink-0 fill-blue-500 text-white" aria-label="Verified" />}
                 </h2>
                 <p className="text-sm font-bold text-purple-600 dark:text-purple-400 truncate">
                   @{profile.username || 'username'}
                 </p>
-                {profile.is_verified && <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-600"><BadgeCheck className="h-4 w-4 fill-blue-500 text-white" /> Verified</span>}
                 {profile.account_status === 'suspended' && (
                   <span className="inline-flex mt-1 items-center rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-bold text-rose-600 dark:bg-rose-900/30 dark:text-rose-300">
                     Suspended
