@@ -4,6 +4,8 @@ import { Loader2, CheckCircle2, XCircle, AlertCircle, User, Mail, Lock, IdCard, 
 
 export default function Auth() {
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
   
   // Form States
   const [fullName, setFullName] = useState('');
@@ -21,6 +23,25 @@ export default function Auth() {
   });
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setIsResetting(true);
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  async function handlePasswordReset(e) {
+    e.preventDefault();
+    setErrorMsg('');
+    if (password.length < 6) { setErrorMsg('Password must be at least 6 characters.'); return; }
+    if (password !== confirmPassword) { setErrorMsg('Passwords do not match.'); return; }
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setLoading(false);
+    if (error) setErrorMsg(error.message);
+    else { setSuccessMsg('Password updated successfully. You can now sign in.'); setIsResetting(false); setPassword(''); setConfirmPassword(''); }
+  }
 
   async function handleForgotPassword() {
     const value = identifier.trim();
@@ -218,7 +239,7 @@ export default function Auth() {
             <div className="text-center space-y-1">
               <h1 className="text-2xl lg:text-3xl font-black text-purple-600 tracking-tight">Auragram</h1>
               <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">
-                {isRegistering ? 'Create a new account to get started' : 'Welcome back! Connect with your world.'}
+                {isResetting ? 'Choose a new password for your account.' : isRegistering ? 'Create a new account to get started' : 'Welcome back! Connect with your world.'}
               </p>
             </div>
 
@@ -238,7 +259,11 @@ export default function Auth() {
             )}
 
             {/* FORM */}
-            <form onSubmit={handleAuth} className="space-y-3">
+            {isResetting ? <form onSubmit={handlePasswordReset} className="space-y-3">
+              <div><label className="text-[11px] font-bold text-slate-700 block mb-1">New password</label><div className="relative"><Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" /><input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-9 pr-10 text-sm outline-none focus:ring-2 focus:ring-purple-500" required /><button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 top-2.5 text-slate-400">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div></div>
+              <div><label className="text-[11px] font-bold text-slate-700 block mb-1">Confirm password</label><input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-purple-500" required /></div>
+              <button type="submit" disabled={loading} className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 py-3 text-sm font-bold text-white disabled:opacity-50">{loading ? 'Updating…' : 'Update password'}</button>
+            </form> : <form onSubmit={handleAuth} className="space-y-3">
               
               {/* REGISTER FIELDS */}
               {isRegistering ? (
@@ -367,17 +392,17 @@ export default function Auth() {
                 {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 <span>{isRegistering ? 'Create Account' : 'Sign In'}</span>
               </button>
-            </form>
+            </form>}
 
             {/* TOGGLE BUTTON */}
-            <div className="text-center pt-2 border-t border-slate-100 dark:border-slate-800/80">
+            {!isResetting && <div className="text-center pt-2 border-t border-slate-100 dark:border-slate-800/80">
               <button 
                 onClick={toggleAuthMode} 
                 className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline cursor-pointer"
               >
                 {isRegistering ? 'Already have an account? Sign In' : "Don't have an account? Register"}
               </button>
-            </div>
+            </div>}
 
             <p className="text-center text-[10px] text-slate-400 dark:text-slate-500">
               Need help? <a href="mailto:Support@auragram.in" className="font-semibold text-purple-600 hover:underline">Support@auragram.in</a>
