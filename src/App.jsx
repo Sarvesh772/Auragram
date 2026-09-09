@@ -78,6 +78,7 @@ export default function App() {
   const [deletionRequest, setDeletionRequest] = useState(null);
   const [cancellingDeletion, setCancellingDeletion] = useState(false);
   const [availableUpdate, setAvailableUpdate] = useState(null);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -124,7 +125,9 @@ export default function App() {
       setLoadingAuth(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') setIsPasswordRecovery(true);
+      if (event === 'USER_UPDATED') setIsPasswordRecovery(false);
       setSession(session);
       setLoadingAuth(false);
     });
@@ -204,8 +207,8 @@ export default function App() {
     );
   }
 
-  if (!session) {
-    return <Auth />;
+  if (!session || isPasswordRecovery) {
+    return <Auth isResetting={isPasswordRecovery} />;
   }
 
   // Active Tab determination based on Current Route

@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Loader2, CheckCircle2, XCircle, AlertCircle, User, Mail, Lock, IdCard, Eye, EyeOff, KeyRound } from 'lucide-react';
 
-export default function Auth() {
+export default function Auth({ isResetting: recoveryMode = false }) {
   const [isRegistering, setIsRegistering] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
+  const [isResetting, setIsResetting] = useState(recoveryMode);
   const [confirmPassword, setConfirmPassword] = useState('');
   
   // Form States
