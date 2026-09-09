@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Loader2, CheckCircle2, XCircle, AlertCircle, User, Mail, Lock, IdCard } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, AlertCircle, User, Mail, Lock, IdCard, Eye, EyeOff, KeyRound } from 'lucide-react';
 
 export default function Auth() {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -11,6 +11,7 @@ export default function Auth() {
   const [identifier, setIdentifier] = useState(''); // Email or Username for Login
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   // UI Feedback States
   const [errorMsg, setErrorMsg] = useState(() => {
@@ -20,6 +21,15 @@ export default function Auth() {
   });
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
+
+  async function handleForgotPassword() {
+    const value = identifier.trim();
+    if (!value || !value.includes('@')) { setErrorMsg('Enter your email address first to reset your password.'); return; }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(value, { redirectTo: `${window.location.origin}/login` });
+    setLoading(false);
+    setErrorMsg(error ? error.message : 'Password reset link sent to your email.');
+  }
 
   // Realtime Username Validation States
   const [usernameStatus, setUsernameStatus] = useState(null); // 'checking' | 'available' | 'taken' | 'invalid'
@@ -164,10 +174,10 @@ export default function Auth() {
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 flex items-center justify-center transition-colors duration-200">
+    <div className="min-h-screen w-full overflow-hidden bg-[radial-gradient(circle_at_15%_20%,rgba(168,85,247,.18),transparent_36%),radial-gradient(circle_at_85%_80%,rgba(236,72,153,.14),transparent_38%),#f8f7fc] dark:bg-slate-950 flex items-center justify-center p-0 md:p-5 transition-colors duration-200">
       
       {/* MAIN CONTAINER */}
-      <div className="bg-white dark:bg-slate-900 w-full h-full grid md:grid-cols-12 overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-7xl min-h-screen md:min-h-[calc(100vh-2.5rem)] md:max-h-[900px] rounded-none md:rounded-3xl border border-white/70 dark:border-slate-800 shadow-xl shadow-purple-900/10 grid md:grid-cols-12 overflow-hidden">
         
         {/* LEFT BANNER SIDE */}
         <div className="hidden md:flex md:col-span-7 lg:col-span-8 bg-gradient-to-br from-purple-600 via-fuchsia-600 to-pink-500 p-8 lg:p-12 text-white flex-col justify-between relative overflow-hidden">
@@ -208,7 +218,7 @@ export default function Auth() {
             <div className="text-center space-y-1">
               <h1 className="text-2xl lg:text-3xl font-black text-purple-600 tracking-tight">Auragram</h1>
               <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">
-                {isRegistering ? 'Create a new account to get started' : 'Welcome back! Sign in to continue'}
+                {isRegistering ? 'Create a new account to get started' : 'Welcome back! Connect with your world.'}
               </p>
             </div>
 
@@ -333,21 +343,26 @@ export default function Auth() {
                 <div className="relative">
                   <Lock className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                   <input 
-                    type="password" 
+                    type={showPassword ? 'text' : 'password'} 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl pl-9 pr-10 py-2.5 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                     required
                   />
+                  <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 top-2.5 text-slate-400 hover:text-purple-600" aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
+
+              {!isRegistering && <div className="flex justify-end -mt-1"><button type="button" onClick={handleForgotPassword} className="text-xs font-semibold text-purple-600 hover:text-purple-700 hover:underline"><KeyRound className="mr-1 inline h-3.5 w-3.5" />Forgot password?</button></div>}
 
               {/* Submit Button */}
               <button 
                 type="submit" 
                 disabled={loading || (isRegistering && usernameStatus === 'taken')}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl transition-all shadow-md shadow-purple-500/20 text-xs mt-1 disabled:opacity-50 flex items-center justify-center space-x-2 cursor-pointer"
+                className="w-full bg-gradient-to-r from-purple-600 via-fuchsia-600 to-purple-600 bg-[length:200%_100%] hover:bg-right text-white font-bold py-3 rounded-xl transition-all active:scale-[0.99] shadow-lg shadow-purple-500/25 text-xs mt-1 disabled:opacity-50 flex items-center justify-center space-x-2 cursor-pointer"
               >
                 {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 <span>{isRegistering ? 'Create Account' : 'Sign In'}</span>
