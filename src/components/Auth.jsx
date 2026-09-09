@@ -195,7 +195,7 @@ export default function Auth({ isResetting: recoveryMode = false }) {
   };
 
   return (
-    <div className="min-h-screen w-full overflow-hidden bg-[radial-gradient(circle_at_15%_20%,rgba(168,85,247,.18),transparent_36%),radial-gradient(circle_at_85%_80%,rgba(236,72,153,.14),transparent_38%),#f8f7fc] dark:bg-slate-950 flex items-center justify-center p-0 md:p-5 transition-colors duration-200">
+    <div className="min-h-screen w-full overflow-hidden bg-gradient-to-b from-purple-50/70 to-slate-50 dark:bg-slate-950 flex items-center justify-center p-0 md:p-5 transition-colors duration-200">
       
       {/* MAIN CONTAINER */}
       <div className="bg-white dark:bg-slate-900 w-full max-w-7xl min-h-screen md:min-h-[calc(100vh-2.5rem)] md:max-h-[900px] rounded-none md:rounded-3xl border border-white/70 dark:border-slate-800 shadow-xl shadow-purple-900/10 grid md:grid-cols-12 overflow-hidden">
@@ -233,7 +233,7 @@ export default function Auth({ isResetting: recoveryMode = false }) {
         {/* RIGHT FORM SIDE */}
         <div className="md:col-span-5 lg:col-span-4 p-4 sm:p-8 flex flex-col justify-center items-center w-full h-full overflow-y-auto">
           
-          <div className="w-full max-w-sm space-y-4 my-auto">
+          <div className="w-full max-w-sm space-y-4 my-auto rounded-3xl bg-white p-6 mx-4 border border-gray-100 shadow-xl md:mx-0 md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none">
             
             {/* LOGO & TITLE */}
             <div className="text-center space-y-1">
@@ -259,11 +259,11 @@ export default function Auth({ isResetting: recoveryMode = false }) {
             )}
 
             {/* FORM */}
-            {isResetting ? <form onSubmit={handlePasswordReset} className="space-y-3">
+            {isResetting ? <form onSubmit={handlePasswordReset} className="space-y-4">
               <div><label className="text-[11px] font-bold text-slate-700 block mb-1">New password</label><div className="relative"><Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" /><input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-9 pr-10 text-sm outline-none focus:ring-2 focus:ring-purple-500" required /><button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 top-2.5 text-slate-400">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div></div>
               <div><label className="text-[11px] font-bold text-slate-700 block mb-1">Confirm password</label><input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-purple-500" required /></div>
               <button type="submit" disabled={loading} className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 py-3 text-sm font-bold text-white disabled:opacity-50">{loading ? 'Updating…' : 'Update password'}</button>
-            </form> : <form onSubmit={handleAuth} className="space-y-3">
+            </form> : <form onSubmit={handleAuth} className="space-y-4">
               
               {/* REGISTER FIELDS */}
               {isRegistering ? (
@@ -279,7 +279,7 @@ export default function Auth({ isResetting: recoveryMode = false }) {
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         placeholder="e.g. Peter Parker"
-                        className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                        className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl pl-9 pr-3 py-3 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                         required
                       />
                     </div>
@@ -296,7 +296,7 @@ export default function Auth({ isResetting: recoveryMode = false }) {
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         placeholder="choose_unique_username"
-                        className={`w-full bg-slate-50 dark:bg-slate-800/60 border rounded-xl pl-8 pr-9 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 transition-all ${
+                        className={`w-full bg-slate-50 dark:bg-slate-800/60 border rounded-xl pl-8 pr-9 py-3 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 transition-all ${
                           usernameStatus === 'available' ? 'border-emerald-500 focus:ring-emerald-500' :
                           usernameStatus === 'taken' || usernameStatus === 'invalid' ? 'border-rose-500 focus:ring-rose-500' :
                           'border-slate-200 dark:border-slate-700/80 focus:ring-purple-500'
@@ -333,7 +333,7 @@ export default function Auth({ isResetting: recoveryMode = false }) {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="you@example.com"
-                        className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                        className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl pl-9 pr-3 py-3 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                         required
                       />
                     </div>
@@ -353,7 +353,7 @@ export default function Auth({ isResetting: recoveryMode = false }) {
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
                       placeholder="you@example.com"
-                      className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                      className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl pl-9 pr-3 py-3 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                       required
                     />
                   </div>
@@ -372,7 +372,7 @@ export default function Auth({ isResetting: recoveryMode = false }) {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl pl-9 pr-10 py-2.5 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl pl-9 pr-10 py-3 text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                     required
                   />
                   <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 top-2.5 text-slate-400 hover:text-purple-600" aria-label={showPassword ? 'Hide password' : 'Show password'}>

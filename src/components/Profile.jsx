@@ -4,7 +4,7 @@ import {
   FileText, Image as ImageIcon, Film, Heart, MessageCircle, 
   Send, Bookmark, Edit3, X, Sparkles, Loader2, Camera, AlertCircle, 
   CheckCircle2, Pin, Play, Flag, MoreVertical, Copy, UserPlus, 
-  UserCheck, UserMinus, Users, Eye, Trash2, Clipboard, Check, Share2
+  UserCheck, UserMinus, Users, Eye, Trash2, Clipboard, Check, Share2, BadgeCheck
 } from 'lucide-react';
 import PostCaption from './PostCaption';
 
@@ -402,6 +402,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [savedPostIds, setSavedPostIds] = useState(new Set());
+  const [verificationLoading, setVerificationLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('text');
   const [loading, setLoading] = useState(true);
   const isOwnProfile = viewedUserId === session.user.id || profile?.id === session.user.id;
@@ -415,6 +416,19 @@ export default function Profile({ session, profileUserId, onMessage }) {
     } else {
       await supabase.from('bookmarks').insert([{ post_id: postId, user_id: session.user.id }]);
     }
+  }
+
+  async function startVerification(plan) {
+    setVerificationLoading(true);
+    try {
+      if (!window.Razorpay) {
+        await new Promise((resolve, reject) => { const s = document.createElement('script'); s.src = 'https://checkout.razorpay.com/v1/checkout.js'; s.onload = resolve; s.onerror = reject; document.body.appendChild(s); });
+      }
+      const response = await fetch('/api/razorpay-order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan, userId: session.user.id }) });
+      const order = await response.json();
+      if (!response.ok) throw new Error(order.error || 'Could not create payment order');
+      new window.Razorpay({ key: import.meta.env.VITE_RAZORPAY_KEY_ID, amount: order.amount, currency: order.currency, name: 'Auragram', description: `${plan === 'yearly' ? 'Yearly' : 'Monthly'} Blue Tick`, order_id: order.id, prefill: { email: session.user.email }, theme: { color: '#8b5cf6' }, handler: () => { alert('Payment successful. Your blue tick will appear shortly after verification.'); } }).open();
+    } catch (error) { alert(error.message); } finally { setVerificationLoading(false); }
   }
 
   // State for post detail view
@@ -923,6 +937,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
                 <p className="text-sm font-bold text-purple-600 dark:text-purple-400 truncate">
                   @{profile.username || 'username'}
                 </p>
+                {profile.is_verified && <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-600"><BadgeCheck className="h-4 w-4 fill-blue-500 text-white" /> Verified</span>}
                 {profile.account_status === 'suspended' && (
                   <span className="inline-flex mt-1 items-center rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-bold text-rose-600 dark:bg-rose-900/30 dark:text-rose-300">
                     Suspended
@@ -973,6 +988,13 @@ export default function Profile({ session, profileUserId, onMessage }) {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+            {isOwnProfile && !profile.is_verified && (
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+                <span className="text-xs font-semibold text-slate-500">Get Blue Tick</span>
+                <button type="button" disabled={verificationLoading} onClick={() => startVerification('monthly')} className="rounded-full bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">₹49/month</button>
+                <button type="button" disabled={verificationLoading} onClick={() => startVerification('yearly')} className="rounded-full border border-blue-200 px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 disabled:opacity-50">₹499/year</button>
               </div>
             )}
           </div>
