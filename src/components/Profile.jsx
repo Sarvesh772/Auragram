@@ -403,6 +403,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const [posts, setPosts] = useState([]);
   const [savedPostIds, setSavedPostIds] = useState(new Set());
   const [verificationLoading, setVerificationLoading] = useState(false);
+  const [showVerifiedInfo, setShowVerifiedInfo] = useState(false);
   const [activeTab, setActiveTab] = useState('text');
   const [loading, setLoading] = useState(true);
   const isOwnProfile = viewedUserId === session.user.id || profile?.id === session.user.id;
@@ -933,7 +934,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
               <div className="flex-1 min-w-0">
                 <h2 className="flex items-center gap-1.5 text-lg sm:text-xl font-black text-slate-800 dark:text-white truncate">
                   <span className="truncate">{profile.full_name || profile.username || 'User'}</span>
-                  {profile.is_verified && <BadgeCheck className="h-5 w-5 flex-shrink-0 fill-blue-500 text-white" aria-label="Verified" />}
+                  {profile.is_verified && <span className="relative inline-flex flex-shrink-0"><button type="button" onClick={() => setShowVerifiedInfo(v => !v)} aria-label="About verified badge"><BadgeCheck className="h-5 w-5 fill-blue-500 text-white" /></button>{showVerifiedInfo && <span className="absolute left-0 top-7 z-30 w-56 rounded-xl border border-slate-200 bg-white p-3 text-left text-[11px] font-medium leading-relaxed text-slate-600 shadow-xl"><strong className="block text-slate-800">Verified account</strong>This profile has completed Auragram verification. The badge confirms the account is verified and currently active.</span>}</span>}
                 </h2>
                 <p className="text-sm font-bold text-purple-600 dark:text-purple-400 truncate">
                   @{profile.username || 'username'}
