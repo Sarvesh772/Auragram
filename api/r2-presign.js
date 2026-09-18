@@ -12,16 +12,17 @@ export default async function handler(req, res) {
     if (typeof key !== 'string' || key.length > 512 || key.includes('..') || key.startsWith('/') || /[^a-zA-Z0-9_./-]/.test(key)) return res.status(400).json({ error: 'Invalid object key' });
     const isChat = target === 'chat';
     const isStory = target === 'story';
-    const allowedPrefix = isChat ? 'chat/' : isStory ? 'stories/' : 'posts/';
+    const isAvatar = target === 'avatar' || target === 'profile';
+    const allowedPrefix = isChat ? 'chat/' : isStory ? 'stories/' : isAvatar ? 'avatars/' : 'posts/';
     if (!key.startsWith(allowedPrefix)) return res.status(400).json({ error: 'Invalid upload folder' });
-    const bucket = isChat ? process.env.R2_CHAT_BUCKET : isStory ? process.env.R2_STORY_BUCKET : process.env.R2_BUCKET;
-    const configuredPublicUrl = isChat ? process.env.R2_CHAT_PUBLIC_URL : isStory ? process.env.R2_STORY_PUBLIC_URL : process.env.R2_PUBLIC_URL;
+    const bucket = process.env.R2_BUCKET || process.env.R2_AVATAR_BUCKET_NAME;
+    const configuredPublicUrl = process.env.R2_PUBLIC_URL || process.env.NEXT_PUBLIC_R2_AVATAR_PUBLIC_URL;
     const missing = [
       ['R2_ENDPOINT', process.env.R2_ENDPOINT],
       ['R2_ACCESS_KEY_ID', process.env.R2_ACCESS_KEY_ID],
       ['R2_SECRET_ACCESS_KEY', process.env.R2_SECRET_ACCESS_KEY],
-      [isChat ? 'R2_CHAT_BUCKET' : isStory ? 'R2_STORY_BUCKET' : 'R2_BUCKET', bucket],
-      [isChat ? 'R2_CHAT_PUBLIC_URL' : isStory ? 'R2_STORY_PUBLIC_URL' : 'R2_PUBLIC_URL', configuredPublicUrl]
+      ['R2_BUCKET / R2_AVATAR_BUCKET_NAME', bucket],
+      ['R2_PUBLIC_URL / NEXT_PUBLIC_R2_AVATAR_PUBLIC_URL', configuredPublicUrl]
     ].filter(([, value]) => !value).map(([name]) => name);
     if (missing.length) return res.status(500).json({ error: `Missing R2 environment variable(s): ${missing.join(', ')}` });
     const command = new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType });

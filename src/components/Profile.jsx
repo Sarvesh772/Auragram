@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import { uploadToR2 } from '../lib/r2Upload';
 import { 
   FileText, Image as ImageIcon, Film, Heart, MessageCircle, 
   Send, Bookmark, Edit3, X, Sparkles, Loader2, Camera, AlertCircle, 
@@ -686,34 +687,25 @@ export default function Profile({ session, profileUserId, onMessage }) {
   }
 
   async function handleAvatarUpload(e) {
-    try {
-      setUploadingAvatar(true);
-      setErrorMsg('');
+  try {
+    setUploadingAvatar(true);
+    setErrorMsg('');
+    
+    const file = e.target.files[0];
+    if (!file) return;
 
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${session.user.id}-${Math.random()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      setAvatarUrl(publicUrlData.publicUrl);
-    } catch (error) {
-      setErrorMsg('Avatar upload failed: ' + error.message);
-    } finally {
-      setUploadingAvatar(false);
-    }
+    // Direct r2Upload call (default avatar bucket and folder will be used)
+    const publicUrl = await uploadToR2(file, `avatars/${session.user.id}`, 'avatar');
+    
+    // Set updated URL in state
+    setAvatarUrl(publicUrl);
+    setSuccessMsg('Avatar uploaded successfully! Save changes par click karein.');
+  } catch (error) {
+    setErrorMsg('Avatar upload failed: ' + error.message);
+  } finally {
+    setUploadingAvatar(false);
   }
+}
 
   async function handleUpdateProfile(e) {
     e.preventDefault();
