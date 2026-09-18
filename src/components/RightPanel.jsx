@@ -121,7 +121,7 @@ export default function RightPanel({ session, onViewProfile, onSeeAll }) {
               return (
                 <div key={user.id} className="flex items-center justify-between">
                   {/* User Profile Info */}
-                  <button onClick={() => onViewProfile?.(user.username || user.id)} className="flex items-center space-x-3 overflow-hidden text-left">
+                  <button onClick={() => onViewProfile?.(user.id)} className="flex items-center space-x-3 overflow-hidden text-left cursor-pointer">
                     <div className="w-9 h-9 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
                       {user.avatar_url ? (
                         <img 

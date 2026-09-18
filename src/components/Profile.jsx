@@ -399,7 +399,7 @@ export function PostDetail({ post, profile, session, onBack, onShare, onReport, 
 // ============================================================
 export default function Profile({ session, profileUserId, onMessage }) {
   const [resolvedProfileId, setResolvedProfileId] = useState(null);
-  const viewedUserId = resolvedProfileId || (profileUserId && /^[0-9a-f-]{36}$/i.test(profileUserId) ? profileUserId : session.user.id);
+  const viewedUserId = resolvedProfileId || profileUserId || session.user.id;
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [savedPostIds, setSavedPostIds] = useState(new Set());
