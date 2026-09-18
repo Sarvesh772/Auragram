@@ -401,24 +401,24 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   }
 
-  async function handleCreatePost() {
-    if (!newContent.trim() && selectedFiles.length === 0) return;
-    setPostError('');
-    setUploading(true);
+async function handleCreatePost() {
+  if (!newContent.trim() && selectedFiles.length === 0) return;
+  setPostError('');
+  setUploading(true);
 
-    const uploadedMedia = [];
+  const uploadedMedia = [];
 
-    for (const item of selectedFiles) {
-      try {
-        const publicUrl = await uploadToR2(item.file, `posts/${session.user.id}`);
-        uploadedMedia.push({ url: publicUrl, type: item.type });
-      } catch (uploadError) {
-        setPostError('Upload failed: ' + uploadError.message);
-        setUploading(false);
-        return;
-      }
+  for (const item of selectedFiles) {
+    try {
+      // 3rd parameter 'media' specifically target karega posts/ folder ko
+      const publicUrl = await uploadToR2(item.file, `posts/${session.user.id}`, 'media');
+      uploadedMedia.push({ url: publicUrl, type: item.type });
+    } catch (uploadError) {
+      setPostError('Upload failed: ' + uploadError.message);
+      setUploading(false);
+      return;
     }
-
+  }
     const postPayload = {
       user_id: session.user.id,
       content: newContent,
