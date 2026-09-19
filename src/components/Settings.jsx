@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import DownloadApp from './DownloadApp';
+import { uploadToR2 } from '../lib/r2Upload';
 import { 
   Moon, Sun, Lock, User, LogOut, CheckCircle2, AlertCircle, 
   Loader2, ChevronRight, ArrowLeft, Palette, Bookmark, Trash2, X, Eye,
   Bell, Shield, HelpCircle, MessageCircle, Download, Smartphone,
   Globe, Users, Heart, Star, Award, Zap, Share2, UserCheck,
-  Settings as SettingsIcon, TrendingUp, Mail, FileText, Image
+  Settings as SettingsIcon, TrendingUp, Mail, FileText, Image, Camera // <-- Camera icon added
 } from 'lucide-react';
 import HelpSupport from './HelpSupport';
 import About from './About';
@@ -25,6 +27,8 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
   const [deleteError, setDeleteError] = useState('');
   const [supportModal, setSupportModal] = useState(null);
   const [feedbackText, setFeedbackText] = useState('');
+  // Download App Modal State
+  const [downloadModal, setDownloadModal] = useState(false);
 
   // Saved Posts State
   const [savedPosts, setSavedPosts] = useState([]);
@@ -62,27 +66,75 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
     fetchStats();
   }, [session]);
 
-  async function getProfile() {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('username, full_name, bio')
-        .eq('id', session.user.id)
-        .single();
+const [avatarUrl, setAvatarUrl] = useState('');
+const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-      if (error) throw error;
-      if (data) {
-        setUsername(data.username || '');
-        setFullName(data.full_name || '');
-        setBio(data.bio || '');
-      }
-    } catch (error) {
-      console.error('Error loading profile:', error.message);
-    } finally {
-      setLoading(false);
+// Update getProfile to include avatar_url
+async function getProfile() {
+  try {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('username, full_name, bio, avatar_url') // <-- avatar_url added
+      .eq('id', session.user.id)
+      .single();
+
+    if (error) throw error;
+    if (data) {
+      setUsername(data.username || '');
+      setFullName(data.full_name || '');
+      setBio(data.bio || '');
+      setAvatarUrl(data.avatar_url || ''); // <-- avatarUrl set
     }
+  } catch (error) {
+    console.error('Error loading profile:', error.message);
+  } finally {
+    setLoading(false);
   }
+}
+
+// Avatar file upload handler
+async function handleAvatarUpload(e) {
+  try {
+    setUploadingAvatar(true);
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const publicUrl = await uploadToR2(file, `avatars/${session.user.id}`, 'avatar');
+    setAvatarUrl(publicUrl);
+    setMessage({ type: 'success', text: 'Avatar uploaded! Click "Save Changes" to save.' });
+  } catch (error) {
+    setMessage({ type: 'error', text: 'Avatar upload failed: ' + error.message });
+  } finally {
+    setUploadingAvatar(false);
+  }
+}
+
+async function handleUpdateProfile(e) {
+  e.preventDefault();
+  setMessage({ type: '', text: '' });
+  setLoading(true);
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      full_name: fullName,
+      username: username,
+      bio: bio,
+      avatar_url: avatarUrl, 
+      updated_at: new Date(),
+    })
+    .eq('id', session.user.id);
+
+  setLoading(false);
+
+  if (error) {
+    setMessage({ type: 'error', text: error.message });
+  } else {
+    setMessage({ type: 'success', text: 'Profile updated successfully!' });
+    setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+  }
+}
 
   async function fetchStats() {
     const [postsRes, followersRes, followingRes, likesRes] = await Promise.all([
@@ -254,6 +306,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
       {supportModal === 'help' && <HelpSupport onClose={() => setSupportModal(null)} />}
       {supportModal === 'about' && <About onClose={() => setSupportModal(null)} />}
       {supportModal === 'feedback' && <Feedback session={session} onClose={() => setSupportModal(null)} />}
+      {downloadModal && <DownloadApp onClose={() => setDownloadModal(false)} />}
       
       {/* Toast Messages */}
       {message.text && (
@@ -387,11 +440,12 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
               <div onClick={() => setSupportModal('about')} className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl">
                 <div className="flex items-center space-x-3.5">
                   <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-500"><Zap className="w-4 h-4" /></div>
-                  <div><h3 className="text-sm font-bold text-slate-800 dark:text-white">About Auragram</h3><p className="text-[10px] text-slate-400">Version 1.2.0</p></div>
+                  <div><h3 className="text-sm font-bold text-slate-800 dark:text-white">About Auragram</h3><p className="text-[10px] text-slate-400">Version 1.5.0</p></div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-400" />
               </div>
             </div>
+
 
             {/* Data Section */}
             <div className="p-3">
@@ -425,10 +479,25 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
             </div>
 
           </div>
-
+{/* Inside Support or Data section in Settings.jsx */}         
+<div 
+  onClick={() => setDownloadModal(true)} 
+  className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl"
+>
+  <div className="flex items-center space-x-3.5">
+    <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600">
+      <Smartphone className="w-4 h-4" />
+    </div>
+    <div>
+      <h3 className="text-sm font-bold text-slate-800 dark:text-white">Download Android App</h3>
+      <p className="text-[10px] text-slate-400">Get official APK & installation guide</p>
+    </div>
+  </div>
+  <ChevronRight className="w-4 h-4 text-slate-400" />
+</div>
           {/* Footer */}
           <div className="text-center">
-            <p className="text-[10px] text-slate-400">Auragram v1.2.0</p>
+            <p className="text-[10px] text-slate-400">Auragram v1.5.0</p>
             <p className="text-[10px] text-slate-400 mt-1">
               &copy; {new Date().getFullYear()} Auragram. All rights reserved.
             </p>
@@ -574,6 +643,32 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
           <RenderHeader title="Edit Profile" />
 
           <form onSubmit={handleUpdateProfile} className="space-y-4">
+            {/* Avatar Selection Area */}
+            <div className="flex flex-col items-center space-y-2 pb-3">
+              <div className="relative w-24 h-24 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 border-2 border-purple-500/30 group">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-400 font-bold text-3xl">
+                    {(fullName?.[0] || username?.[0] || 'U').toUpperCase()}
+                  </div>
+                )}
+                <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition">
+                  <Camera className="w-6 h-6 text-white" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                    disabled={uploadingAvatar}
+                  />
+                </label>
+              </div>
+              <span className="text-xs text-purple-600 dark:text-purple-400 font-semibold">
+                {uploadingAvatar ? 'Uploading avatar...' : 'Tap to change avatar'}
+              </span>
+            </div>
+
             <div>
               <label className="block text-xs font-bold text-slate-400 mb-1.5">Username</label>
               <input
@@ -607,7 +702,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || uploadingAvatar}
               className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:shadow-lg hover:shadow-purple-500/25 text-white text-sm font-bold px-6 py-3 rounded-2xl transition disabled:opacity-50 flex items-center justify-center space-x-2"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
