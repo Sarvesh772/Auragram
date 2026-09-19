@@ -165,6 +165,9 @@ export function PostDetail({ post, profile, session, onBack, onShare, onReport, 
             </div>
           </div>
 
+          {/* Post Content */}
+          {post.content && <PostCaption text={post.content} disableTruncation />}
+
           {/* Media */}
           {post.media_url && (
             <div className="mb-3 -mx-4 sm:-mx-5">
@@ -184,9 +187,6 @@ export function PostDetail({ post, profile, session, onBack, onShare, onReport, 
               )}
             </div>
           )}
-
-          {/* Post Content */}
-          {post.content && <PostCaption text={post.content} disableTruncation />}
 
           {/* Post Stats */}
           <div className="flex items-center gap-5 mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500">
