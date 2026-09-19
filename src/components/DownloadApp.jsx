@@ -12,7 +12,7 @@ import {
 export default function DownloadApp({ onClose }) {
   // Cloudflare R2 direct APK URL
   const apkDownloadUrl =
-    'https://pub-04868d5be5cb459fa1fb151b103ded5c.r2.dev/apps/app-debug.apk';
+    'https://pub-04868d5be5cb459fa1fb151b103ded5c.r2.dev/apps/Auragram.apk';
 
   const steps = [
     {
