@@ -410,6 +410,13 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const isOwnProfile = viewedUserId === session.user.id || profile?.id === session.user.id;
   const isSuspended = ['suspended', 'banned'].includes(String(profile?.account_status || profile?.status || '').toLowerCase());
 
+  // Post Menu Options Dropdown State
+  const [activeMenuPostId, setActiveMenuPostId] = useState(null);
+  const [editingPost, setEditingPost] = useState(null);
+  const [editContent, setEditContent] = useState('');
+  const [updatingPost, setUpdatingPost] = useState(false);
+  const [postDeleteConfirm, setPostDeleteConfirm] = useState(null);
+
   async function toggleSavedPost(postId) {
     const saved = savedPostIds.has(postId);
     setSavedPostIds(prev => { const next = new Set(prev); saved ? next.delete(postId) : next.add(postId); return next; });
@@ -535,6 +542,13 @@ export default function Profile({ session, profileUserId, onMessage }) {
     const channel = supabase.channel(`profile-follows-${viewedUserId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'follows' }, refreshFollowStats).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [viewedUserId]);
+
+  // Close post menu on outside click
+  useEffect(() => {
+    const handleOutsideClick = () => setActiveMenuPostId(null);
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, []);
 
   async function openPeopleList(mode) {
     if (mode === 'followers') {
@@ -677,6 +691,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
 
   async function togglePinned(post) {
     if (!isOwnProfile) return;
+    setActiveMenuPostId(null);
     const { error } = await supabase.from('posts').update({ is_pinned: !post.is_pinned }).eq('id', post.id).eq('user_id', session.user.id);
     if (!error) {
       const nextPinned = !post.is_pinned;
@@ -686,26 +701,53 @@ export default function Profile({ session, profileUserId, onMessage }) {
     }
   }
 
-  async function handleAvatarUpload(e) {
-  try {
-    setUploadingAvatar(true);
-    setErrorMsg('');
-    
-    const file = e.target.files[0];
-    if (!file) return;
+  async function handleUpdatePostContent(e) {
+    e.preventDefault();
+    if (!editingPost) return;
+    setUpdatingPost(true);
+    const { error } = await supabase
+      .from('posts')
+      .update({ content: editContent })
+      .eq('id', editingPost.id)
+      .eq('user_id', session.user.id);
 
-    // Direct r2Upload call (default avatar bucket and folder will be used)
-    const publicUrl = await uploadToR2(file, `avatars/${session.user.id}`, 'avatar');
-    
-    // Set updated URL in state
-    setAvatarUrl(publicUrl);
-    setSuccessMsg('Avatar uploaded successfully! Save changes par click karein.');
-  } catch (error) {
-    setErrorMsg('Avatar upload failed: ' + error.message);
-  } finally {
-    setUploadingAvatar(false);
+    setUpdatingPost(false);
+    if (!error) {
+      setPosts(prev => prev.map(p => p.id === editingPost.id ? { ...p, content: editContent } : p));
+      setEditingPost(null);
+      setPinMessage('Post updated successfully');
+      setTimeout(() => setPinMessage(''), 1800);
+    }
   }
-}
+
+  async function handleDeletePost(postId) {
+    const { error } = await supabase.from('posts').delete().eq('id', postId).eq('user_id', session.user.id);
+    setPostDeleteConfirm(null);
+    if (!error) {
+      setPosts(prev => prev.filter(p => p.id !== postId));
+      setPinMessage('Post deleted');
+      setTimeout(() => setPinMessage(''), 1800);
+    }
+  }
+
+  async function handleAvatarUpload(e) {
+    try {
+      setUploadingAvatar(true);
+      setErrorMsg('');
+      
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const publicUrl = await uploadToR2(file, `avatars/${session.user.id}`, 'avatar');
+      
+      setAvatarUrl(publicUrl);
+      setSuccessMsg('Avatar uploaded successfully! Save changes par click karein.');
+    } catch (error) {
+      setErrorMsg('Avatar upload failed: ' + error.message);
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
 
   async function handleUpdateProfile(e) {
     e.preventDefault();
@@ -773,7 +815,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
     return (
       <div 
         key={post.id} 
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 hover:ring-2 hover:ring-purple-500/20"
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-visible shadow-sm hover:shadow-md transition-all duration-300 hover:ring-2 hover:ring-purple-500/20 relative"
       >
         {/* Post Content Area - Click to open detail */}
         <div 
@@ -802,32 +844,86 @@ export default function Profile({ session, profileUserId, onMessage }) {
                     })}
                   </p>
                   {post.is_pinned && (
-                    <span className="inline-flex items-center gap-1 text-[9px] text-amber-600 dark:text-amber-400">
-                      <Pin className="w-3 h-3" /> Pinned
+                    <span className="inline-flex items-center gap-1 text-[9px] text-amber-600 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
+                      <Pin className="w-2.5 h-2.5" /> Pinned
                     </span>
                   )}
                 </div>
               </div>
             </div>
             
-            {isOwnProfile && (
+            {/* Post Menu Button */}
+            <div className="relative">
               <button 
-                onClick={(e) => { e.stopPropagation(); togglePinned(post); }} 
-                className={`p-1.5 rounded-full transition-all ${
-                  post.is_pinned 
-                    ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10' 
-                    : 'text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-500/10'
-                }`}
-                title={post.is_pinned ? 'Unpin post' : 'Pin post'}
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  setActiveMenuPostId(activeMenuPostId === post.id ? null : post.id); 
+                }} 
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                title="Options"
               >
-                <Pin className="w-3.5 h-3.5" />
+                <MoreVertical className="w-4 h-4" />
               </button>
-            )}
+
+              {/* Post Menu Dropdown */}
+              {activeMenuPostId === post.id && (
+                <div 
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute right-0 bottom-full mb-1 z-50 w-36 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-1 text-xs font-semibold animate-in fade-in zoom-in-95 duration-150"
+                >
+                  {isOwnProfile ? (
+                    <>
+                      <button
+                        onClick={() => togglePinned(post)}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-left"
+                      >
+                        <Pin className="w-3.5 h-3.5 text-amber-500" />
+                        <span>{post.is_pinned ? 'Unpin Post' : 'Pin Post'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setActiveMenuPostId(null);
+                          setEditingPost(post);
+                          setEditContent(post.content || '');
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-left"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-blue-500" />
+                        <span>Edit Post</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setActiveMenuPostId(null);
+                          setPostDeleteConfirm(post.id);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all text-left"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete Post</span>
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setActiveMenuPostId(null);
+                        setReportPost(post);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all text-left"
+                    >
+                      <Flag className="w-3.5 h-3.5" />
+                      <span>Report Post</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Media */}
           {post.media_url && (
-            <div className="mb-3 -mx-4 sm:-mx-5">
+            <div className="mb-3 -mx-4 sm:-mx-5 overflow-hidden">
               {post.media_type === 'video' ? (
                 <video 
                   src={post.media_url} 
@@ -872,9 +968,9 @@ export default function Profile({ session, profileUserId, onMessage }) {
             </button>
           </div>
           
-            <button type="button" onClick={(e) => { e.stopPropagation(); toggleSavedPost(post.id); }} className="hover:text-purple-600 transition-colors" aria-label={savedPostIds.has(post.id) ? 'Unsave post' : 'Save post'}>
-              <Bookmark className={`w-4 h-4 ${savedPostIds.has(post.id) ? 'fill-purple-600 text-purple-600' : ''}`} />
-            </button>
+          <button type="button" onClick={(e) => { e.stopPropagation(); toggleSavedPost(post.id); }} className="hover:text-purple-600 transition-colors" aria-label={savedPostIds.has(post.id) ? 'Unsave post' : 'Save post'}>
+            <Bookmark className={`w-4 h-4 ${savedPostIds.has(post.id) ? 'fill-purple-600 text-purple-600' : ''}`} />
+          </button>
         </div>
       </div>
     );
@@ -1090,6 +1186,63 @@ export default function Profile({ session, profileUserId, onMessage }) {
               reelPosts.map(post => renderPost(post))
             )
           )}
+        </div>
+      )}
+
+      {/* EDIT POST CAPTION MODAL */}
+      {editingPost && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 w-full max-w-md space-y-4 relative shadow-2xl border border-slate-100 dark:border-slate-800">
+            <button onClick={() => setEditingPost(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-lg font-extrabold text-slate-800 dark:text-white">Edit Post</h3>
+
+            <form onSubmit={handleUpdatePostContent} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">Caption / Content</label>
+                <textarea 
+                  value={editContent} 
+                  onChange={(e) => setEditContent(e.target.value)}
+                  rows={4}
+                  placeholder="Update your post content..."
+                  className="w-full bg-slate-100 dark:bg-slate-800 rounded-2xl px-4 py-3 text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                />
+              </div>
+
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setEditingPost(null)}
+                  className="px-4 py-2.5 rounded-xl font-bold text-xs text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={updatingPost}
+                  className="bg-purple-600 text-white px-5 py-2.5 rounded-xl font-bold text-xs hover:bg-purple-700 transition-all disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {updatingPost && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Save Changes</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE POST CONFIRMATION MODAL */}
+      {postDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setPostDeleteConfirm(null)}>
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 p-5 shadow-2xl border border-slate-200 dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">Delete Post?</h3>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">This post will be permanently deleted from your profile and feed.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setPostDeleteConfirm(null)} className="rounded-xl bg-slate-100 dark:bg-slate-800 px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300">Cancel</button>
+              <button type="button" onClick={() => handleDeletePost(postDeleteConfirm)} className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 transition-all">Delete</button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Search, Hash, User, Grid, Heart, MessageCircle, TrendingUp, Users, Image, Loader2, X } from 'lucide-react';
 import { RenderFormattedText } from './MentionInput';
+import { PostDetail } from './Profile';
 
 export default function Explore({ session, onViewProfile }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -120,6 +121,18 @@ export default function Explore({ session, onViewProfile }) {
   };
 
   const { users: displayUsers, posts: displayPosts, tags: displayTags } = getFilteredContent();
+
+  if (selectedPost) {
+    return (
+      <PostDetail
+        post={selectedPost}
+        profile={selectedPost.profiles}
+        session={session}
+        onBack={() => setSelectedPost(null)}
+        onViewProfile={onViewProfile}
+      />
+    );
+  }
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 px-2.5 py-3 sm:p-4 md:p-6 pb-24">
@@ -272,14 +285,19 @@ export default function Explore({ session, onViewProfile }) {
                   {displayPosts.map(post => {
                     const media = post.mediaList?.[0];
                     const hasMedia = media && media.url;
+                    const isTextPost = !post.media_url;
                     
                     return (
                       <div
                         key={post.id}
                         onClick={() => setSelectedPost(post)}
-                        className="relative aspect-square bg-slate-100 dark:bg-slate-800 group overflow-hidden cursor-pointer"
+                        className={`relative bg-slate-100 dark:bg-slate-800 group overflow-hidden cursor-pointer ${
+                          isTextPost
+                            ? 'col-span-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 text-left hover:shadow-md transition-shadow'
+                            : 'aspect-square'
+                        }`}
                       >
-                        {hasMedia ? (
+                        {!isTextPost && hasMedia ? (
                           // MEDIA POSTS - Show image/video
                           <>
                             {media.type === 'video' ? (
@@ -301,11 +319,30 @@ export default function Explore({ session, onViewProfile }) {
                             </div>
                           </>
                         ) : (
-                          // TEXT POSTS - Only content, clean preview
-                          <div className="w-full h-full bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 flex items-center justify-center">
-                            <p className="text-xs font-medium text-slate-700 dark:text-slate-300 line-clamp-6 leading-relaxed text-center">
+                          // TEXT POSTS - Render as a regular text card
+                          <div className="w-full min-h-32 bg-white dark:bg-slate-900">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="w-8 h-8 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
+                                {post.profiles?.avatar_url ? (
+                                  <img src={post.profiles.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                                ) : (
+                                  (post.profiles?.username || 'U')[0].toUpperCase()
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-800 dark:text-white truncate">
+                                  {post.profiles?.full_name || post.profiles?.username || 'User'}
+                                </p>
+                                <p className="text-[10px] text-slate-400 truncate">@{post.profiles?.username || 'user'}</p>
+                              </div>
+                            </div>
+                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300 line-clamp-6 leading-relaxed">
                               <RenderFormattedText text={post.content} onViewProfile={onViewProfile} />
                             </p>
+                            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-400">
+                              <span className="flex items-center gap-1"><Heart className="w-3.5 h-3.5" />{post.likesCount}</span>
+                              <span className="flex items-center gap-1"><MessageCircle className="w-3.5 h-3.5" />{post.commentsCount}</span>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -331,75 +368,6 @@ export default function Explore({ session, onViewProfile }) {
         )}
       </div>
 
-      {/* POST DETAIL MODAL */}
-      {selectedPost && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setSelectedPost(null)}>
-          <div className="relative max-w-4xl w-full max-h-[90vh] bg-white dark:bg-slate-900 rounded-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setSelectedPost(null)}
-              className="absolute top-3 right-3 z-10 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            
-            <div className="flex flex-col md:flex-row h-full max-h-[90vh]">
-              {/* Modal - Media */}
-              <div className="flex-1 bg-black flex items-center justify-center p-2 min-h-[300px] md:min-h-0">
-                {selectedPost.mediaList?.[0]?.type === 'video' ? (
-                  <video src={selectedPost.mediaList[0].url} playsInline muted className="max-h-full max-w-full rounded-lg" />
-                ) : selectedPost.mediaList?.[0]?.url ? (
-                  <img src={selectedPost.mediaList[0].url} alt="post" className="max-h-full max-w-full rounded-lg object-contain" />
-                ) : (
-                  // Modal - Text post content
-                  <div className="max-h-full max-w-full p-6 text-center">
-                    <p className="text-white text-lg leading-relaxed">
-                      <RenderFormattedText text={selectedPost.content} onViewProfile={onViewProfile} />
-                    </p>
-                  </div>
-                )}
-              </div>
-              
-              {/* Modal - Details */}
-              <div className="w-full md:w-80 p-4 bg-white dark:bg-slate-900 flex flex-col">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
-                    {selectedPost.profiles?.avatar_url ? (
-                      <img src={selectedPost.profiles.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                    ) : (
-                      (selectedPost.profiles?.username || 'U')[0].toUpperCase()
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-sm text-slate-800 dark:text-white">
-                      {selectedPost.profiles?.full_name || selectedPost.profiles?.username}
-                    </p>
-                    <p className="text-xs text-slate-400">@{selectedPost.profiles?.username}</p>
-                  </div>
-                </div>
-                
-                {selectedPost.content && (
-                  <div className="flex-1 overflow-y-auto mb-3">
-                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                      <RenderFormattedText text={selectedPost.content} onViewProfile={onViewProfile} />
-                    </p>
-                  </div>
-                )}
-                
-                <div className="flex items-center gap-6 pt-3 border-t border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 text-sm">
-                  <div className="flex items-center gap-1.5">
-                    <Heart className="w-4 h-4" />
-                    <span>{selectedPost.likesCount}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <MessageCircle className="w-4 h-4" />
-                    <span>{selectedPost.commentsCount}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

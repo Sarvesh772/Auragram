@@ -7,7 +7,7 @@ import {
   Loader2, ChevronRight, ArrowLeft, Palette, Bookmark, Trash2, X, Eye,
   Bell, Shield, HelpCircle, MessageCircle, Download, Smartphone,
   Globe, Users, Heart, Star, Award, Zap, Share2, UserCheck,
-  Settings as SettingsIcon, TrendingUp, Mail, FileText, Image, Camera // <-- Camera icon added
+  Settings as SettingsIcon, TrendingUp, Mail, FileText, Image, Camera 
 } from 'lucide-react';
 import HelpSupport from './HelpSupport';
 import About from './About';
@@ -26,8 +26,6 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [supportModal, setSupportModal] = useState(null);
-  const [feedbackText, setFeedbackText] = useState('');
-  // Download App Modal State
   const [downloadModal, setDownloadModal] = useState(false);
 
   // Saved Posts State
@@ -47,13 +45,16 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
     mentions: true,
     messages: true
   });
+
   useEffect(() => {
     const saved = localStorage.getItem('auragram_notification_settings');
     if (saved) try { setNotificationSettings(prev => ({ ...prev, ...JSON.parse(saved) })); } catch {}
   }, []);
-  useEffect(() => { localStorage.setItem('auragram_notification_settings', JSON.stringify(notificationSettings)); }, [notificationSettings]);
 
-  // Stats State
+  useEffect(() => { 
+    localStorage.setItem('auragram_notification_settings', JSON.stringify(notificationSettings)); 
+  }, [notificationSettings]);
+
   const [stats, setStats] = useState({
     posts: 0,
     followers: 0,
@@ -61,80 +62,78 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
     totalLikes: 0
   });
 
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
   useEffect(() => {
     getProfile();
     fetchStats();
   }, [session]);
 
-const [avatarUrl, setAvatarUrl] = useState('');
-const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  async function getProfile() {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('username, full_name, bio, avatar_url')
+        .eq('id', session.user.id)
+        .single();
 
-// Update getProfile to include avatar_url
-async function getProfile() {
-  try {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('username, full_name, bio, avatar_url') // <-- avatar_url added
-      .eq('id', session.user.id)
-      .single();
-
-    if (error) throw error;
-    if (data) {
-      setUsername(data.username || '');
-      setFullName(data.full_name || '');
-      setBio(data.bio || '');
-      setAvatarUrl(data.avatar_url || ''); // <-- avatarUrl set
+      if (error) throw error;
+      if (data) {
+        setUsername(data.username || '');
+        setFullName(data.full_name || '');
+        setBio(data.bio || '');
+        setAvatarUrl(data.avatar_url || '');
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error.message);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error loading profile:', error.message);
-  } finally {
+  }
+
+  async function handleAvatarUpload(e) {
+    try {
+      setUploadingAvatar(true);
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const publicUrl = await uploadToR2(file, `avatars/${session.user.id}`, 'avatar');
+      setAvatarUrl(publicUrl);
+      setMessage({ type: 'success', text: 'Avatar uploaded! Click "Save Changes" to save.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Avatar upload failed: ' + error.message });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
+  async function handleUpdateProfile(e) {
+    e.preventDefault();
+    setMessage({ type: '', text: '' });
+    setLoading(true);
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        full_name: fullName,
+        username: username,
+        bio: bio,
+        avatar_url: avatarUrl, 
+        updated_at: new Date(),
+      })
+      .eq('id', session.user.id);
+
     setLoading(false);
+
+    if (error) {
+      setMessage({ type: 'error', text: error.message });
+    } else {
+      setMessage({ type: 'success', text: 'Profile updated successfully!' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    }
   }
-}
-
-// Avatar file upload handler
-async function handleAvatarUpload(e) {
-  try {
-    setUploadingAvatar(true);
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const publicUrl = await uploadToR2(file, `avatars/${session.user.id}`, 'avatar');
-    setAvatarUrl(publicUrl);
-    setMessage({ type: 'success', text: 'Avatar uploaded! Click "Save Changes" to save.' });
-  } catch (error) {
-    setMessage({ type: 'error', text: 'Avatar upload failed: ' + error.message });
-  } finally {
-    setUploadingAvatar(false);
-  }
-}
-
-async function handleUpdateProfile(e) {
-  e.preventDefault();
-  setMessage({ type: '', text: '' });
-  setLoading(true);
-
-  const { error } = await supabase
-    .from('profiles')
-    .update({
-      full_name: fullName,
-      username: username,
-      bio: bio,
-      avatar_url: avatarUrl, 
-      updated_at: new Date(),
-    })
-    .eq('id', session.user.id);
-
-  setLoading(false);
-
-  if (error) {
-    setMessage({ type: 'error', text: error.message });
-  } else {
-    setMessage({ type: 'success', text: 'Profile updated successfully!' });
-    setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-  }
-}
 
   async function fetchStats() {
     const [postsRes, followersRes, followingRes, likesRes] = await Promise.all([
@@ -221,31 +220,6 @@ async function handleUpdateProfile(e) {
     }
   }
 
-  async function handleUpdateProfile(e) {
-    e.preventDefault();
-    setMessage({ type: '', text: '' });
-    setLoading(true);
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        full_name: fullName,
-        username: username,
-        bio: bio,
-        updated_at: new Date(),
-      })
-      .eq('id', session.user.id);
-
-    setLoading(false);
-
-    if (error) {
-      setMessage({ type: 'error', text: error.message });
-    } else {
-      setMessage({ type: 'success', text: 'Profile updated successfully!' });
-      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-    }
-  }
-
   async function handleUpdatePassword(e) {
     e.preventDefault();
     if (!newPassword.trim()) return;
@@ -297,7 +271,6 @@ async function handleUpdateProfile(e) {
         <ArrowLeft className="w-5 h-5 text-slate-700 dark:text-slate-200" />
       </button>
       <h2 className="text-xl font-bold text-slate-800 dark:text-white">{title}</h2>
-      {deleteOpen && <div className="fixed inset-0 z-[95] bg-black/70 flex items-center justify-center p-4"><div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-5"><h3 className="text-lg font-bold text-rose-600">Delete account permanently?</h3><p className="mt-3 text-sm text-slate-600 dark:text-slate-300">This cannot be recovered. You have 30 days to contact support; after that all data is permanently removed.</p><input type="password" value={deletePassword} onChange={e => setDeletePassword(e.target.value)} placeholder="Enter password" className="mt-4 w-full rounded-xl border p-3 text-sm dark:bg-slate-800" />{deleteError && <p className="mt-2 text-xs text-rose-600">{deleteError}</p>}<div className="mt-4 flex justify-end gap-2"><button onClick={() => setDeleteOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-500">Cancel</button><button onClick={requestAccountDeletion} className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white">Confirm deletion</button></div></div></div>}
     </div>
   );
 
@@ -329,12 +302,25 @@ async function handleUpdateProfile(e) {
       {/* MAIN SETTINGS MENU */}
       {activeSubTab === null && (
         <div className="space-y-6">
-          {deleteOpen && <div className="fixed inset-0 z-[95] bg-black/70 flex items-center justify-center p-4"><div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-5"><h3 className="text-lg font-bold text-rose-600">Delete account permanently?</h3><p className="mt-3 text-sm text-slate-600 dark:text-slate-300">This cannot be recovered. You have 30 days to contact support; after that all data is permanently removed.</p><input type="password" value={deletePassword} onChange={e => setDeletePassword(e.target.value)} placeholder="Enter password" className="mt-4 w-full rounded-xl border p-3 text-sm dark:bg-slate-800" />{deleteError && <p className="mt-2 text-xs text-rose-600">{deleteError}</p>}<div className="mt-4 flex justify-end gap-2"><button onClick={() => setDeleteOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-500">Cancel</button><button onClick={requestAccountDeletion} className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white">Confirm deletion</button></div></div></div>}
+          {deleteOpen && (
+            <div className="fixed inset-0 z-[95] bg-black/70 flex items-center justify-center p-4">
+              <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-5">
+                <h3 className="text-lg font-bold text-rose-600">Delete account permanently?</h3>
+                <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">This cannot be recovered. You have 30 days to contact support; after that all data is permanently removed.</p>
+                <input type="password" value={deletePassword} onChange={e => setDeletePassword(e.target.value)} placeholder="Enter password" className="mt-4 w-full rounded-xl border p-3 text-sm dark:bg-slate-800" />
+                {deleteError && <p className="mt-2 text-xs text-rose-600">{deleteError}</p>}
+                <div className="mt-4 flex justify-end gap-2">
+                  <button onClick={() => setDeleteOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-500">Cancel</button>
+                  <button onClick={requestAccountDeletion} className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white">Confirm deletion</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-black text-slate-800 dark:text-white">Settings</h1>
           </div>
 
-          
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-xs overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
             
             {/* Account Section */}
@@ -446,12 +432,22 @@ async function handleUpdateProfile(e) {
               </div>
             </div>
 
-
             {/* Data Section */}
             <div className="p-3">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-1">Data</p>
 
-             
+              <div onClick={() => setDownloadModal(true)} className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl">
+                <div className="flex items-center space-x-3.5">
+                  <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600">
+                    <Smartphone className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-white">Download Android App</h3>
+                    <p className="text-[10px] text-slate-400">Get official APK & installation guide</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </div>
 
               <div onClick={() => setDeleteOpen(true)} className="flex items-center justify-between p-3 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer transition rounded-xl">
                 <div className="flex items-center space-x-3.5">
@@ -463,40 +459,28 @@ async function handleUpdateProfile(e) {
             </div>
 
             {/* Logout */}
-            <div
-              onClick={() => setLogoutConfirm(true)}
-              className="flex items-center justify-between p-4 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer transition"
-            >
-              <div className="flex items-center space-x-3.5">
-                <div className="p-2 rounded-2xl bg-red-50 dark:bg-red-900/30 text-red-500">
-                  <LogOut className="w-5 h-5" />
+            <div className="p-3">
+              <div
+                onClick={() => setLogoutConfirm(true)}
+                className="flex items-center justify-between p-3 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer transition rounded-xl"
+              >
+                <div className="flex items-center space-x-3.5">
+                  <div className="p-2 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-500">
+                    <LogOut className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-red-600 dark:text-red-400">Log Out</h3>
+                    <p className="text-[10px] text-slate-400">Sign out from Auragram</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-red-600 dark:text-red-400">Log Out</h3>
-                  <p className="text-[11px] text-slate-400">Sign out from Auragram</p>
-                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
               </div>
             </div>
 
           </div>
-{/* Inside Support or Data section in Settings.jsx */}         
-<div 
-  onClick={() => setDownloadModal(true)} 
-  className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl"
->
-  <div className="flex items-center space-x-3.5">
-    <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600">
-      <Smartphone className="w-4 h-4" />
-    </div>
-    <div>
-      <h3 className="text-sm font-bold text-slate-800 dark:text-white">Download Android App</h3>
-      <p className="text-[10px] text-slate-400">Get official APK & installation guide</p>
-    </div>
-  </div>
-  <ChevronRight className="w-4 h-4 text-slate-400" />
-</div>
+
           {/* Footer */}
-          <div className="text-center">
+          <div className="text-center pt-2">
             <p className="text-[10px] text-slate-400">Auragram v1.5.0</p>
             <p className="text-[10px] text-slate-400 mt-1">
               &copy; {new Date().getFullYear()} Auragram. All rights reserved.
@@ -643,7 +627,6 @@ async function handleUpdateProfile(e) {
           <RenderHeader title="Edit Profile" />
 
           <form onSubmit={handleUpdateProfile} className="space-y-4">
-            {/* Avatar Selection Area */}
             <div className="flex flex-col items-center space-y-2 pb-3">
               <div className="relative w-24 h-24 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 border-2 border-purple-500/30 group">
                 {avatarUrl ? (
@@ -843,7 +826,19 @@ async function handleUpdateProfile(e) {
           </div>
         </div>
       )}
-      {logoutConfirm && <div className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"><div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-2xl"><h3 className="text-lg font-bold text-slate-800 dark:text-white">Log out?</h3><p className="mt-2 text-sm text-slate-500">Are you sure you want to log out of Auragram?</p><div className="mt-5 flex justify-end gap-2"><button onClick={() => setLogoutConfirm(false)} className="rounded-xl px-4 py-2 text-sm font-bold text-slate-500">Cancel</button><button onClick={handleLogout} className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white">Log out</button></div></div></div>}
+
+      {logoutConfirm && (
+        <div className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white">Log out?</h3>
+            <p className="mt-2 text-sm text-slate-500">Are you sure you want to log out of Auragram?</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setLogoutConfirm(false)} className="rounded-xl px-4 py-2 text-sm font-bold text-slate-500">Cancel</button>
+              <button onClick={handleLogout} className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white">Log out</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
