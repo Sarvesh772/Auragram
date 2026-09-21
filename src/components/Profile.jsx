@@ -21,11 +21,43 @@ export function PostDetail({ post, profile, session, onBack, onShare, onReport, 
   const [replyingTo, setReplyingTo] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [mentionQuery, setMentionQuery] = useState('');
+  const [isLiked, setIsLiked] = useState(() => (post.likes || []).some(like => like.user_id === session?.user?.id));
+  const [likeCount, setLikeCount] = useState(() => post.likes?.length ?? post.likesCount ?? 0);
+  const [isSaved, setIsSaved] = useState(false);
+  const [interactionMessage, setInteractionMessage] = useState('');
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('Spam');
+  const [reportDetails, setReportDetails] = useState('');
   const commentInputRef = useRef(null);
 
   useEffect(() => {
     fetchComments();
   }, [post.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchPostInteractions() {
+      if (!session?.user?.id) return;
+
+      const [{ data: likeData }, { data: bookmarkData }] = await Promise.all([
+        supabase.from('likes').select('user_id').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle(),
+        supabase.from('bookmarks').select('post_id').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle()
+      ]);
+
+      if (!cancelled) {
+        setIsLiked(Boolean(likeData));
+        setIsSaved(Boolean(bookmarkData));
+      }
+    }
+
+    setIsLiked((post.likes || []).some(like => like.user_id === session?.user?.id));
+    setLikeCount(post.likes?.length ?? post.likesCount ?? 0);
+    setIsSaved(false);
+    fetchPostInteractions();
+
+    return () => { cancelled = true; };
+  }, [post.id, session?.user?.id]);
 
   useEffect(() => {
     if (commentInputRef.current) {
@@ -120,6 +152,93 @@ export function PostDetail({ post, profile, session, onBack, onShare, onReport, 
     }
   }
 
+  async function togglePostLike() {
+    if (!session?.user?.id) return;
+    const nextLiked = !isLiked;
+    setIsLiked(nextLiked);
+    setLikeCount(count => Math.max(0, count + (nextLiked ? 1 : -1)));
+
+    const { error } = nextLiked
+      ? await supabase.from('likes').insert([{ post_id: post.id, user_id: session.user.id }])
+      : await supabase.from('likes').delete().eq('post_id', post.id).eq('user_id', session.user.id);
+
+    if (error) {
+      setIsLiked(!nextLiked);
+      setLikeCount(count => Math.max(0, count + (nextLiked ? -1 : 1)));
+      return;
+    }
+
+    if (nextLiked && post.user_id !== session.user.id) {
+      await supabase.from('notifications').insert([{ recipient_id: post.user_id, actor_id: session.user.id, type: 'like', post_id: post.id, is_read: false }]);
+    }
+  }
+
+  async function togglePostBookmark() {
+    if (!session?.user?.id) return;
+    const nextSaved = !isSaved;
+    setIsSaved(nextSaved);
+
+    const { error } = nextSaved
+      ? await supabase.from('bookmarks').insert([{ post_id: post.id, user_id: session.user.id }])
+      : await supabase.from('bookmarks').delete().eq('post_id', post.id).eq('user_id', session.user.id);
+
+    if (error) setIsSaved(!nextSaved);
+  }
+
+  async function handleSharePost() {
+    if (onShare) {
+      onShare(post);
+      return;
+    }
+
+    const shareUrl = `${window.location.origin}/post/${post.id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Auragram post', url: shareUrl });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        setInteractionMessage('Post link copied');
+        setTimeout(() => setInteractionMessage(''), 1800);
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') setInteractionMessage('Could not share post');
+    }
+  }
+
+  async function handleReportPost() {
+    if (onReport) {
+      onReport(post);
+      return;
+    }
+
+    setShowReportModal(true);
+  }
+
+  async function submitReport() {
+    const reason = reportReason === 'Other' ? `Other: ${reportDetails.trim()}` : reportReason;
+    if (reportReason === 'Other' && !reportDetails.trim()) return;
+
+    let { error } = await supabase.from('reports').insert([{
+      reporter_id: session.user.id,
+      reported_user_id: post.user_id,
+      post_id: post.id,
+      reason
+    }]);
+
+    if (error?.message?.includes('post_id')) {
+      ({ error } = await supabase.from('reports').insert([{
+        reporter_id: session.user.id,
+        reported_user_id: post.user_id,
+        reason
+      }]));
+    }
+
+    setShowReportModal(false);
+    setReportDetails('');
+    setInteractionMessage(error ? 'Could not report post' : 'Post reported successfully');
+    setTimeout(() => setInteractionMessage(''), 1800);
+  }
+
   return (
     <div className="fixed inset-0 z-50 bg-white dark:bg-slate-900 overflow-y-auto animate-in slide-in-from-bottom-4 duration-300">
       {/* Header */}
@@ -166,15 +285,19 @@ export function PostDetail({ post, profile, session, onBack, onShare, onReport, 
           </div>
 
           {/* Post Content */}
-          {post.content && <PostCaption text={post.content} disableTruncation />}
+          {post.content && (
+            <div className="mb-3">
+              <PostCaption text={post.content} disableTruncation />
+            </div>
+          )}
 
           {/* Media */}
           {post.media_url && (
-            <div className="mb-3 -mx-4 sm:-mx-5">
+            <div className="my-3 -mx-4 sm:-mx-5 overflow-hidden">
               {post.media_type === 'video' ? (
                 <video 
                   src={post.media_url} 
-                  className="w-full max-h-[500px] object-contain bg-black"
+                  className="w-full max-h-[500px] h-auto mx-auto object-cover"
                   controls
                   playsInline
                 />
@@ -182,7 +305,7 @@ export function PostDetail({ post, profile, session, onBack, onShare, onReport, 
                 <img 
                   src={post.media_url} 
                   alt="post" 
-                  className="w-full max-h-[500px] object-contain bg-black"
+                  className="w-full max-h-[500px] h-auto mx-auto object-cover"
                 />
               )}
             </div>
@@ -190,21 +313,25 @@ export function PostDetail({ post, profile, session, onBack, onShare, onReport, 
 
           {/* Post Stats */}
           <div className="flex items-center gap-5 mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500">
-            <button type="button" className="flex items-center gap-1 hover:text-rose-500 transition-colors">
-              <Heart className="w-4 h-4" /> {post.likes?.length || 0}
+            <button type="button" onClick={togglePostLike} className={`flex items-center gap-1 transition-colors ${isLiked ? 'text-rose-500' : 'hover:text-rose-500'}`} aria-label={isLiked ? 'Unlike post' : 'Like post'}>
+              <Heart className={`w-4 h-4 ${isLiked ? 'fill-rose-500' : ''}`} /> {likeCount}
             </button>
             <button type="button" className="flex items-center gap-1 hover:text-purple-600 transition-colors" onClick={() => commentInputRef.current?.focus()}>
               <MessageCircle className="w-4 h-4" /> {comments.length}
             </button>
-            <button type="button" onClick={() => onShare?.(post)} className="flex items-center gap-1 hover:text-purple-600 transition-colors" aria-label="Share post">
+            <button type="button" onClick={handleSharePost} className="flex items-center gap-1 hover:text-purple-600 transition-colors" aria-label="Share post">
               <Send className="w-4 h-4" />
             </button>
+            <button type="button" onClick={togglePostBookmark} className={`flex items-center gap-1 transition-colors ${isSaved ? 'text-purple-600' : 'hover:text-purple-600'}`} aria-label={isSaved ? 'Unsave post' : 'Save post'}>
+              <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-purple-600' : ''}`} />
+            </button>
             {!isOwnPost && (
-              <button type="button" onClick={() => onReport?.(post)} className="flex items-center gap-1 hover:text-rose-600 transition-colors" aria-label="Report post">
+              <button type="button" onClick={handleReportPost} className="flex items-center gap-1 hover:text-rose-600 transition-colors" aria-label="Report post">
                 <Flag className="w-4 h-4" />
               </button>
             )}
           </div>
+          {interactionMessage && <p className="mt-2 text-xs font-medium text-slate-500">{interactionMessage}</p>}
         </div>
 
         {/* Comments Section */}
@@ -333,6 +460,36 @@ export function PostDetail({ post, profile, session, onBack, onShare, onReport, 
               <button type="button" onClick={() => setDeleteTarget(null)} className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">Cancel</button>
               <button type="button" onClick={async () => { await handleDeleteComment(deleteTarget); setDeleteTarget(null); }} className="rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white">Delete</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showReportModal && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4" onClick={() => setShowReportModal(false)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Report post</h3>
+              <button type="button" onClick={() => setShowReportModal(false)} aria-label="Close report dialog">
+                <X className="h-4 w-4 text-slate-500" />
+              </button>
+            </div>
+            <p className="mb-2 text-xs text-slate-500">Report this post because:</p>
+            {['Spam', 'Harassment or bullying', 'Hate speech', 'Misinformation', 'Other'].map(reason => (
+              <label className="block py-1 text-xs text-slate-700 dark:text-slate-300" key={reason}>
+                <input type="radio" name={`report-${post.id}`} checked={reportReason === reason} onChange={() => setReportReason(reason)} /> {reason}
+              </label>
+            ))}
+            {reportReason === 'Other' && (
+              <textarea
+                className="mt-2 w-full rounded border p-2 text-sm dark:bg-slate-800"
+                value={reportDetails}
+                onChange={e => setReportDetails(e.target.value)}
+                placeholder="Reason"
+              />
+            )}
+            <button type="button" onClick={submitReport} className="mt-3 w-full rounded-xl bg-rose-600 py-2 text-xs font-bold text-white">
+              Submit report
+            </button>
           </div>
         </div>
       )}
