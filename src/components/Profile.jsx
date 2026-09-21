@@ -28,6 +28,8 @@ export function PostDetail({ post, profile, session, onBack, onShare, onReport, 
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState('Spam');
   const [reportDetails, setReportDetails] = useState('');
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
   const commentInputRef = useRef(null);
 
   useEffect(() => {
@@ -191,14 +193,26 @@ export function PostDetail({ post, profile, session, onBack, onShare, onReport, 
       return;
     }
 
-    const shareUrl = `${window.location.origin}/post/${post.id}`;
+    setShowShareModal(true);
+  }
+
+  function postShareUrl() {
+    return `${window.location.origin}/?post=${encodeURIComponent(post.id)}`;
+  }
+
+  async function copyPostLink() {
+    await navigator.clipboard?.writeText(postShareUrl());
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 1600);
+  }
+
+  async function nativeSharePost() {
+    const shareUrl = postShareUrl();
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'Auragram post', url: shareUrl });
+        await navigator.share({ title: 'Auragram post', text: post.content || 'Check this post on Auragram', url: shareUrl });
       } else {
-        await navigator.clipboard.writeText(shareUrl);
-        setInteractionMessage('Post link copied');
-        setTimeout(() => setInteractionMessage(''), 1800);
+        await copyPostLink();
       }
     } catch (error) {
       if (error.name !== 'AbortError') setInteractionMessage('Could not share post');
@@ -490,6 +504,30 @@ export function PostDetail({ post, profile, session, onBack, onShare, onReport, 
             <button type="button" onClick={submitReport} className="mt-3 w-full rounded-xl bg-rose-600 py-2 text-xs font-bold text-white">
               Submit report
             </button>
+          </div>
+        </div>
+      )}
+
+      {showShareModal && (
+        <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3" onClick={() => setShowShareModal(false)}>
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-extrabold text-slate-800 dark:text-white">Share post</h3>
+              <button onClick={() => setShowShareModal(false)} className="rounded-full bg-slate-100 dark:bg-slate-800 p-2 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all" aria-label="Close share dialog">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={copyPostLink} className="rounded-2xl bg-slate-100 dark:bg-slate-800 px-3 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                <span className="inline-flex items-center justify-center gap-1.5">{shareCopied ? <Check className="h-4 w-4" /> : <Clipboard className="h-4 w-4" />} {shareCopied ? 'Copied!' : 'Copy link'}</span>
+              </button>
+              <a href={`https://wa.me/?text=${encodeURIComponent(postShareUrl())}`} target="_blank" rel="noreferrer" className="rounded-2xl bg-emerald-500 px-3 py-3 text-center text-sm font-bold text-white hover:bg-emerald-600 transition-all">
+                <span className="inline-flex items-center justify-center gap-1.5"><Share2 className="h-4 w-4" /> WhatsApp</span>
+              </a>
+              <button onClick={nativeSharePost} className="col-span-2 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 px-3 py-3 text-sm font-bold text-white hover:shadow-lg hover:shadow-purple-500/25 transition-all">
+                <span className="inline-flex items-center justify-center gap-1.5"><Share2 className="h-4 w-4" /> More sharing options</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1236,14 +1274,15 @@ export default function Profile({ session, profileUserId, onMessage }) {
                 </div>
               </div>
             )}
-            {isOwnProfile && !profile.is_verified && (
-              <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
-                <span className="text-xs font-semibold text-slate-500">Get Blue Tick</span>
-                <button type="button" disabled={verificationLoading} onClick={() => startVerification('monthly')} className="rounded-full bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">₹49/month</button>
-                <button type="button" disabled={verificationLoading} onClick={() => startVerification('yearly')} className="rounded-full border border-blue-200 px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 disabled:opacity-50">₹499/year</button>
-              </div>
-            )}
           </div>
+
+          {isOwnProfile && !profile.is_verified && (
+            <div className="flex w-full flex-wrap items-center justify-center gap-2 border-t border-slate-200/60 pt-3 dark:border-slate-800">
+              <span className="text-xs font-semibold text-slate-500">Get Blue Tick</span>
+              <button type="button" disabled={verificationLoading} onClick={() => startVerification('monthly')} className="rounded-full bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">₹49/month</button>
+              <button type="button" disabled={verificationLoading} onClick={() => startVerification('yearly')} className="rounded-full border border-blue-200 px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 disabled:opacity-50">₹499/year</button>
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-2 border-t border-slate-200/60 dark:border-slate-800 pt-3 text-center">
             <div>

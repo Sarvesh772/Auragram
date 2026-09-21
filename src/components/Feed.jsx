@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { uploadToR2 } from '../lib/r2Upload';
 import Story from './Story';
-import { Image as ImageIcon, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight, MoreVertical, Play, Maximize2, Minimize2 } from 'lucide-react';
+import { Image as ImageIcon, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight, MoreVertical, Play, Maximize2, Minimize2, Clipboard, Check, Share2 } from 'lucide-react';
 import MentionInput, { RenderFormattedText } from './MentionInput';
 import PostCaption from './PostCaption';
 import { PostDetail } from './Profile';
@@ -147,6 +147,8 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
   const [editingPost, setEditingPost] = useState(null);
   const [editContent, setEditContent] = useState('');
   const [reportMessage, setReportMessage] = useState('');
+  const [sharePost, setSharePost] = useState(null);
+  const [shareCopied, setShareCopied] = useState(false);
 
   // Auto-resize Textarea dynamically based on content
   const handleTextChange = (e) => {
@@ -444,9 +446,25 @@ async function handleCreatePost() {
   }
 
   async function handleSharePost(post) {
-    const url = `${window.location.origin}/?post=${encodeURIComponent(post.id)}`;
-    if (navigator.share) await navigator.share({ title: 'Auragram post', text: post.content || 'Check this post', url });
-    else await navigator.clipboard?.writeText(url);
+    setSharePost(post);
+  }
+
+  function postShareUrl(post) {
+    return `${window.location.origin}/?post=${encodeURIComponent(post.id)}`;
+  }
+
+  async function copyPostLink() {
+    if (!sharePost) return;
+    await navigator.clipboard?.writeText(postShareUrl(sharePost));
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 1600);
+  }
+
+  async function nativeSharePost() {
+    if (!sharePost) return;
+    const url = postShareUrl(sharePost);
+    if (navigator.share) await navigator.share({ title: 'Auragram post', text: sharePost.content || 'Check this post on Auragram', url });
+    else await copyPostLink();
   }
 
   return (
@@ -667,6 +685,7 @@ async function handleCreatePost() {
       )}
       {reportPost && <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-4" onClick={() => setReportPost(null)}><div className="bg-white dark:bg-slate-900 rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}><div className="flex justify-between mb-3"><b>{reportPost.user_id === session.user.id ? 'Post options' : 'Report post'}</b><button onClick={() => setReportPost(null)}><X className="w-4 h-4" /></button></div>{reportPost.user_id === session.user.id ? <div className="space-y-2"><button onClick={() => { setEditingPost(reportPost); setEditContent(reportPost.content || ''); setReportPost(null); }} className="w-full rounded-xl bg-purple-600 text-white py-2.5 text-xs font-bold">Edit post</button><button onClick={() => deletePost(reportPost)} className="w-full rounded-xl bg-rose-600 text-white py-2.5 text-xs font-bold">Delete post</button></div> : <><p className="mb-2 text-xs text-slate-500">Report this post because:</p>{['Spam','Harassment or bullying','Hate speech','Misinformation','Other'].map(r => <label className="block text-xs py-1" key={r}><input type="radio" name="report" checked={reportReason === r} onChange={() => setReportReason(r)} /> {r}</label>)}{reportReason === 'Other' && <textarea className="w-full mt-2 p-2 border rounded" value={reportDetails} onChange={e => setReportDetails(e.target.value)} placeholder="Reason" />}<button onClick={submitReport} className="w-full mt-3 bg-rose-600 text-white rounded-xl py-2 text-xs font-bold">Submit report</button></>}</div></div>}
       {editingPost && <div className="fixed inset-0 z-[75] bg-black/60 flex items-center justify-center p-4"><div className="bg-white dark:bg-slate-900 rounded-2xl p-5 w-full max-w-md"><div className="flex justify-between mb-3"><b>Edit post</b><button onClick={() => setEditingPost(null)}><X className="w-4 h-4" /></button></div><textarea value={editContent} onChange={e => setEditContent(e.target.value)} rows={5} className="w-full rounded-xl border p-3 text-sm dark:bg-slate-800" /><button onClick={saveEditedPost} className="w-full mt-3 rounded-xl bg-purple-600 text-white py-2.5 text-xs font-bold">Save changes</button></div></div>}
+      {sharePost && <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3" onClick={() => setSharePost(null)}><div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}><div className="flex items-center justify-between mb-4"><h3 className="text-lg font-extrabold text-slate-800 dark:text-white">Share post</h3><button onClick={() => setSharePost(null)} className="rounded-full bg-slate-100 dark:bg-slate-800 p-2 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"><X className="w-4 h-4" /></button></div><div className="grid grid-cols-2 gap-3"><button onClick={copyPostLink} className="rounded-2xl bg-slate-100 dark:bg-slate-800 px-3 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"><span className="inline-flex items-center justify-center gap-1.5">{shareCopied ? <Check className="h-4 w-4" /> : <Clipboard className="h-4 w-4" />} {shareCopied ? 'Copied!' : 'Copy link'}</span></button><a href={`https://wa.me/?text=${encodeURIComponent(postShareUrl(sharePost))}`} target="_blank" rel="noreferrer" className="rounded-2xl bg-emerald-500 px-3 py-3 text-center text-sm font-bold text-white hover:bg-emerald-600 transition-all"><span className="inline-flex items-center justify-center gap-1.5"><Share2 className="h-4 w-4" /> WhatsApp</span></a><button onClick={nativeSharePost} className="col-span-2 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 px-3 py-3 text-sm font-bold text-white hover:shadow-lg hover:shadow-purple-500/25 transition-all"><span className="inline-flex items-center justify-center gap-1.5"><Share2 className="h-4 w-4" /> More sharing options</span></button></div></div></div>}
       {selectedPostForDetail && <PostDetail post={selectedPostForDetail} profile={selectedPostForDetail.profiles} session={session} onBack={() => setSelectedPostForDetail(null)} onShare={handleSharePost} onReport={setReportPost} onViewProfile={onViewProfile} />}
     </div>
   );
