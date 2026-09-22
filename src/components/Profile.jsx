@@ -10,7 +10,7 @@ import {
 import PostCaption from './PostCaption';
 
 const API_BASE_URL = (typeof window !== 'undefined' && (window.location.protocol === 'capacitor:' || window.location.hostname === 'localhost'))
-  ? 'https://auragram.in'
+  ? 'https://www.auragram.in'
   : '';
 
 // ============================================================

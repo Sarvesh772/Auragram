@@ -1,5 +1,5 @@
 const BASE_URL = (typeof window !== 'undefined' && (window.location.protocol === 'capacitor:' || window.location.hostname === 'localhost'))
-  ? 'https://auragram.in'
+  ? 'https://www.auragram.in'
   : '';
 
 export async function uploadToR2(file, folder = 'posts', target = 'media') {
