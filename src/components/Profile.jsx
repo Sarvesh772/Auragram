@@ -9,6 +9,10 @@ import {
 } from 'lucide-react';
 import PostCaption from './PostCaption';
 
+const API_BASE_URL = (typeof window !== 'undefined' && (window.location.protocol === 'capacitor:' || window.location.hostname === 'localhost'))
+  ? 'https://auragram.in'
+  : '';
+
 // ============================================================
 // POST DETAIL COMPONENT - Outside Profile Component
 // ============================================================
@@ -628,7 +632,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
       if (!window.Razorpay) {
         await new Promise((resolve, reject) => { const s = document.createElement('script'); s.src = 'https://checkout.razorpay.com/v1/checkout.js'; s.onload = resolve; s.onerror = reject; document.body.appendChild(s); });
       }
-      const response = await fetch('/api/razorpay-order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan, userId: session.user.id }) });
+      const response = await fetch(`${API_BASE_URL}/api/razorpay-order`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan, userId: session.user.id }) });
       const order = await response.json();
       if (!response.ok) throw new Error(order.error || 'Could not create payment order');
       new window.Razorpay({ key: import.meta.env.VITE_RAZORPAY_KEY_ID, amount: order.amount, currency: order.currency, name: 'Auragram', description: `${plan === 'yearly' ? 'Yearly' : 'Monthly'} Blue Tick`, order_id: order.id, prefill: { email: session.user.email }, theme: { color: '#8b5cf6' }, handler: () => { setSafetyMessage('Payment successful. Your blue tick will appear shortly after verification.'); setTimeout(() => setSafetyMessage(''), 5000); } }).open();

@@ -1,10 +1,14 @@
+const BASE_URL = (typeof window !== 'undefined' && (window.location.protocol === 'capacitor:' || window.location.hostname === 'localhost'))
+  ? 'https://auragram.in'
+  : '';
+
 export async function uploadToR2(file, folder = 'posts', target = 'media') {
   const cleanFolder = folder.replace(/\/+$/, '');
   const key = `${cleanFolder}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
 
   let response;
   try {
-    response = await fetch('/api/r2-presign', {
+    response = await fetch(`${BASE_URL}/api/r2-presign`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key, contentType: file.type, target })

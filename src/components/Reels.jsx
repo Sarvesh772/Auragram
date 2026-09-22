@@ -395,8 +395,8 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
 
                 <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/25 z-20 cursor-pointer" onClick={(e) => { e.stopPropagation(); const video = videoRefs.current[reel.id]; if (video?.duration) video.currentTime = ((e.clientX - e.currentTarget.getBoundingClientRect().left) / e.currentTarget.clientWidth) * video.duration; }}><div className="h-full bg-white transition-[width]" style={{ width: `${Math.min(100, ((videoProgress[reel.id]?.current || 0) / (videoProgress[reel.id]?.duration || 1)) * 100)}%` }} /></div>
 
-                {/* Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+                {/* Bottom-only gradient keeps the video bright while supporting controls */}
+                <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
 
                 {/* Top Mute Control */}
                 <button
