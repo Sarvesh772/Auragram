@@ -1120,6 +1120,13 @@ export default function Profile({ session, profileUserId, onMessage }) {
             </div>
           </div>
 
+          {/* Content */}
+          {post.content && (
+            <div className="mb-3">
+              <PostCaption text={post.content} />
+            </div>
+          )}
+
           {/* Media */}
           {post.media_url && (
             <div className="mb-3 -mx-4 sm:-mx-5 overflow-hidden">
@@ -1140,8 +1147,6 @@ export default function Profile({ session, profileUserId, onMessage }) {
             </div>
           )}
 
-          {/* Content */}
-          {post.content && <PostCaption text={post.content} />}
         </div>
 
         {/* Stats Bar */}
