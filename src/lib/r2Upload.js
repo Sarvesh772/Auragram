@@ -31,11 +31,17 @@ export async function uploadToR2(file, folder = 'posts', target = 'media') {
     throw new Error(data?.error || `Could not prepare upload (${response.status})`);
   }
 
-  const upload = await fetch(data.uploadUrl, { 
-    method: 'PUT', 
-    headers: { 'Content-Type': file.type }, 
-    body: file 
-  });
+  let upload;
+  try {
+    upload = await fetch(data.uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type },
+      body: file
+    });
+  } catch {
+    const bucketType = target === 'avatar' || target === 'profile' ? 'avatar bucket' : 'R2 bucket';
+    throw new Error(`R2 ${bucketType} blocked the APK upload. Add capacitor://localhost to that bucket's CORS Allowed Origins.`);
+  }
   
   if (!upload.ok) throw new Error('R2 upload failed');
   return data.publicUrl;
