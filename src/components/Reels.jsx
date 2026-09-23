@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Heart, MessageCircle, Send, Bookmark, Music2, Volume2, VolumeX, Trash2, X, Loader2, MoreVertical } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, Music2, Volume2, VolumeX, Trash2, X, Loader2, MoreVertical, BadgeCheck } from 'lucide-react';
 import MentionInput from './MentionInput';
 import { RenderFormattedText } from './MentionInput';
 
@@ -428,7 +428,10 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
                         (reel.profiles?.username || 'U')[0].toUpperCase()
                       )}
                     </button>
-                    <button onClick={() => onViewProfile?.(reel.user_id)} className="font-bold text-sm tracking-wide text-left">{reel.profiles?.full_name || reel.profiles?.username || 'User'}</button>
+                    <button onClick={() => onViewProfile?.(reel.user_id)} className="flex items-center gap-1 font-bold text-sm tracking-wide text-left">
+                      <span>{reel.profiles?.full_name || reel.profiles?.username || 'User'}</span>
+                      {reel.profiles?.is_verified && <BadgeCheck className="h-4 w-4 fill-blue-500 text-white" />}
+                    </button>
                   </div>
 
                   {reel.content && (

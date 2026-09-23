@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Search, Hash, User, Grid, Heart, MessageCircle, TrendingUp, Users, Image, Loader2, X } from 'lucide-react';
+import { Search, Hash, User, Grid, Heart, MessageCircle, TrendingUp, Users, Image, Loader2, X, BadgeCheck } from 'lucide-react';
 import { RenderFormattedText } from './MentionInput';
 import { PostDetail } from './Profile';
 
@@ -27,7 +27,7 @@ export default function Explore({ session, onViewProfile }) {
 
     const { data: usersData } = await supabase
       .from('profiles')
-      .select('id, username, full_name, avatar_url, bio')
+      .select('id, username, full_name, avatar_url, bio, is_verified')
       .neq('id', session.user.id)
       .limit(20);
     const visibleUsersData = (usersData || []).filter(u => !blockedIds.has(u.id));
@@ -44,7 +44,7 @@ export default function Explore({ session, onViewProfile }) {
       const postIds = visiblePostsData.map(p => p.id);
 
       const [profilesRes, likesRes, commentsRes] = await Promise.all([
-        supabase.from('profiles').select('id, username, full_name, avatar_url').in('id', userIds),
+        supabase.from('profiles').select('id, username, full_name, avatar_url, is_verified').in('id', userIds),
         supabase.from('likes').select('post_id, user_id').in('post_id', postIds),
         supabase.from('comments').select('id, post_id').in('post_id', postIds)
       ]);
@@ -258,8 +258,9 @@ export default function Explore({ session, onViewProfile }) {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm text-slate-800 dark:text-white truncate">
-                          {user.full_name || user.username}
+                        <p className="flex items-center gap-1 font-bold text-sm text-slate-800 dark:text-white truncate">
+                          <span className="truncate">{user.full_name || user.username}</span>
+                          {user.is_verified && <BadgeCheck className="h-4 w-4 shrink-0 fill-blue-500 text-white" />}
                         </p>
                         <p className="text-xs text-slate-400 truncate">@{user.username}</p>
                       </div>
@@ -330,8 +331,9 @@ export default function Explore({ session, onViewProfile }) {
                                 )}
                               </div>
                               <div className="min-w-0">
-                                <p className="text-xs font-bold text-slate-800 dark:text-white truncate">
-                                  {post.profiles?.full_name || post.profiles?.username || 'User'}
+                                <p className="flex items-center gap-1 text-xs font-bold text-slate-800 dark:text-white truncate">
+                                  <span className="truncate">{post.profiles?.full_name || post.profiles?.username || 'User'}</span>
+                                  {post.profiles?.is_verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 fill-blue-500 text-white" />}
                                 </p>
                                 <p className="text-[10px] text-slate-400 truncate">@{post.profiles?.username || 'user'}</p>
                               </div>

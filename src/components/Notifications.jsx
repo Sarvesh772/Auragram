@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Heart, MessageCircle, UserPlus, CheckCheck, Loader2, Bell, X, Sparkles } from 'lucide-react';
+import { Heart, MessageCircle, UserPlus, CheckCheck, Loader2, Bell, X, Sparkles, BadgeCheck } from 'lucide-react';
 import { RenderFormattedText } from './MentionInput';
 
 export default function Notifications({ session, onViewProfile }) {
@@ -65,7 +65,7 @@ export default function Notifications({ session, onViewProfile }) {
       const postIds = [...new Set(data.filter(n => n.post_id).map(n => n.post_id))];
 
       const [profilesRes, postsRes] = await Promise.all([
-        supabase.from('profiles').select('id, username, avatar_url').in('id', actorIds),
+        supabase.from('profiles').select('id, username, avatar_url, is_verified').in('id', actorIds),
         postIds.length > 0 ? supabase.from('posts').select('*').in('id', postIds) : { data: [] }
       ]);
 
@@ -210,7 +210,7 @@ export default function Notifications({ session, onViewProfile }) {
 
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-medium text-slate-800 dark:text-slate-200 leading-snug">
-                    <span className="font-extrabold text-slate-900 dark:text-white">@{notif.actor?.username || 'user'}</span>{' '}
+                    <span className="inline-flex items-center gap-1 font-extrabold text-slate-900 dark:text-white">@{notif.actor?.username || 'user'} {notif.actor?.is_verified && <BadgeCheck className="h-3.5 w-3.5 fill-blue-500 text-white" />}</span>{' '}
                     {notificationText(notif.type)}
                   </p>
 

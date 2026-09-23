@@ -639,7 +639,7 @@ async function handleCreatePost() {
                               )}
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-semibold text-sm text-slate-900 dark:text-white">{comment.profiles?.full_name || comment.profiles?.username || 'User'}</span>
+                                  <span className="inline-flex items-center gap-1 font-semibold text-sm text-slate-900 dark:text-white">{comment.profiles?.full_name || comment.profiles?.username || 'User'} {comment.profiles?.is_verified && <BadgeCheck className="h-3.5 w-3.5 fill-blue-500 text-white" />}</span>
                                   <span className="text-xs text-slate-500 dark:text-slate-400">@{comment.profiles?.username || 'user'} · {new Date(comment.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                                 </div>
                                 <p className="text-sm text-slate-800 dark:text-slate-200 mt-1 leading-relaxed">

@@ -5,7 +5,7 @@ import {
   Search, Send, Loader2, MessageSquare, ArrowLeft, Image as ImageIcon, 
   Check, CheckCheck, X, Download, Trash2, MoreVertical, Pin, PinOff, 
   Slash, RefreshCw, AlertCircle, Reply, ChevronLeft, ChevronRight,
-  Paperclip, FileText, ExternalLink, SmilePlus
+  Paperclip, FileText, ExternalLink, SmilePlus, BadgeCheck
 } from 'lucide-react';
 
 export default function Messages({ session, onViewProfile, initialUserId }) {
@@ -681,8 +681,9 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-slate-800 dark:text-white truncate">
-                        {getDisplayName(user)}
+                      <p className="flex items-center gap-1 text-xs font-bold text-slate-800 dark:text-white truncate">
+                        <span className="truncate">{getDisplayName(user)}</span>
+                        {user.is_verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 fill-blue-500 text-white" />}
                       </p>
                       <p className="text-[10px] text-slate-400 truncate">
                         @{user.username}

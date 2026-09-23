@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { UserPlus, UserCheck, Loader2 } from 'lucide-react';
+import { UserPlus, UserCheck, Loader2, BadgeCheck } from 'lucide-react';
 
 export default function RightPanel({ session, onViewProfile, onSeeAll }) {
   const [suggestions, setSuggestions] = useState([]);
@@ -134,8 +134,9 @@ export default function RightPanel({ session, onViewProfile, onSeeAll }) {
                       )}
                     </div>
                     <div className="truncate">
-                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
-                        {user.full_name || user.username || 'User'}
+                      <h4 className="flex items-center gap-1 text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                        <span className="truncate">{user.full_name || user.username || 'User'}</span>
+                        {user.is_verified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 fill-blue-500 text-white" />}
                       </h4>
                       <p className="text-[10px] text-slate-400 truncate">
                         @{user.username || 'username'}

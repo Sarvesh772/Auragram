@@ -287,7 +287,10 @@ export function PostDetail({ post, profile, session, onBack, onShare, onReport, 
               </div>
               <div>
                 <h4 className="text-sm font-bold text-slate-800 dark:text-white">
-                  {profile?.full_name || profile?.username || 'User'}
+                  <span className="inline-flex items-center gap-1">
+                    {profile?.full_name || profile?.username || 'User'}
+                    {profile?.is_verified && <BadgeCheck className="h-3.5 w-3.5 fill-blue-500 text-white" />}
+                  </span>
                 </h4>
                 <p className="text-xs text-slate-400">
                   @{profile?.username} · {new Date(post.created_at).toLocaleString('en-US', { 
@@ -388,7 +391,10 @@ export function PostDetail({ post, profile, session, onBack, onShare, onReport, 
                     <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl px-3 py-2.5 relative">
                       <div className="flex items-start justify-between gap-2">
                         <button type="button" onClick={() => onViewProfile?.(comment.user_id)} className="text-sm font-bold text-slate-900 dark:text-white hover:text-purple-600">
-                          {comment.profiles?.full_name || comment.profiles?.display_name || comment.profiles?.username || 'User'}
+                          <span className="inline-flex items-center gap-1">
+                            {comment.profiles?.full_name || comment.profiles?.display_name || comment.profiles?.username || 'User'}
+                            {comment.profiles?.is_verified && <BadgeCheck className="h-3.5 w-3.5 fill-blue-500 text-white" />}
+                          </span>
                         </button>
                         {comment.user_id === session.user.id && (
                           <button type="button" onClick={() => setDeleteTarget(comment.id)} className="p-1 text-slate-400 hover:text-rose-500 rounded-full hover:bg-rose-50 transition-colors" aria-label="Delete comment">
@@ -434,7 +440,10 @@ export function PostDetail({ post, profile, session, onBack, onShare, onReport, 
                           <div className="bg-slate-50/70 dark:bg-slate-800/30 rounded-xl px-3 py-2">
                             <div className="flex items-start justify-between gap-2">
                               <span className="text-[10px] font-bold text-slate-800 dark:text-white">
-                                {reply.profiles?.full_name || reply.profiles?.display_name || reply.profiles?.username || 'User'}
+                                <span className="inline-flex items-center gap-1">
+                                  {reply.profiles?.full_name || reply.profiles?.display_name || reply.profiles?.username || 'User'}
+                                  {reply.profiles?.is_verified && <BadgeCheck className="h-3.5 w-3.5 fill-blue-500 text-white" />}
+                                </span>
                               </span>
                               {reply.user_id === session.user.id && (
                                 <button type="button" onClick={() => setDeleteTarget(reply.id)} className="p-0.5 text-slate-400 hover:text-rose-500" aria-label="Delete reply">
@@ -782,7 +791,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
       
       const ids = (data || []).map((row) => row.follower_id);
       const { data: profiles } = ids.length 
-        ? await supabase.from('profiles').select('id, username, full_name, avatar_url').in('id', ids) 
+        ? await supabase.from('profiles').select('id, username, full_name, avatar_url, is_verified').in('id', ids) 
         : { data: [] };
       
       const profilesWithFollowStatus = await Promise.all((profiles || []).map(async (person) => {
@@ -807,7 +816,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
       
       const ids = (data || []).map((row) => row.following_id);
       const { data: profiles } = ids.length 
-        ? await supabase.from('profiles').select('id, username, full_name, avatar_url').in('id', ids) 
+        ? await supabase.from('profiles').select('id, username, full_name, avatar_url, is_verified').in('id', ids) 
         : { data: [] };
       
       const profilesWithFollowStatus = await Promise.all((profiles || []).map(async (person) => {
@@ -1712,7 +1721,10 @@ export default function Profile({ session, profileUserId, onMessage }) {
                     
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-slate-800 dark:text-white truncate">
-                        {person.full_name || person.username}
+                        <span className="inline-flex items-center gap-1">
+                          {person.full_name || person.username}
+                          {person.is_verified && <BadgeCheck className="h-3.5 w-3.5 fill-blue-500 text-white" />}
+                        </span>
                       </p>
                       <p className="text-xs text-slate-400 truncate">@{person.username}</p>
                     </div>
