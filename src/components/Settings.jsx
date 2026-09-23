@@ -6,7 +6,7 @@ import {
   Moon, Sun, Lock, User, LogOut, CheckCircle2, AlertCircle, 
   Loader2, ChevronRight, ArrowLeft, Palette, Bookmark, Trash2, X, Eye,
   Bell, Shield, HelpCircle, MessageCircle, Download, Smartphone,
-  Globe, Users, Heart, Star, Award, Zap, Share2, UserCheck,
+  Globe, Users, Heart, Award, Zap, Share2, UserCheck,
   Settings as SettingsIcon, TrendingUp, Mail, FileText, Image, Camera 
 } from 'lucide-react';
 import HelpSupport from './HelpSupport';
@@ -275,7 +275,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
   );
 
   return (
-    <div className="max-w-2xl mx-auto p-4 md:p-6 pb-16">
+    <div className="max-w-2xl mx-auto min-h-screen p-4 md:p-6 pb-20 md:pb-24 overflow-y-auto">
       {supportModal === 'help' && <HelpSupport onClose={() => setSupportModal(null)} />}
       {supportModal === 'about' && <About onClose={() => setSupportModal(null)} />}
       {supportModal === 'feedback' && <Feedback session={session} onClose={() => setSupportModal(null)} />}
@@ -353,6 +353,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
                   <ChevronRight className="w-4 h-4 text-slate-400" />
                 </div>
               </div>
+
             </div>
 
             {/* Content Section */}

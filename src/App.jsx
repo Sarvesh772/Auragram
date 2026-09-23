@@ -267,7 +267,7 @@ export default function App() {
         />
 
         {/* Main Content Area */}
-        <main className={`flex-1 transition-all ${
+        <main className={`flex-1 transition-all overflow-y-auto ${
           isFullWidthPage ? 'max-w-full h-[100dvh] overflow-hidden pb-0' : isAdminPage ? 'min-h-screen pb-24 md:pb-6 max-w-5xl mx-auto' : 'min-h-screen pb-24 md:pb-6 max-w-2xl border-r'
         } ${
           isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'

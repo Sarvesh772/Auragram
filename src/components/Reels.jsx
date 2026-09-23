@@ -503,7 +503,7 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
                   </div>
                 </div>
 
-                {/* Bottom Comments Drawer Modal - FINAL PREMIUM VERSION (Icon Only) */}
+                {/* Bottom Comments Drawer Modal (Icon Only) */}
 {activeReelId === reel.id && (
   <div className="absolute inset-x-0 bottom-0 bg-white dark:bg-gradient-to-t dark:from-[#0f0f0f] dark:via-[#1a1a1a] dark:to-[#1a1a1a]/95 backdrop-blur-xl text-slate-900 dark:text-white rounded-t-3xl p-0 z-30 max-h-[60%] md:max-h-[65%] flex flex-col shadow-2xl border-t border-slate-200 dark:border-white/10 animate-in slide-in-from-bottom duration-300">
     

@@ -626,17 +626,33 @@ export default function Profile({ session, profileUserId, onMessage }) {
     }
   }
 
-  async function startVerification(plan) {
+  async function startVerification(planType) {
+    if (!isOwnProfile || profile?.is_verified) return;
     setVerificationLoading(true);
     try {
-      if (!window.Razorpay) {
-        await new Promise((resolve, reject) => { const s = document.createElement('script'); s.src = 'https://checkout.razorpay.com/v1/checkout.js'; s.onload = resolve; s.onerror = reject; document.body.appendChild(s); });
-      }
-      const response = await fetch(`${API_BASE_URL}/api/razorpay-order`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan, userId: session.user.id }) });
-      const order = await response.json();
-      if (!response.ok) throw new Error(order.error || 'Could not create payment order');
-      new window.Razorpay({ key: import.meta.env.VITE_RAZORPAY_KEY_ID, amount: order.amount, currency: order.currency, name: 'Auragram', description: `${plan === 'yearly' ? 'Yearly' : 'Monthly'} Blue Tick`, order_id: order.id, prefill: { email: session.user.email }, theme: { color: '#8b5cf6' }, handler: () => { setSafetyMessage('Payment successful. Your blue tick will appear shortly after verification.'); setTimeout(() => setSafetyMessage(''), 5000); } }).open();
-    } catch (error) { setSafetyMessage(error.message); setTimeout(() => setSafetyMessage(''), 5000); } finally { setVerificationLoading(false); }
+      const plan = planType === 'yearly' ? 'yearly' : 'monthly';
+      const response = await fetch(`${API_BASE_URL}/api/pay/instamojo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: plan === 'yearly' ? 499 : 49,
+          planType: plan,
+          userId: session.user.id,
+          userEmail: session.user.email,
+          userName: profile?.full_name || profile?.username || 'Auragram User'
+        })
+      });
+      const payment = await response.json();
+      if (!response.ok || !payment.longurl) throw new Error(payment.error || 'Could not create payment request');
+
+      const paymentWindow = window.open(payment.longurl, '_blank', 'noopener,noreferrer');
+      if (!paymentWindow) window.location.assign(payment.longurl);
+    } catch (error) {
+      setSafetyMessage(error.message || 'Could not start payment');
+      setTimeout(() => setSafetyMessage(''), 5000);
+    } finally {
+      setVerificationLoading(false);
+    }
   }
 
   // State for post detail view
@@ -1226,7 +1242,19 @@ export default function Profile({ session, profileUserId, onMessage }) {
               <div className="flex-1 min-w-0">
                 <h2 className="flex items-center gap-1.5 text-lg sm:text-xl font-black text-slate-800 dark:text-white truncate">
                   <span className="truncate">{profile.full_name || profile.username || 'User'}</span>
-                  {profile.is_verified && <span className="relative inline-flex flex-shrink-0"><button type="button" onClick={() => setShowVerifiedInfo(v => !v)} aria-label="About verified badge"><BadgeCheck className="h-5 w-5 fill-blue-500 text-white" /></button>{showVerifiedInfo && <span className="absolute left-0 top-7 z-30 w-56 rounded-xl border border-slate-200 bg-white p-3 text-left text-[11px] font-medium leading-relaxed text-slate-600 shadow-xl"><strong className="block text-slate-800">Verified account</strong>This profile has completed Auragram verification. The badge confirms the account is verified and currently active.</span>}</span>}
+                  {profile.is_verified && (
+                    <span className="relative inline-flex flex-shrink-0">
+                      <button type="button" onClick={() => setShowVerifiedInfo((value) => !value)} aria-label="About verified badge">
+                        <BadgeCheck className="h-5 w-5 fill-blue-500 text-white" />
+                      </button>
+                      {showVerifiedInfo && (
+                        <span className="absolute left-0 top-7 z-30 w-56 rounded-xl border border-slate-200 bg-white p-3 text-left text-[11px] font-medium leading-relaxed text-slate-600 shadow-xl">
+                          <strong className="block text-slate-800">Verified account</strong>
+                          This profile has an active Auragram Blue Tick.
+                        </span>
+                      )}
+                    </span>
+                  )}
                 </h2>
                 <p className="text-sm font-bold text-purple-600 dark:text-purple-400 truncate">
                   @{profile.username || 'username'}
@@ -1288,8 +1316,12 @@ export default function Profile({ session, profileUserId, onMessage }) {
           {isOwnProfile && !profile.is_verified && (
             <div className="flex w-full flex-wrap items-center justify-center gap-2 border-t border-slate-200/60 pt-3 dark:border-slate-800">
               <span className="text-xs font-semibold text-slate-500">Get Blue Tick</span>
-              <button type="button" disabled={verificationLoading} onClick={() => startVerification('monthly')} className="rounded-full bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">₹49/month</button>
-              <button type="button" disabled={verificationLoading} onClick={() => startVerification('yearly')} className="rounded-full border border-blue-200 px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 disabled:opacity-50">₹499/year</button>
+              <button type="button" disabled={verificationLoading} onClick={() => startVerification('monthly')} className="rounded-full bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+                {verificationLoading ? 'Opening...' : '₹49/month'}
+              </button>
+              <button type="button" disabled={verificationLoading} onClick={() => startVerification('yearly')} className="rounded-full border border-blue-200 px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 disabled:opacity-50">
+                ₹499/year
+              </button>
             </div>
           )}
 
