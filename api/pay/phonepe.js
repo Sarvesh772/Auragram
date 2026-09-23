@@ -39,18 +39,18 @@ export default async function handler(req, res) {
 
   if (authError) return res.status(401).json({ error: authError });
   if (Number(body.amount) !== amount) return res.status(400).json({ error: 'Invalid Blue Tick amount' });
-  if (!process.env.PHONEPE_MERCHANT_ID || !process.env.PHONEPE_SALT_KEY || !process.env.PHONEPE_SALT_INDEX) {
+  if (!process.env.PHONEPE_SALT_KEY || !process.env.PHONEPE_SALT_INDEX) {
     return res.status(500).json({ error: 'PhonePe is not configured on the server' });
   }
 
   try {
     const merchantTransactionId = `MT_${Date.now()}`;
     const payload = {
-      merchantId: process.env.PHONEPE_MERCHANT_ID,
+      merchantId: process.env.PHONEPE_MERCHANT_ID || 'PGTESTPAYUAT',
       merchantTransactionId,
       merchantUserId: `MUID_${user.id}`,
       amount: amount * 100,
-      redirectUrl: 'https://www.auragram.in/api/pay/phonepe-callback',
+      redirectUrl: 'https://www.auragram.in/profile',
       redirectMode: 'POST',
       paymentInstrument: { type: 'PAY_PAGE' }
     };
@@ -75,7 +75,7 @@ export default async function handler(req, res) {
       return res.status(response.ok ? 502 : response.status).json({ error: data.message || data.code || 'Could not create PhonePe payment' });
     }
 
-    return res.status(200).json({ data: { url }, merchantTransactionId });
+    return res.status(200).json({ success: true, url });
   } catch (error) {
     return res.status(500).json({ error: error.message || 'PhonePe request failed' });
   }

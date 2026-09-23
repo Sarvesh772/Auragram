@@ -648,9 +648,9 @@ export default function Profile({ session, profileUserId, onMessage }) {
         })
       });
       const payment = await response.json();
-      if (!response.ok || !payment.data?.url) throw new Error(payment.error || 'Could not create PhonePe payment');
+      if (!response.ok || !payment.url) throw new Error(payment.error || 'Could not create PhonePe payment');
 
-      window.location.href = payment.data.url;
+      window.location.href = payment.url;
     } catch (error) {
       setSafetyMessage(error.message || 'Could not start payment');
       setTimeout(() => setSafetyMessage(''), 5000);
