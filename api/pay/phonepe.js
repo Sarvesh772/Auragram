@@ -13,9 +13,14 @@ export default async function handler(req, res) {
 
   try {
     const { amount, userId } = req.body || {};
-    const merchantId = 'PGTESTPAYUAT';
-    const saltKey = '099eb0cd-02ae-4e20-bf62-d51590f23f6d';
-    const saltIndex = '1';
+    const merchantId = process.env.PHONEPE_CLIENT_ID;
+    const saltKey = process.env.PHONEPE_CLIENT_SECRET;
+    const saltIndex = process.env.PHONEPE_CLIENT_VERSION;
+    const hostUrl = process.env.PHONEPE_HOST_URL || 'https://api-preprod.phonepe.com/apis/pg-sandbox';
+
+    if (!merchantId || !saltKey || !saltIndex) {
+      return res.status(500).json({ success: false, error: 'PhonePe credentials are not configured' });
+    }
 
     const payload = {
       merchantId,
@@ -33,7 +38,7 @@ export default async function handler(req, res) {
     const sha256 = crypto.createHash('sha256').update(checksumString).digest('hex');
     const xVerifyHeader = `${sha256}###${saltIndex}`;
 
-    const response = await fetch('https://api-preprod.phonepe.com/apis/pg-sandbox/pg/v1/pay', {
+    const response = await fetch(`${hostUrl}/pg/v1/pay`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

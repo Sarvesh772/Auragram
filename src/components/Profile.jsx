@@ -606,6 +606,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const [showVerifiedInfo, setShowVerifiedInfo] = useState(false);
   const [activeTab, setActiveTab] = useState('text');
   const [loading, setLoading] = useState(true);
+  const followProfileId = profile?.id || resolvedProfileId || (profileUserId === session.user.id ? session.user.id : null);
   const isOwnProfile = viewedUserId === session.user.id || profile?.id === session.user.id;
   const isSuspended = ['suspended', 'banned'].includes(String(profile?.account_status || profile?.status || '').toLowerCase());
 
@@ -744,23 +745,26 @@ export default function Profile({ session, profileUserId, onMessage }) {
   useEffect(() => { setResolvedProfileId(null); }, [profileUserId]);
 
   useEffect(() => {
+    if (!followProfileId) return undefined;
+
     const refreshFollowStats = async () => {
       const [{ count: followers }, { count: following }] = await Promise.all([
-        supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', viewedUserId),
-        supabase.from('follows').select('following_id', { count: 'exact', head: true }).eq('follower_id', viewedUserId)
+        supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', followProfileId),
+        supabase.from('follows').select('following_id', { count: 'exact', head: true }).eq('follower_id', followProfileId)
       ]);
       setFollowersCount(followers || 0);
       setFollowingCount(following || 0);
-      if (viewedUserId !== session.user.id) {
-        const { data: relation } = await supabase.from('follows').select('follower_id').or(`and(follower_id.eq.${session.user.id},following_id.eq.${viewedUserId}),and(follower_id.eq.${viewedUserId},following_id.eq.${session.user.id})`);
-        const followingMe = (relation || []).some((r) => r.follower_id === viewedUserId);
+      if (followProfileId !== session.user.id) {
+        const { data: relation } = await supabase.from('follows').select('follower_id').or(`and(follower_id.eq.${session.user.id},following_id.eq.${followProfileId}),and(follower_id.eq.${followProfileId},following_id.eq.${session.user.id})`);
+        const followingMe = (relation || []).some((r) => r.follower_id === followProfileId);
         const followingThem = (relation || []).some((r) => r.follower_id === session.user.id);
         setFollowState(followingThem ? 'following' : followingMe ? 'followback' : 'none');
       }
     };
-    const channel = supabase.channel(`profile-follows-${viewedUserId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'follows' }, refreshFollowStats).subscribe();
+    refreshFollowStats();
+    const channel = supabase.channel(`profile-follows-${followProfileId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'follows' }, refreshFollowStats).subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [viewedUserId]);
+  }, [followProfileId, session.user.id]);
 
   // Close post menu on outside click
   useEffect(() => {
@@ -774,7 +778,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
       const { data } = await supabase
         .from('follows')
         .select('follower_id')
-        .eq('following_id', viewedUserId);
+        .eq('following_id', followProfileId);
       
       const ids = (data || []).map((row) => row.follower_id);
       const { data: profiles } = ids.length 
@@ -799,7 +803,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
       const { data } = await supabase
         .from('follows')
         .select('following_id')
-        .eq('follower_id', viewedUserId);
+        .eq('follower_id', followProfileId);
       
       const ids = (data || []).map((row) => row.following_id);
       const { data: profiles } = ids.length 
@@ -853,15 +857,15 @@ export default function Profile({ session, profileUserId, onMessage }) {
       setBio(profileData.bio || '');
       setAvatarUrl(profileData.avatar_url || '');
       const [{ count: followers }, { count: following }] = await Promise.all([
-        supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', viewedUserId),
-        supabase.from('follows').select('following_id', { count: 'exact', head: true }).eq('follower_id', viewedUserId)
+        supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', targetId),
+        supabase.from('follows').select('following_id', { count: 'exact', head: true }).eq('follower_id', targetId)
       ]);
       setFollowersCount(followers || 0);
       setFollowingCount(following || 0);
-      if (viewedUserId !== session.user.id) {
-        const { data: relation } = await supabase.from('follows').select('follower_id, following_id').or(`and(follower_id.eq.${session.user.id},following_id.eq.${viewedUserId}),and(follower_id.eq.${viewedUserId},following_id.eq.${session.user.id})`);
+      if (targetId !== session.user.id) {
+        const { data: relation } = await supabase.from('follows').select('follower_id, following_id').or(`and(follower_id.eq.${session.user.id},following_id.eq.${targetId}),and(follower_id.eq.${targetId},following_id.eq.${session.user.id})`);
         const following = (relation || []).some((r) => r.follower_id === session.user.id);
-        const followedBack = (relation || []).some((r) => r.follower_id === viewedUserId);
+        const followedBack = (relation || []).some((r) => r.follower_id === targetId);
         setFollowState(following ? 'following' : followedBack ? 'followback' : 'none');
       }
     }
@@ -897,14 +901,14 @@ export default function Profile({ session, profileUserId, onMessage }) {
   }
 
   async function toggleFollow() {
-    if (isOwnProfile || !profile) return;
+    if (isOwnProfile || !profile || !followProfileId) return;
     if (followState === 'following') {
-      await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('following_id', viewedUserId);
+      await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('following_id', followProfileId);
       setFollowState('none');
     } else {
-      await supabase.from('follows').insert([{ follower_id: session.user.id, following_id: viewedUserId }]);
+      await supabase.from('follows').insert([{ follower_id: session.user.id, following_id: followProfileId }]);
       setFollowState('following');
-      await supabase.from('notifications').insert([{ recipient_id: viewedUserId, actor_id: session.user.id, type: 'follow', is_read: false }]);
+      await supabase.from('notifications').insert([{ recipient_id: followProfileId, actor_id: session.user.id, type: 'follow', is_read: false }]);
     }
   }
 
@@ -1733,8 +1737,8 @@ export default function Profile({ session, profileUserId, onMessage }) {
                               .eq('following_id', person.id);
                           }
                           const [{ count: followers }, { count: following }] = await Promise.all([
-                            supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', viewedUserId),
-                            supabase.from('follows').select('following_id', { count: 'exact', head: true }).eq('follower_id', viewedUserId)
+                            supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', followProfileId),
+                            supabase.from('follows').select('following_id', { count: 'exact', head: true }).eq('follower_id', followProfileId)
                           ]);
                           setFollowersCount(followers || 0);
                           setFollowingCount(following || 0);
