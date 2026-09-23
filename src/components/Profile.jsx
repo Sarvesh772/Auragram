@@ -633,7 +633,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
       const plan = planType === 'yearly' ? 'yearly' : 'monthly';
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       const accessToken = currentSession?.access_token || session?.access_token;
-      const response = await fetch(`${API_BASE_URL}/api/pay/instamojo`, {
+      const response = await fetch(`${API_BASE_URL}/api/pay/phonepe`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -648,10 +648,9 @@ export default function Profile({ session, profileUserId, onMessage }) {
         })
       });
       const payment = await response.json();
-      if (!response.ok || !payment.longurl) throw new Error(payment.error || 'Could not create payment request');
+      if (!response.ok || !payment.data?.url) throw new Error(payment.error || 'Could not create PhonePe payment');
 
-      const paymentWindow = window.open(payment.longurl, '_blank', 'noopener,noreferrer');
-      if (!paymentWindow) window.location.assign(payment.longurl);
+      window.location.href = payment.data.url;
     } catch (error) {
       setSafetyMessage(error.message || 'Could not start payment');
       setTimeout(() => setSafetyMessage(''), 5000);
