@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { uploadToR2 } from '../lib/r2Upload';
 import Story from './Story';
-import { Image as ImageIcon, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight, MoreVertical, Play, Maximize2, Minimize2, Clipboard, Check, Share2 } from 'lucide-react';
+import { Image as ImageIcon, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight, MoreVertical, Play, Maximize2, Minimize2, Clipboard, Check, Share2, BadgeCheck } from 'lucide-react';
 import MentionInput, { RenderFormattedText } from './MentionInput';
 import PostCaption from './PostCaption';
 import { PostDetail } from './Profile';
@@ -578,7 +578,10 @@ async function handleCreatePost() {
                     </div>
                   )}
                   <div>
-                    <p className="font-bold text-sm text-slate-800 dark:text-white">{post.profiles?.full_name || post.profiles?.username || 'User'}</p>
+                    <p className="flex items-center gap-1 font-bold text-sm text-slate-800 dark:text-white">
+                      <span>{post.profiles?.full_name || post.profiles?.username || 'User'}</span>
+                      {post.profiles?.is_verified && <BadgeCheck className="h-4 w-4 fill-blue-500 text-white" aria-label="Verified account" />}
+                    </p>
                     <p className="text-xs text-slate-400">{new Date(post.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                   </div>
                 </button>
