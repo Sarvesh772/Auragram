@@ -42,6 +42,13 @@ export default async function handler(req, res) {
       });
     }
 
+    const merchantOrderId = `MT${Date.now()}`;
+    const plan = Number(amount) >= 499 ? 'yearly' : 'monthly';
+    const callbackUrl = new URL('https://www.auragram.in/api/pay/phonepe-callback');
+    callbackUrl.searchParams.set('user_id', userId || '');
+    callbackUrl.searchParams.set('plan', plan);
+    callbackUrl.searchParams.set('order_id', merchantOrderId);
+
     const paymentResponse = await fetch(`${hostUrl}/checkout/v2/pay`, {
       method: 'POST',
       headers: {
@@ -49,12 +56,12 @@ export default async function handler(req, res) {
         Authorization: `O-Bearer ${accessToken}`
       },
       body: JSON.stringify({
-        merchantOrderId: `MT${Date.now()}`,
+        merchantOrderId,
         amount: (amount || 49) * 100,
         expireAfter: 1200,
         paymentFlow: {
           type: 'PG_CHECKOUT',
-          merchantUrls: { redirectUrl: 'https://www.auragram.in/profile' }
+          merchantUrls: { redirectUrl: callbackUrl.toString() }
         },
         metaInfo: {
           udf1: `MUID${userId || '12345'}`,

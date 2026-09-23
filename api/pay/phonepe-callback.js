@@ -1,45 +1,44 @@
-import crypto from 'crypto';
-
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://gpebgfjgoeujomrqxhir.supabase.co';
 
 function redirectToProfile(res, status) {
   return res.redirect(302, `https://www.auragram.in/profile?payment=${status}`);
 }
 
-function getCallbackPayload(req) {
-  if (typeof req.body === 'string') {
-    try { return JSON.parse(req.body); } catch { return {}; }
-  }
-  return req.body || {};
-}
-
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).send('Method not allowed');
-  if (!process.env.PHONEPE_SALT_KEY || !process.env.PHONEPE_SALT_INDEX) return res.status(500).send('PhonePe is not configured on the server');
+  if (!['GET', 'POST'].includes(req.method)) return res.status(405).send('Method not allowed');
+  if (!process.env.PHONEPE_CLIENT_ID || !process.env.PHONEPE_CLIENT_SECRET || !process.env.PHONEPE_CLIENT_VERSION) {
+    return res.status(500).send('PhonePe is not configured on the server');
+  }
 
   try {
-    const body = getCallbackPayload(req);
-    const base64Response = body.response || body.base64Response || body.data?.response;
-    const receivedChecksum = req.headers['x-verify'] || req.headers['X-VERIFY'] || body.xVerify;
-    if (!base64Response || !receivedChecksum) return redirectToProfile(res, 'failed');
+    const { user_id: userId, plan = 'monthly', order_id: orderId } = req.query || {};
+    if (!userId || !orderId) return redirectToProfile(res, 'failed');
 
-    const expectedChecksum = `${crypto.createHash('sha256').update(`${base64Response}${process.env.PHONEPE_SALT_KEY}`).digest('hex')}###${process.env.PHONEPE_SALT_INDEX}`;
-    if (receivedChecksum !== expectedChecksum) return redirectToProfile(res, 'failed');
+    const hostUrl = process.env.PHONEPE_HOST_URL || 'https://api-preprod.phonepe.com/apis/pg-sandbox';
+    const tokenResponse = await fetch(`${hostUrl}/v1/oauth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: process.env.PHONEPE_CLIENT_ID,
+        client_version: process.env.PHONEPE_CLIENT_VERSION,
+        client_secret: process.env.PHONEPE_CLIENT_SECRET,
+        grant_type: 'client_credentials'
+      }).toString()
+    });
+    const tokenData = await tokenResponse.json();
+    if (!tokenResponse.ok || !tokenData.access_token) return redirectToProfile(res, 'failed');
 
-    const decoded = JSON.parse(Buffer.from(base64Response, 'base64').toString('utf8'));
-    const paymentData = decoded.data || {};
-    const status = decoded.code || decoded.responseCode || decoded.data?.responseCode;
-    const isSuccess = status === 'SUCCESS' || paymentData.state === 'COMPLETED';
-    const merchantUserId = paymentData.merchantUserId || decoded.merchantUserId || '';
-    const userId = String(merchantUserId).replace(/^MUID_/, '');
-
-    if (!isSuccess || !userId) return redirectToProfile(res, 'failed');
+    const statusResponse = await fetch(`${hostUrl}/checkout/v2/order/${encodeURIComponent(orderId)}/status`, {
+      headers: { Authorization: `O-Bearer ${tokenData.access_token}` }
+    });
+    const statusData = await statusResponse.json();
+    if (!statusResponse.ok || statusData.state !== 'COMPLETED') return redirectToProfile(res, 'failed');
 
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!serviceRoleKey) return res.status(500).send('Supabase server configuration is missing');
 
     const expiry = new Date();
-    expiry.setMonth(expiry.getMonth() + 1);
+    expiry.setMonth(expiry.getMonth() + (String(plan).toLowerCase() === 'yearly' ? 12 : 1));
     const updateResponse = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}`, {
       method: 'PATCH',
       headers: {
