@@ -44,12 +44,17 @@ export default async function handler(req, res) {
     });
     const data = await response.json();
     const url = data.data?.instrumentResponse?.redirectInfo?.url;
+    console.log('PhonePe Raw Response:', data);
 
     if (data.success && url) {
       return res.status(200).json({ success: true, url });
     }
 
-    return res.status(400).json({ success: false, message: data.message || 'Failed to create payment' });
+    return res.status(400).json({
+      success: false,
+      message: data.message || 'Could not create PhonePe payment',
+      details: data
+    });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
