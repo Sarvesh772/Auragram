@@ -631,9 +631,14 @@ export default function Profile({ session, profileUserId, onMessage }) {
     setVerificationLoading(true);
     try {
       const plan = planType === 'yearly' ? 'yearly' : 'monthly';
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const accessToken = currentSession?.access_token || session?.access_token;
       const response = await fetch(`${API_BASE_URL}/api/pay/instamojo`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+        },
         body: JSON.stringify({
           amount: plan === 'yearly' ? 499 : 49,
           planType: plan,
