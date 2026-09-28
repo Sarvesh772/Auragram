@@ -13,6 +13,10 @@ import Profile from './components/Profile';
 import Settings from './components/Settings';
 import Privacy from './components/Privacy';
 import Terms from './components/Terms';
+import RefundCancellation from './components/RefundCancellation';
+import Contact from './components/Contact';
+import AboutPage from './components/AboutPage';
+import Footer from './components/Footer';
 import RightPanel from './components/RightPanel';
 import Admin from './components/Admin';
 
@@ -82,6 +86,7 @@ export default function App() {
 
   const navigate = useNavigate();
   const location = useLocation();
+  const isPublicLegalPath = ['/about', '/privacy', '/terms', '/refund-cancellation', '/contact'].includes(location.pathname);
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('auragram_theme') === 'dark';
@@ -207,6 +212,21 @@ export default function App() {
     );
   }
 
+  if (!session && isPublicLegalPath) {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-white">
+        <Routes>
+          <Route path="/about" element={<AboutPage onBack={() => navigate(-1)} />} />
+          <Route path="/privacy" element={<Privacy onBack={() => navigate(-1)} />} />
+          <Route path="/terms" element={<Terms onBack={() => navigate(-1)} />} />
+          <Route path="/refund-cancellation" element={<RefundCancellation onBack={() => navigate(-1)} />} />
+          <Route path="/contact" element={<Contact onBack={() => navigate(-1)} />} />
+        </Routes>
+        <Footer />
+      </div>
+    );
+  }
+
   if (!session || isPasswordRecovery) {
     return <Auth isResetting={isPasswordRecovery} />;
   }
@@ -315,8 +335,13 @@ export default function App() {
             <Route path="/settings" element={<Settings session={session} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />} />
             <Route path="/privacy" element={<Privacy onBack={() => navigate(-1)} />} />
             <Route path="/terms" element={<Terms onBack={() => navigate(-1)} />} />
+            <Route path="/refund-cancellation" element={<RefundCancellation onBack={() => navigate(-1)} />} />
+            <Route path="/contact" element={<Contact onBack={() => navigate(-1)} />} />
+            <Route path="/about" element={<AboutPage onBack={() => navigate(-1)} />} />
             <Route path="/admin" element={<Admin session={session} />} />
           </Routes>
+
+          <Footer />
           
         </main>
 

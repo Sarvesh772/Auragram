@@ -483,9 +483,6 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
           {/* Footer */}
           <div className="text-center pt-2">
             <p className="text-[10px] text-slate-400">Auragram v1.5.3</p>
-            <p className="text-[10px] text-slate-400 mt-1">
-              &copy; {new Date().getFullYear()} Auragram. All rights reserved.
-            </p>
           </div>
         </div>
       )}

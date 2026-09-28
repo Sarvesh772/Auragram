@@ -43,6 +43,12 @@ export default function Story({ session, onSelectUser }) {
   const [showViewersDrawer, setShowViewersDrawer] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
 
+  // Video Preview Modal State
+  const [videoPreviewModal, setVideoPreviewModal] = useState(null);
+  const [videoCaption, setVideoCaption] = useState('');
+  const [videoPrivacy, setVideoPrivacy] = useState('public');
+  const [selectedCloseFriendsVideo, setSelectedCloseFriendsVideo] = useState([]);
+
   const storyFileInputRef = useRef(null);
   const previewAreaRef = useRef(null);
 
@@ -128,6 +134,15 @@ export default function Story({ session, onSelectUser }) {
     );
   }
 
+  async function uploadVideoFromPreview() {
+    if (!videoPreviewModal) return;
+    await uploadStoryFile(videoPreviewModal.file, 'video', videoCaption, videoPrivacy, selectedCloseFriendsVideo);
+    setVideoPreviewModal(null);
+    setVideoCaption('');
+    setVideoPrivacy('public');
+    setSelectedCloseFriendsVideo([]);
+  }
+
   async function fetchStoryViewers(storyId) {
     const { data: views } = await supabase
       .from('story_views')
@@ -170,7 +185,12 @@ export default function Story({ session, onSelectUser }) {
     }
 
     if (isVideo) {
-      uploadStoryFile(file, 'video', null);
+      // Show video preview modal instead of directly uploading
+      const videoUrl = URL.createObjectURL(file);
+      setVideoPreviewModal({ file, url: videoUrl });
+      setVideoCaption('');
+      setVideoPrivacy('public');
+      setSelectedCloseFriendsVideo([]);
     } else {
       setSelectedRawFile(file);
       const url = URL.createObjectURL(file);
@@ -322,7 +342,7 @@ export default function Story({ session, onSelectUser }) {
     };
   }
 
-  async function uploadStoryFile(fileObj, mediaType, caption) {
+  async function uploadStoryFile(fileObj, mediaType, caption, privacy = storyPrivacy, closeFriends = selectedCloseFriends) {
     setStoryUploading(true);
     const fileExt = fileObj.name.split('.').pop();
     let publicUrl;
@@ -340,7 +360,7 @@ export default function Story({ session, onSelectUser }) {
         media_url: publicUrl,
         media_type: mediaType,
         caption: caption || null,
-        privacy: storyPrivacy
+        privacy: privacy
       },
     ]);
 
@@ -349,8 +369,8 @@ export default function Story({ session, onSelectUser }) {
       setStoryUploading(false);
       return;
     }
-    if (storyPrivacy === 'close_friends' && selectedCloseFriends.length) {
-      const { error: closeFriendsError } = await supabase.from('story_close_friends').insert(selectedCloseFriends.map((userId) => ({ story_id: storyId, user_id: userId })));
+    if (privacy === 'close_friends' && closeFriends.length) {
+      const { error: closeFriendsError } = await supabase.from('story_close_friends').insert(closeFriends.map((userId) => ({ story_id: storyId, user_id: userId })));
       if (closeFriendsError) alert('Close Friends save failed: ' + closeFriendsError.message);
     }
 
@@ -893,6 +913,120 @@ export default function Story({ session, onSelectUser }) {
               </div>
             )}
 
+          </div>
+        </div>
+      )}
+
+      {/* VIDEO PREVIEW MODAL */}
+      {videoPreviewModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800">
+            
+            {/* HEADER */}
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white">Preview Story</h3>
+              <button
+                onClick={() => {
+                  setVideoPreviewModal(null);
+                  setVideoCaption('');
+                }}
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* PREVIEW VIDEO */}
+            <div className="bg-black flex items-center justify-center h-80 w-full relative">
+              <video
+                src={videoPreviewModal.url}
+                className="h-full w-full object-contain"
+                controls
+                muted
+              />
+              <div className="absolute top-2 left-2 bg-black/60 px-2 py-1 rounded-lg">
+                <p className="text-xs text-white font-semibold">Preview</p>
+              </div>
+            </div>
+
+            {/* CAPTION INPUT */}
+            <div className="p-4 space-y-3 max-h-96 overflow-y-auto bg-slate-50 dark:bg-slate-800/50">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">Add Caption (Optional)</label>
+                <textarea
+                  value={videoCaption}
+                  onChange={(e) => setVideoCaption(e.target.value)}
+                  placeholder="Say something about your story..."
+                  rows={3}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                />
+              </div>
+
+              {/* PRIVACY SETTINGS */}
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">Privacy</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      setVideoPrivacy('public');
+                      setSelectedCloseFriendsVideo([]);
+                    }}
+                    className={`px-3 py-2 rounded-lg text-xs font-bold transition ${
+                      videoPrivacy === 'public'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
+                    }`}
+                  >
+                    🌐 Public
+                  </button>
+                  <button
+                    onClick={() => setVideoPrivacy('followers')}
+                    className={`px-3 py-2 rounded-lg text-xs font-bold transition ${
+                      videoPrivacy === 'followers'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
+                    }`}
+                  >
+                    👥 Followers
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-3 text-xs text-blue-700 dark:text-blue-300">
+                <p className="font-semibold mb-1">💡 Story Tip</p>
+                <p>Your story will be visible for 24 hours. Friends can reply in messages!</p>
+              </div>
+            </div>
+
+            {/* ACTION BUTTONS */}
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex gap-2 bg-white dark:bg-slate-900">
+              <button
+                onClick={() => {
+                  setVideoPreviewModal(null);
+                  setVideoCaption('');
+                }}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={uploadVideoFromPreview}
+                disabled={storyUploading}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-sm hover:shadow-lg hover:shadow-purple-500/25 disabled:opacity-50 transition flex items-center justify-center gap-2"
+              >
+                {storyUploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    Post Story
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
