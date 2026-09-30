@@ -25,11 +25,11 @@ export default function Story({ session, onSelectUser }) {
   const [textFontSize, setTextFontSize] = useState(48);
   const [textFont, setTextFont] = useState('sans-serif');
   const [storyPrivacy, setStoryPrivacy] = useState('public');
-  const [closeFriendsText, setCloseFriendsText] = useState('');
   const [showPrivacyPrompt, setShowPrivacyPrompt] = useState(false);
   const [showCloseFriendsPicker, setShowCloseFriendsPicker] = useState(false);
   const [closeFriendProfiles, setCloseFriendProfiles] = useState([]);
   const [selectedCloseFriends, setSelectedCloseFriends] = useState([]);
+  const [closeFriendsPickerMode, setCloseFriendsPickerMode] = useState('image'); // 'image' | 'video'
   const [textPos, setTextPos] = useState({ x: 50, y: 50 }); // Percentage position (50% X, 50% Y)
   const [isDraggingText, setIsDraggingText] = useState(false);
 
@@ -134,9 +134,11 @@ export default function Story({ session, onSelectUser }) {
     );
   }
 
-  async function uploadVideoFromPreview() {
+  async function uploadVideoFromPreview(privacyOverride, closeFriendsOverride) {
     if (!videoPreviewModal) return;
-    await uploadStoryFile(videoPreviewModal.file, 'video', videoCaption, videoPrivacy, selectedCloseFriendsVideo);
+    const privacy = privacyOverride || videoPrivacy;
+    const closeFriends = closeFriendsOverride || selectedCloseFriendsVideo;
+    await uploadStoryFile(videoPreviewModal.file, 'video', videoCaption, privacy, closeFriends);
     setVideoPreviewModal(null);
     setVideoCaption('');
     setVideoPrivacy('public');
@@ -238,26 +240,41 @@ export default function Story({ session, onSelectUser }) {
   function confirmSharePrivacy(privacy) {
     setStoryPrivacy(privacy);
     setShowPrivacyPrompt(false);
-    setTimeout(() => handleFinishEditingAndUpload(), 0);
+    setTimeout(() => handleFinishEditingAndUpload(privacy, []), 0);
   }
 
-  async function openCloseFriendsPicker() {
+  async function openCloseFriendsPicker(mode = 'image') {
     const { data } = await supabase.from('profiles').select('id, username, full_name, avatar_url').neq('id', session.user.id).order('full_name');
     setCloseFriendProfiles(data || []);
-    setSelectedCloseFriends([]);
-    setShowPrivacyPrompt(false);
+    setCloseFriendsPickerMode(mode);
+    if (mode === 'video') {
+      setSelectedCloseFriendsVideo([]);
+    } else {
+      setSelectedCloseFriends([]);
+      setShowPrivacyPrompt(false);
+    }
     setShowCloseFriendsPicker(true);
   }
 
   function confirmCloseFriendsShare() {
-    if (!selectedCloseFriends.length) return;
-    setStoryPrivacy('close_friends');
+    const isVideo = closeFriendsPickerMode === 'video';
+    const chosen = isVideo ? selectedCloseFriendsVideo : selectedCloseFriends;
+    if (!chosen.length) return;
     setShowCloseFriendsPicker(false);
-    setTimeout(() => handleFinishEditingAndUpload(), 0);
+    if (isVideo) {
+      setVideoPrivacy('close_friends');
+      setTimeout(() => uploadVideoFromPreview('close_friends', chosen), 0);
+    } else {
+      setStoryPrivacy('close_friends');
+      setTimeout(() => handleFinishEditingAndUpload('close_friends', chosen), 0);
+    }
   }
 
-  async function handleFinishEditingAndUpload() {
+  async function handleFinishEditingAndUpload(privacyOverride, closeFriendsOverride) {
     if (!editImageSrc) return;
+
+    const privacy = privacyOverride || storyPrivacy;
+    const closeFriends = closeFriendsOverride || selectedCloseFriends;
 
     setStoryUploading(true);
 
@@ -331,12 +348,12 @@ export default function Story({ session, onSelectUser }) {
 
       canvas.toBlob(async (blob) => {
         if (!blob) {
-          uploadStoryFile(selectedRawFile, 'image', storyText);
+          uploadStoryFile(selectedRawFile, 'image', storyText, privacy, closeFriends);
           return;
         }
         const editedFile = new File([blob], `story_${Date.now()}.jpg`, { type: 'image/jpeg' });
           // Text is baked into the exported image; don't show it again as a bottom caption.
-          await uploadStoryFile(editedFile, 'image', null);
+          await uploadStoryFile(editedFile, 'image', null, privacy, closeFriends);
         setIsEditing(false);
       }, 'image/jpeg', 0.92);
     };
@@ -418,6 +435,8 @@ export default function Story({ session, onSelectUser }) {
       onSelectUser(userId);
     }
   }
+
+  const closeFriendsSelectedIds = closeFriendsPickerMode === 'video' ? selectedCloseFriendsVideo : selectedCloseFriends;
 
   return (
     <div>
@@ -714,14 +733,21 @@ export default function Story({ session, onSelectUser }) {
       {showCloseFriendsPicker && (
         <div className="fixed inset-0 z-[75] bg-black/70 flex items-center justify-center p-4">
           <div className="w-full max-w-sm max-h-[75vh] bg-slate-900 rounded-2xl p-4 space-y-3 border border-slate-700 shadow-2xl flex flex-col">
-            <h3 className="text-white font-bold">Choose close friends</h3>
+            <div>
+              <h3 className="text-white font-bold">Choose close friends</h3>
+              <p className="text-[11px] text-slate-400 mt-1">Only the people you select here will be able to view this story. Everyone else won't see it.</p>
+            </div>
             <div className="overflow-y-auto space-y-1 flex-1">
+              {closeFriendProfiles.length === 0 && (
+                <p className="text-xs text-slate-500 text-center py-4">No other users found.</p>
+              )}
               {closeFriendProfiles.map((person) => {
-                const selected = selectedCloseFriends.includes(person.id);
-                return <button key={person.id} onClick={() => setSelectedCloseFriends((prev) => selected ? prev.filter((id) => id !== person.id) : [...prev, person.id])} className={`w-full flex items-center gap-3 p-2 rounded-xl text-left ${selected ? 'bg-purple-600/40' : 'bg-slate-800'}`}><div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-bold">{(person.full_name || person.username || 'U')[0].toUpperCase()}</div><span className="text-white text-sm flex-1">{person.full_name || person.username}</span><span className="text-xs text-purple-200">{selected ? 'Selected' : 'Select'}</span></button>;
+                const setSelectedIds = closeFriendsPickerMode === 'video' ? setSelectedCloseFriendsVideo : setSelectedCloseFriends;
+                const selected = closeFriendsSelectedIds.includes(person.id);
+                return <button key={person.id} onClick={() => setSelectedIds((prev) => selected ? prev.filter((id) => id !== person.id) : [...prev, person.id])} className={`w-full flex items-center gap-3 p-2 rounded-xl text-left ${selected ? 'bg-purple-600/40' : 'bg-slate-800'}`}><div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-bold">{(person.full_name || person.username || 'U')[0].toUpperCase()}</div><span className="text-white text-sm flex-1">{person.full_name || person.username}</span><span className="text-xs text-purple-200">{selected ? 'Selected' : 'Select'}</span></button>;
               })}
             </div>
-            <button disabled={!selectedCloseFriends.length} onClick={confirmCloseFriendsShare} className="w-full bg-lime-400 disabled:opacity-40 text-slate-950 rounded-xl py-2 text-sm font-bold">Share to selected ({selectedCloseFriends.length})</button>
+            <button disabled={!closeFriendsSelectedIds.length} onClick={confirmCloseFriendsShare} className="w-full bg-lime-400 disabled:opacity-40 text-slate-950 rounded-xl py-2 text-sm font-bold">Share to selected ({closeFriendsSelectedIds.length})</button>
             <button onClick={() => setShowCloseFriendsPicker(false)} className="text-slate-400 text-sm py-1">Cancel</button>
           </div>
         </div>
@@ -965,13 +991,13 @@ export default function Story({ session, onSelectUser }) {
               {/* PRIVACY SETTINGS */}
               <div>
                 <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">Privacy</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => {
                       setVideoPrivacy('public');
                       setSelectedCloseFriendsVideo([]);
                     }}
-                    className={`px-3 py-2 rounded-lg text-xs font-bold transition ${
+                    className={`px-2 py-2 rounded-lg text-xs font-bold transition ${
                       videoPrivacy === 'public'
                         ? 'bg-purple-600 text-white'
                         : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
@@ -980,8 +1006,11 @@ export default function Story({ session, onSelectUser }) {
                     🌐 Public
                   </button>
                   <button
-                    onClick={() => setVideoPrivacy('followers')}
-                    className={`px-3 py-2 rounded-lg text-xs font-bold transition ${
+                    onClick={() => {
+                      setVideoPrivacy('followers');
+                      setSelectedCloseFriendsVideo([]);
+                    }}
+                    className={`px-2 py-2 rounded-lg text-xs font-bold transition ${
                       videoPrivacy === 'followers'
                         ? 'bg-purple-600 text-white'
                         : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
@@ -989,7 +1018,24 @@ export default function Story({ session, onSelectUser }) {
                   >
                     👥 Followers
                   </button>
+                  <button
+                    onClick={() => openCloseFriendsPicker('video')}
+                    className={`px-2 py-2 rounded-lg text-xs font-bold transition ${
+                      videoPrivacy === 'close_friends'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
+                    }`}
+                  >
+                    🔒 Close Friends
+                  </button>
                 </div>
+                {videoPrivacy === 'close_friends' && (
+                  <p className="mt-2 text-[11px] font-semibold text-purple-600 dark:text-purple-300">
+                    {selectedCloseFriendsVideo.length
+                      ? `Visible only to ${selectedCloseFriendsVideo.length} selected ${selectedCloseFriendsVideo.length === 1 ? 'person' : 'people'}.`
+                      : 'Tap Close Friends to choose who can view this story.'}
+                  </p>
+                )}
               </div>
 
               <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-3 text-xs text-blue-700 dark:text-blue-300">
@@ -1010,7 +1056,7 @@ export default function Story({ session, onSelectUser }) {
                 Cancel
               </button>
               <button
-                onClick={uploadVideoFromPreview}
+                onClick={() => uploadVideoFromPreview()}
                 disabled={storyUploading}
                 className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-sm hover:shadow-lg hover:shadow-purple-500/25 disabled:opacity-50 transition flex items-center justify-center gap-2"
               >
