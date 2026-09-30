@@ -343,7 +343,7 @@ export default function App() {
             <Route path="/admin" element={<Admin session={session} />} />
           </Routes>
 
-          <Footer />
+          {!isFullWidthPage && <Footer />}
           
         </main>
 
@@ -357,7 +357,7 @@ export default function App() {
       </div>
 
       {/* MOBILE BOTTOM NAVIGATION */}
-      <nav className={`md:hidden fixed bottom-0 left-0 right-0 border-t px-4 py-2 flex justify-between items-center z-30 shadow-lg ${
+      {!isFullWidthPage && <nav className={`md:hidden fixed bottom-0 left-0 right-0 border-t px-4 py-2 flex justify-between items-center z-30 shadow-lg ${
         isDarkMode ? 'bg-slate-900/95 border-slate-800 backdrop-blur-md' : 'bg-white/95 border-slate-200 backdrop-blur-md'
       }`}>
         <button 
@@ -399,7 +399,7 @@ export default function App() {
         >
           <User className="w-5 h-5" />
         </button>
-      </nav>
+      </nav>}
     </div>
   );
 }
