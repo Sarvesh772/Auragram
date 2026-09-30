@@ -69,7 +69,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
   useEffect(() => {
     getProfile();
     fetchStats();
-    supabase.from('profiles').select('is_verified, verified_until, subscription_plan').eq('id', session.user.id).maybeSingle().then(({ data }) => setSubscription(data || null));
+    supabase.from('profiles').select('is_verified, verified_until').eq('id', session.user.id).maybeSingle().then(({ data }) => setSubscription(data || null));
   }, [session]);
 
   async function getProfile() {
