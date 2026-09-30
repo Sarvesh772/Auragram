@@ -19,6 +19,7 @@ import AboutPage from './components/AboutPage';
 import Footer from './components/Footer';
 import RightPanel from './components/RightPanel';
 import Admin from './components/Admin';
+import Premium from './components/Premium';
 
 import { Home, Compass, MessageCircle, Clapperboard, Bell, Settings as SettingsIcon, User } from 'lucide-react';
 
@@ -230,6 +231,7 @@ export default function App() {
   if (!session || isPasswordRecovery) {
     return <Auth isResetting={isPasswordRecovery} />;
   }
+  if (location.pathname === '/premium') return <Premium session={session} />;
 
   // Active Tab determination based on Current Route
   const pathname = location.pathname;

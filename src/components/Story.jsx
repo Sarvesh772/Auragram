@@ -943,136 +943,111 @@ export default function Story({ session, onSelectUser }) {
         </div>
       )}
 
-      {/* VIDEO PREVIEW MODAL */}
+      {/* VIDEO PREVIEW MODAL — styled like the photo editor */}
       {videoPreviewModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800">
-            
-            {/* HEADER */}
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-800 dark:text-white">Preview Story</h3>
-              <button
-                onClick={() => {
-                  setVideoPreviewModal(null);
-                  setVideoCaption('');
-                }}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+        <div className="fixed inset-0 z-50 bg-black flex flex-col justify-between">
+          {/* Top Bar Controls */}
+          <div className="p-4 flex justify-between items-center bg-slate-900/90 backdrop-blur-md border-b border-slate-800 z-20">
+            <button
+              onClick={() => {
+                setVideoPreviewModal(null);
+                setVideoCaption('');
+                setVideoPrivacy('public');
+                setSelectedCloseFriendsVideo([]);
+              }}
+              className="p-2 text-slate-300 hover:text-white rounded-full bg-slate-800"
+            >
+              <X className="w-5 h-5" />
+            </button>
 
-            {/* PREVIEW VIDEO */}
-            <div className="bg-black flex items-center justify-center h-80 w-full relative">
+            <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">Preview Story</span>
+
+            <button
+              onClick={() => uploadVideoFromPreview()}
+              disabled={storyUploading}
+              className="bg-lime-400 hover:bg-lime-500 text-slate-950 px-3 sm:px-5 py-2 rounded-full text-xs font-extrabold flex items-center space-x-1 transition disabled:opacity-50"
+            >
+              {storyUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /><span className="hidden sm:inline">Share</span></>}
+            </button>
+          </div>
+
+          {/* Interactive Workspace */}
+          <div className="flex-1 min-h-0 flex items-center justify-center p-4 relative overflow-hidden bg-slate-950">
+            <div className="relative max-h-full max-w-full">
               <video
                 src={videoPreviewModal.url}
-                className="h-full w-full object-contain"
+                className="max-h-[65vh] w-auto object-contain rounded-2xl shadow-2xl"
                 controls
-                muted
+                autoPlay
+                loop
+                playsInline
               />
-              <div className="absolute top-2 left-2 bg-black/60 px-2 py-1 rounded-lg">
-                <p className="text-xs text-white font-semibold">Preview</p>
+              <div className="absolute top-3 left-3 bg-black/60 px-2 py-1 rounded-lg pointer-events-none">
+                <p className="text-[10px] text-white font-semibold">Preview</p>
               </div>
             </div>
+          </div>
 
-            {/* CAPTION INPUT */}
-            <div className="p-4 space-y-3 max-h-96 overflow-y-auto bg-slate-50 dark:bg-slate-800/50">
-              <div>
-                <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">Add Caption (Optional)</label>
-                <textarea
-                  value={videoCaption}
-                  onChange={(e) => setVideoCaption(e.target.value)}
-                  placeholder="Say something about your story..."
-                  rows={3}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-                />
-              </div>
+          {/* Bottom Tool Panel */}
+          <div className="flex-shrink-0 max-h-[34dvh] overflow-y-auto p-3 sm:p-4 bg-slate-900 border-t border-slate-800 z-20 space-y-3">
+            <input
+              type="text"
+              value={videoCaption}
+              onChange={(e) => setVideoCaption(e.target.value)}
+              placeholder="Add a caption (optional)..."
+              className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
 
-              {/* PRIVACY SETTINGS */}
-              <div>
-                <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">Privacy</label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    onClick={() => {
-                      setVideoPrivacy('public');
-                      setSelectedCloseFriendsVideo([]);
-                    }}
-                    className={`px-2 py-2 rounded-lg text-xs font-bold transition ${
-                      videoPrivacy === 'public'
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
-                    }`}
-                  >
-                    🌐 Public
-                  </button>
-                  <button
-                    onClick={() => {
-                      setVideoPrivacy('followers');
-                      setSelectedCloseFriendsVideo([]);
-                    }}
-                    className={`px-2 py-2 rounded-lg text-xs font-bold transition ${
-                      videoPrivacy === 'followers'
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
-                    }`}
-                  >
-                    👥 Followers
-                  </button>
-                  <button
-                    onClick={() => openCloseFriendsPicker('video')}
-                    className={`px-2 py-2 rounded-lg text-xs font-bold transition ${
-                      videoPrivacy === 'close_friends'
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
-                    }`}
-                  >
-                    🔒 Close Friends
-                  </button>
-                </div>
-                {videoPrivacy === 'close_friends' && (
-                  <p className="mt-2 text-[11px] font-semibold text-purple-600 dark:text-purple-300">
-                    {selectedCloseFriendsVideo.length
-                      ? `Visible only to ${selectedCloseFriendsVideo.length} selected ${selectedCloseFriendsVideo.length === 1 ? 'person' : 'people'}.`
-                      : 'Tap Close Friends to choose who can view this story.'}
-                  </p>
-                )}
+            <div>
+              <p className="text-[11px] font-bold text-slate-400 mb-2">Who can view?</p>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => {
+                    setVideoPrivacy('public');
+                    setSelectedCloseFriendsVideo([]);
+                  }}
+                  className={`px-2 py-2 rounded-2xl text-xs font-bold border transition ${
+                    videoPrivacy === 'public'
+                      ? 'bg-purple-600 text-white border-purple-500'
+                      : 'bg-slate-800 text-slate-300 border-slate-700'
+                  }`}
+                >
+                  🌐 Public
+                </button>
+                <button
+                  onClick={() => {
+                    setVideoPrivacy('followers');
+                    setSelectedCloseFriendsVideo([]);
+                  }}
+                  className={`px-2 py-2 rounded-2xl text-xs font-bold border transition ${
+                    videoPrivacy === 'followers'
+                      ? 'bg-purple-600 text-white border-purple-500'
+                      : 'bg-slate-800 text-slate-300 border-slate-700'
+                  }`}
+                >
+                  👥 Followers
+                </button>
+                <button
+                  onClick={() => openCloseFriendsPicker('video')}
+                  className={`px-2 py-2 rounded-2xl text-xs font-bold border transition ${
+                    videoPrivacy === 'close_friends'
+                      ? 'bg-purple-600 text-white border-purple-500'
+                      : 'bg-slate-800 text-slate-300 border-slate-700'
+                  }`}
+                >
+                  🔒 Close Friends
+                </button>
               </div>
-
-              <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-3 text-xs text-blue-700 dark:text-blue-300">
-                <p className="font-semibold mb-1">💡 Story Tip</p>
-                <p>Your story will be visible for 24 hours. Friends can reply in messages!</p>
-              </div>
+              {videoPrivacy === 'close_friends' && (
+                <p className="mt-2 text-[11px] font-semibold text-purple-300">
+                  {selectedCloseFriendsVideo.length
+                    ? `Visible only to ${selectedCloseFriendsVideo.length} selected ${selectedCloseFriendsVideo.length === 1 ? 'person' : 'people'}.`
+                    : 'Tap Close Friends to choose who can view this story.'}
+                </p>
+              )}
             </div>
 
-            {/* ACTION BUTTONS */}
-            <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex gap-2 bg-white dark:bg-slate-900">
-              <button
-                onClick={() => {
-                  setVideoPreviewModal(null);
-                  setVideoCaption('');
-                }}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => uploadVideoFromPreview()}
-                disabled={storyUploading}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-sm hover:shadow-lg hover:shadow-purple-500/25 disabled:opacity-50 transition flex items-center justify-center gap-2"
-              >
-                {storyUploading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    Post Story
-                  </>
-                )}
-              </button>
-            </div>
+            <p className="text-[11px] text-slate-400 text-center">Your story will be visible for 24 hours. Friends can reply in messages!</p>
           </div>
         </div>
       )}

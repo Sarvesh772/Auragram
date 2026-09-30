@@ -1261,7 +1261,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
                   <span className="truncate">{profile.full_name || profile.username || 'User'}</span>
                   {profile.is_verified && (
                     <span className="relative inline-flex flex-shrink-0">
-                      <button type="button" onClick={() => setShowVerifiedInfo((value) => !value)} aria-label="About verified badge">
+                      <button type="button" onClick={() => { setShowVerifiedInfo(false); window.location.href = '/premium'; }} aria-label="About verified badge">
                         <BadgeCheck className="h-5 w-5 fill-blue-500 text-white" />
                       </button>
                       {showVerifiedInfo && (
