@@ -27,6 +27,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
   const [deleteError, setDeleteError] = useState('');
   const [supportModal, setSupportModal] = useState(null);
   const [downloadModal, setDownloadModal] = useState(false);
+  const [subscription, setSubscription] = useState(null);
 
   // Saved Posts State
   const [savedPosts, setSavedPosts] = useState([]);
@@ -68,6 +69,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
   useEffect(() => {
     getProfile();
     fetchStats();
+    supabase.from('profiles').select('is_verified, verified_until, subscription_plan').eq('id', session.user.id).maybeSingle().then(({ data }) => setSubscription(data || null));
   }, [session]);
 
   async function getProfile() {
@@ -352,6 +354,11 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
                   <span className="text-[10px] font-semibold text-slate-400">{isDarkMode ? '🌙 Dark' : '☀️ Light'}</span>
                   <ChevronRight className="w-4 h-4 text-slate-400" />
                 </div>
+              </div>
+
+              <div onClick={() => { if (!subscription?.is_verified) window.location.href = '/premium'; }} className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl">
+                <div className="flex items-center space-x-3.5"><div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-900/30 text-purple-600"><Award className="w-4 h-4" /></div><div><h3 className="text-sm font-bold text-slate-800 dark:text-white">Subscription & Membership</h3><p className="text-[10px] text-slate-400">{subscription?.is_verified ? `Active ${subscription.subscription_plan === 'yearly' ? '₹499/year' : '₹49/month'} · Expires ${subscription.verified_until ? new Date(subscription.verified_until).toLocaleDateString() : '—'}` : 'Upgrade to Premium and get your blue badge'}</p></div></div>
+                {!subscription?.is_verified && <span className="rounded-full bg-purple-600 px-3 py-1.5 text-[10px] font-bold text-white">Upgrade</span>}
               </div>
 
             </div>
