@@ -1260,16 +1260,8 @@ export default function Profile({ session, profileUserId, onMessage }) {
                 <h2 className="flex items-center gap-1.5 text-lg sm:text-xl font-black text-slate-800 dark:text-white truncate">
                   <span className="truncate">{profile.full_name || profile.username || 'User'}</span>
                   {profile.is_verified && (
-                    <span className="relative inline-flex flex-shrink-0">
-                      <button type="button" onClick={() => { setShowVerifiedInfo(false); window.location.href = '/premium'; }} aria-label="About verified badge">
-                        <BadgeCheck className="h-5 w-5 fill-blue-500 text-white" />
-                      </button>
-                      {showVerifiedInfo && (
-                        <span className="absolute left-0 top-7 z-30 w-56 rounded-xl border border-slate-200 bg-white p-3 text-left text-[11px] font-medium leading-relaxed text-slate-600 shadow-xl">
-                          <strong className="block text-slate-800">Verified account</strong>
-                          This profile has an active Auragram Blue Tick.
-                        </span>
-                      )}
+                    <span className="inline-flex flex-shrink-0" aria-label="Verified account" title="Verified account">
+                      <BadgeCheck className="h-5 w-5 fill-blue-500 text-white" />
                     </span>
                   )}
                 </h2>
@@ -1333,10 +1325,10 @@ export default function Profile({ session, profileUserId, onMessage }) {
           {isOwnProfile && !profile.is_verified && (
             <div className="flex w-full flex-wrap items-center justify-center gap-2 border-t border-slate-200/60 pt-3 dark:border-slate-800">
               <span className="text-xs font-semibold text-slate-500">Get Blue Tick</span>
-              <button type="button" disabled={verificationLoading} onClick={() => startVerification('monthly')} className="rounded-full bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">
-                {verificationLoading ? 'Opening...' : '₹49/month'}
+              <button type="button" onClick={() => { window.location.href = '/premium'; }} className="rounded-full bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700">
+                ₹49/month
               </button>
-              <button type="button" disabled={verificationLoading} onClick={() => startVerification('yearly')} className="rounded-full border border-blue-200 px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 disabled:opacity-50">
+              <button type="button" onClick={() => { window.location.href = '/premium'; }} className="rounded-full border border-blue-200 px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50">
                 ₹499/year
               </button>
             </div>
