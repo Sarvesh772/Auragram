@@ -18,6 +18,9 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [messageRequests, setMessageRequests] = useState([]);
+  const [pendingRequest, setPendingRequest] = useState(null);
+  const [requestNotice, setRequestNotice] = useState('');
 
   // Active Status & Typing States
   const [isTyping, setIsTyping] = useState(false);
@@ -78,7 +81,22 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
 
   useEffect(() => {
     fetchRecentConversations();
+    fetchMessageRequests();
   }, []);
+
+  async function fetchMessageRequests() {
+    const { data } = await supabase.from('message_requests').select('*').eq('receiver_id', session.user.id).eq('status', 'pending').order('created_at', { ascending: false });
+    if (!data?.length) { setMessageRequests([]); return; }
+    const ids = [...new Set(data.map((request) => request.sender_id))];
+    const { data: profiles } = await supabase.from('profiles').select('*').in('id', ids);
+    const profileMap = Object.fromEntries((profiles || []).map((profile) => [profile.id, profile]));
+    setMessageRequests(data.map((request) => ({ ...request, sender: profileMap[request.sender_id] })).filter((request) => request.sender));
+  }
+
+  async function fetchPendingRequest(otherUserId) {
+    const { data } = await supabase.from('message_requests').select('*').eq('sender_id', otherUserId).eq('receiver_id', session.user.id).eq('status', 'pending').maybeSingle();
+    setPendingRequest(data || null);
+  }
 
   useEffect(() => {
     scrollToBottom();
@@ -224,6 +242,7 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
     if (!activeUser || !session?.user?.id) return;
 
     fetchMessages(activeUser.id);
+    fetchPendingRequest(activeUser.id);
     markMessagesAsRead(activeUser.id);
 
     const channel = supabase
@@ -382,11 +401,38 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
   }
 
   // Send Message with Reply Support
+  async function acceptMessageRequest() {
+    if (!pendingRequest || !activeUser) return;
+    const { error: updateError } = await supabase.from('message_requests').update({ status: 'accepted', accepted_at: new Date().toISOString() }).eq('id', pendingRequest.id).eq('receiver_id', session.user.id);
+    if (updateError) return setRequestNotice(updateError.message);
+    const rows = [{ sender_id: pendingRequest.sender_id, receiver_id: session.user.id, content: pendingRequest.content, is_automatic: false }];
+    if (activeUser.auto_greeting_enabled && activeUser.auto_greeting?.trim()) {
+      rows.push({ sender_id: session.user.id, receiver_id: pendingRequest.sender_id, content: activeUser.auto_greeting.trim(), is_automatic: true });
+    }
+    const { data } = await supabase.from('messages').insert(rows).select();
+    setMessages(data || []);
+    setPendingRequest(null);
+    setMessageRequests((requests) => requests.filter((request) => request.id !== pendingRequest.id));
+    setRequestNotice('Message request accepted.');
+    setTimeout(() => setRequestNotice(''), 2500);
+    fetchRecentConversations();
+  }
+
   async function handleSendMessage(e) {
     if (e) e.preventDefault();
     if (!newMessage.trim() || !activeUser || sending || iBlockedUser || userBlockedMe) return;
 
     const text = newMessage.trim();
+    const { count: previousMessages } = await supabase.from('messages').select('id', { count: 'exact', head: true }).or(`and(sender_id.eq.${session.user.id},receiver_id.eq.${activeUser.id}),and(sender_id.eq.${activeUser.id},receiver_id.eq.${session.user.id})`);
+    if (!previousMessages && activeUser.id !== session.user.id) {
+      const { error: requestError } = await supabase.from('message_requests').insert([{ sender_id: session.user.id, receiver_id: activeUser.id, content: text, status: 'pending' }]);
+      if (!requestError) {
+        setNewMessage('');
+        setRequestNotice('Message request sent. It will be delivered after they accept.');
+        setTimeout(() => setRequestNotice(''), 3000);
+      }
+      return;
+    }
     // Change: sender_name me hardcoded 'You' ki jagah sender_id save kar rahe hain
     const replyData = replyToMessage
       ? {
@@ -663,6 +709,7 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1">
+            {!searchQuery.trim() && messageRequests.length > 0 && <div className="mb-3 rounded-2xl border border-purple-100 bg-purple-50/70 p-2 dark:border-purple-900/40 dark:bg-purple-950/20"><p className="px-2 py-1 text-[10px] font-black uppercase tracking-wider text-purple-600">Message requests</p>{messageRequests.map((request) => <button key={request.id} type="button" onClick={() => handleSelectUser(request.sender)} className="flex w-full items-center gap-2 rounded-xl p-2 text-left hover:bg-white dark:hover:bg-slate-800"><div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-purple-600 text-center text-xs font-bold leading-8 text-white">{request.sender.avatar_url ? <img src={request.sender.avatar_url} alt="" className="h-full w-full object-cover" /> : getDisplayName(request.sender)[0].toUpperCase()}</div><span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-slate-800 dark:text-white">{getDisplayName(request.sender)}</span><span className="block truncate text-[10px] text-slate-500">{request.content}</span></span><span className="text-[10px] font-bold text-purple-600">Review</span></button>)}</div>}
             {searchQuery.trim() ? (
               searchResults.length === 0 ? (
                 <p className="text-xs text-slate-400 text-center py-6 font-medium">No users found</p>
@@ -864,6 +911,9 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
                 </div>
               </div>
 
+              {requestNotice && <div className="border-b border-purple-100 bg-purple-50 px-4 py-2 text-center text-[11px] font-semibold text-purple-700 dark:border-purple-900/40 dark:bg-purple-950/30 dark:text-purple-300">{requestNotice}</div>}
+              {pendingRequest && <div className="border-b border-amber-100 bg-amber-50 px-4 py-3 dark:border-amber-900/40 dark:bg-amber-950/20"><p className="text-xs font-bold text-amber-800 dark:text-amber-200">Message request</p><p className="mt-1 text-xs text-amber-700 dark:text-amber-300">{pendingRequest.content}</p><button type="button" onClick={acceptMessageRequest} className="mt-2 rounded-lg bg-purple-600 px-3 py-1.5 text-[11px] font-bold text-white">Accept & reply</button></div>}
+
               {/* IN-CHAT SEARCH BAR */}
               {showChatSearch && (
                 <div className="px-4 py-2 bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between z-10">
@@ -1036,6 +1086,8 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
                             ) : (
                               <p className="leading-relaxed">{msg.content}</p>
                             )}
+
+                            {msg.is_automatic && <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[8px] font-bold ${isMe ? 'bg-purple-500/50 text-purple-100' : 'bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-300'}`}>Automatic greeting</span>}
 
                             <div className="flex items-center justify-end space-x-1">
                               <span className={`text-[9px] ${isMe ? 'text-purple-200' : 'text-slate-400'}`}>
