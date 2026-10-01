@@ -290,7 +290,7 @@ export default function App() {
 
         {/* Main Content Area */}
         <main className={`flex-1 transition-all overflow-y-auto ${
-          isFullWidthPage ? 'max-w-full h-[100dvh] overflow-hidden pb-0' : isAdminPage ? 'min-h-screen pb-24 md:pb-6 max-w-5xl mx-auto' : 'min-h-screen pb-24 md:pb-6 max-w-2xl border-r'
+          isFullWidthPage ? 'max-w-full h-[100dvh] overflow-hidden pb-16' : isAdminPage ? 'min-h-screen pb-24 md:pb-6 max-w-5xl mx-auto' : 'min-h-screen pb-24 md:pb-6 max-w-2xl border-r'
         } ${
           isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'
         }`}>
@@ -357,7 +357,7 @@ export default function App() {
       </div>
 
       {/* MOBILE BOTTOM NAVIGATION */}
-      {!isFullWidthPage && <nav className={`md:hidden fixed bottom-0 left-0 right-0 border-t px-4 py-2 flex justify-between items-center z-30 shadow-lg ${
+      {!isAdminPage && <nav className={`md:hidden fixed bottom-0 left-0 right-0 border-t px-4 py-2 flex justify-between items-center z-30 shadow-lg ${
         isDarkMode ? 'bg-slate-900/95 border-slate-800 backdrop-blur-md' : 'bg-white/95 border-slate-200 backdrop-blur-md'
       }`}>
         <button 
