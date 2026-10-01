@@ -9,6 +9,7 @@ import {
   UserCheck, UserMinus, Users, Eye, Trash2, Clipboard, Check, Share2, BadgeCheck
 } from 'lucide-react';
 import PostCaption from './PostCaption';
+import { RenderFormattedText } from './MentionInput';
 
 const API_BASE_URL = (typeof window !== 'undefined' && (window.location.protocol === 'capacitor:' || window.location.hostname === 'localhost'))
   ? 'https://www.auragram.in'
@@ -678,6 +679,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
+  const [bioLinksText, setBioLinksText] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -866,6 +868,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
       setFullName(profileData.full_name || '');
       setUsername(profileData.username || '');
       setBio(profileData.bio || '');
+      setBioLinksText((profileData.bio || '').match(/(?:https?:\/\/|www\.)[^\s]+/gi)?.join('\n') || '');
       setAvatarUrl(profileData.avatar_url || '');
       const [{ count: followers }, { count: following }] = await Promise.all([
         supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', targetId),
@@ -992,12 +995,14 @@ export default function Profile({ session, profileUserId, onMessage }) {
     const premium = isPremiumActive(profile);
     const bioLimit = premium ? PREMIUM_BIO_LIMIT : FREE_BIO_LIMIT;
     const linkLimit = premium ? PREMIUM_BIO_LINK_LIMIT : FREE_BIO_LINK_LIMIT;
+    const bioWithoutLinks = bio.replace(/(?:https?:\/\/|www\.)[^\s]+/gi, '').replace(/\s{2,}/g, ' ').trim();
+    const combinedBio = [bioWithoutLinks, bioLinksText.trim()].filter(Boolean).join('\n');
 
-    if (bio.length > bioLimit) {
+    if (combinedBio.length > bioLimit) {
       setErrorMsg(`Your ${premium ? 'Premium' : 'Free'} plan allows a bio up to ${bioLimit} characters.`);
       return;
     }
-    if (countLinks(bio) > linkLimit) {
+    if (countLinks(combinedBio) > linkLimit) {
       setErrorMsg(premium ? 'Premium bios can include up to 5 links.' : 'Free bios can include up to 2 links. Upgrade to Premium for up to 5 links.');
       return;
     }
@@ -1029,7 +1034,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
         id: session.user.id,
         full_name: fullName.trim(),
         username: cleanUsername,
-        bio: bio.trim(),
+        bio: combinedBio,
         avatar_url: avatarUrl,
         updated_at: new Date(),
       };
@@ -1289,7 +1294,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
                 )}
                 {profile.bio && (
                   <p className="text-sm text-slate-600 dark:text-slate-300 font-medium mt-1 break-words whitespace-normal leading-relaxed">
-                    {profile.bio}
+                    <RenderFormattedText text={profile.bio} onViewProfile={(id) => { window.location.href = `/profile/${id}`; }} />
                   </p>
                 )}
               </div>
@@ -1599,6 +1604,24 @@ export default function Profile({ session, profileUserId, onMessage }) {
                   <span>{bio.length}/{isPremiumActive(profile) ? PREMIUM_BIO_LIMIT : FREE_BIO_LIMIT}</span>
                 </div>
                 {profileLimitMessage && <p className="mt-1 text-xs font-semibold text-amber-600">{profileLimitMessage}</p>}
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">Bio links</label>
+                <textarea
+                  value={bioLinksText}
+                  onChange={(e) => {
+                    const premium = isPremiumActive(profile);
+                    const limit = premium ? PREMIUM_BIO_LINK_LIMIT : FREE_BIO_LINK_LIMIT;
+                    const links = countLinks(e.target.value);
+                    setBioLinksText(e.target.value);
+                    setProfileLimitMessage(links > limit ? (premium ? 'Premium allows up to 5 links.' : 'Free allows 2 links. Upgrade to Premium for up to 5.') : '');
+                  }}
+                  rows={2}
+                  placeholder="https://example.com (one link per line)"
+                  className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2 text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                />
+                <p className="mt-1 flex justify-between text-[10px] text-slate-400"><span>Links will be visible and clickable on your profile.</span><span>{countLinks(bioLinksText)}/{isPremiumActive(profile) ? PREMIUM_BIO_LINK_LIMIT : FREE_BIO_LINK_LIMIT}</span></p>
               </div>
 
               <button 
