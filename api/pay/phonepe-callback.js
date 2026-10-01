@@ -39,6 +39,7 @@ export default async function handler(req, res) {
 
     const expiry = new Date();
     expiry.setMonth(expiry.getMonth() + (String(plan).toLowerCase() === 'yearly' ? 12 : 1));
+    const startedAt = new Date();
     const updateResponse = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}`, {
       method: 'PATCH',
       headers: {
@@ -47,7 +48,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
         Prefer: 'return=minimal'
       },
-      body: JSON.stringify({ is_verified: true, verified_until: expiry.toISOString() })
+      body: JSON.stringify({ is_verified: true, subscription_plan: String(plan).toLowerCase() === 'yearly' ? 'yearly' : 'monthly', subscription_started_at: startedAt.toISOString(), verified_until: expiry.toISOString() })
     });
 
     return updateResponse.ok ? redirectToProfile(res, 'success') : redirectToProfile(res, 'failed');

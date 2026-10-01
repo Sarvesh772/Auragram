@@ -129,6 +129,7 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [postError, setPostError] = useState('');
+  const [uploadNotice, setUploadNotice] = useState(null);
 
   // Comments State
   const [activeCommentPostId, setActiveCommentPostId] = useState(null);
@@ -189,7 +190,7 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
 
   useEffect(() => {
     if (!session?.user?.id) return;
-    supabase.from('profiles').select('avatar_url, full_name, username').eq('id', session.user.id).single().then(({ data }) => setMyProfile(data || null));
+    supabase.from('profiles').select('avatar_url, full_name, username, is_verified, verified_until').eq('id', session.user.id).single().then(({ data }) => setMyProfile(data || null));
   }, [session?.user?.id]);
 
   useEffect(() => {
@@ -386,17 +387,55 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
     }
   }
 
-  function handleFileSelect(e) {
+  const hasActivePremium = Boolean(myProfile?.is_verified && (!myProfile.verified_until || new Date(myProfile.verified_until) > new Date()));
+
+  function readVideoMetadata(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        const metadata = { duration: video.duration, width: video.videoWidth, height: video.videoHeight };
+        URL.revokeObjectURL(url);
+        resolve(metadata);
+      };
+      video.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read video metadata')); };
+      video.src = url;
+    });
+  }
+
+  async function handleFileSelect(e) {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
-    const formattedFiles = files.map(file => ({
-      file,
-      type: file.type.startsWith('video') ? 'video' : 'image',
-      preview: URL.createObjectURL(file)
-    }));
+    setUploadNotice(null);
+    const formattedFiles = [];
+    for (const file of files) {
+      const type = file.type.startsWith('video') ? 'video' : 'image';
+      if (type === 'video') {
+        try {
+          const { duration, width, height } = await readVideoMetadata(file);
+          const maxDuration = hasActivePremium ? 7 * 60 : 2 * 60;
+          const maxWidth = hasActivePremium ? 2560 : 1920;
+          const maxHeight = hasActivePremium ? 1440 : 1080;
+          if (duration > maxDuration + 0.5) {
+            setUploadNotice({ message: hasActivePremium ? 'Premium plan allows up to 7-minute videos.' : 'Free plan allows up to 2-minute videos. Upgrade to Premium for up to 7-minute 2K videos!', upgrade: !hasActivePremium });
+            continue;
+          }
+          if (width > maxWidth || height > maxHeight) {
+            setUploadNotice({ message: hasActivePremium ? 'Premium videos can be up to 2K resolution (2560×1440).' : 'Free plan allows up to 1080p videos. Upgrade to Premium for 2K uploads!', upgrade: !hasActivePremium });
+            continue;
+          }
+        } catch {
+          setUploadNotice({ message: 'Could not read this video. Please choose another file.' });
+          continue;
+        }
+      }
+      formattedFiles.push({ file, type, preview: URL.createObjectURL(file) });
+    }
 
-    setSelectedFiles(prev => [...prev, ...formattedFiles]);
+    if (formattedFiles.length > 0) setSelectedFiles(prev => [...prev, ...formattedFiles]);
+    e.target.value = '';
   }
 
   function handleRemoveFile(index) {
@@ -470,6 +509,7 @@ async function handleCreatePost() {
   return (
     <div className="p-4 space-y-6">
       {reportMessage && <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[90] rounded-full bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-xl">{reportMessage}</div>}
+      {uploadNotice && <div role="status" className="fixed top-5 left-1/2 z-[95] flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-xs font-semibold text-white shadow-xl"><span>{uploadNotice.message}</span>{uploadNotice.upgrade && <a href="/premium" className="shrink-0 whitespace-nowrap text-purple-300 underline">Upgrade</a>}<button type="button" aria-label="Dismiss" onClick={() => setUploadNotice(null)} className="ml-1 text-slate-300 hover:text-white">×</button></div>}
       <input 
         type="file" 
         accept="image/*,video/*" 
