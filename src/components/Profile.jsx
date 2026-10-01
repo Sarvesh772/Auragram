@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import { uploadToR2 } from '../lib/r2Upload';
 import { FREE_BIO_LIMIT, PREMIUM_BIO_LIMIT, FREE_BIO_LINK_LIMIT, PREMIUM_BIO_LINK_LIMIT, isPremiumActive, countLinks } from '../lib/subscriptionLimits';
 import { 
-  FileText, Image as ImageIcon, Film, Heart, MessageCircle, 
+  FileText, Image as ImageIcon, Film, Heart, MessageCircle, Link as LinkIcon,
   Send, Bookmark, Edit3, X, Sparkles, Loader2, Camera, AlertCircle, 
   CheckCircle2, Pin, Play, Flag, MoreVertical, Copy, UserPlus, 
   UserCheck, UserMinus, Users, Eye, Trash2, Clipboard, Check, Share2, BadgeCheck
@@ -14,6 +14,18 @@ import { RenderFormattedText } from './MentionInput';
 const API_BASE_URL = (typeof window !== 'undefined' && (window.location.protocol === 'capacitor:' || window.location.hostname === 'localhost'))
   ? 'https://www.auragram.in'
   : '';
+
+const BIO_LINK_PATTERN = /(?:https?:\/\/|www\.)[^\s]+/gi;
+function uniqueBioLinks(text = '') {
+  return [...new Set((text.match(BIO_LINK_PATTERN) || []).map((link) => link.replace(/[.,;!?]+$/, '')))];
+}
+function cleanBioText(text = '') {
+  return text.replace(BIO_LINK_PATTERN, '').replace(/\s{2,}/g, ' ').trim();
+}
+function normalizeBio(text = '') {
+  const links = uniqueBioLinks(text);
+  return [cleanBioText(text), ...links].filter(Boolean).join('\n');
+}
 
 // ============================================================
 // POST DETAIL COMPONENT - Outside Profile Component
@@ -680,6 +692,11 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
   const [bioLinksText, setBioLinksText] = useState('');
+  const [bioLinks, setBioLinks] = useState([]);
+  const [newBioLinkUrl, setNewBioLinkUrl] = useState('');
+  const [newBioLinkTitle, setNewBioLinkTitle] = useState('');
+  const [isAddingBioLink, setIsAddingBioLink] = useState(false);
+  const [showBioLinks, setShowBioLinks] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState('');
   
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -867,7 +884,9 @@ export default function Profile({ session, profileUserId, onMessage }) {
       }
       setFullName(profileData.full_name || '');
       setUsername(profileData.username || '');
-      setBio(profileData.bio || '');
+      setBio(cleanBioText(profileData.bio || ''));
+      setBioLinksText(uniqueBioLinks(profileData.bio || '').join('\n'));
+      setBioLinks(Array.isArray(profileData.bio_links) ? profileData.bio_links : uniqueBioLinks(profileData.bio || '').map((url) => ({ url, title: '' })));
       setBioLinksText((profileData.bio || '').match(/(?:https?:\/\/|www\.)[^\s]+/gi)?.join('\n') || '');
       setAvatarUrl(profileData.avatar_url || '');
       const [{ count: followers }, { count: following }] = await Promise.all([
@@ -986,6 +1005,33 @@ export default function Profile({ session, profileUserId, onMessage }) {
     }
   }
 
+  function addBioLink() {
+    const rawUrl = newBioLinkUrl.trim();
+    if (!rawUrl) return setProfileLimitMessage('Enter a link first.');
+    const premium = isPremiumActive(profile);
+    const limit = premium ? PREMIUM_BIO_LINK_LIMIT : FREE_BIO_LINK_LIMIT;
+    if (bioLinks.length >= limit) {
+      setProfileLimitMessage(premium ? 'Premium allows maximum 5 links.' : 'Free tier allows maximum 2 links. Upgrade to Premium for 5 links!');
+      return;
+    }
+    const href = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+    try {
+      const parsed = new URL(href);
+      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Invalid protocol');
+      if (bioLinks.some((link) => link.url.toLowerCase() === href.toLowerCase())) {
+        setProfileLimitMessage('This link is already added.');
+        return;
+      }
+      setBioLinks((links) => [...links, { url: href, title: newBioLinkTitle.trim() || parsed.hostname.replace(/^www\./, '') }]);
+      setNewBioLinkUrl('');
+      setNewBioLinkTitle('');
+      setIsAddingBioLink(false);
+      setProfileLimitMessage('');
+    } catch {
+      setProfileLimitMessage('Please enter a valid http(s) link.');
+    }
+  }
+
   async function handleUpdateProfile(e) {
     e.preventDefault();
     setErrorMsg('');
@@ -995,14 +1041,13 @@ export default function Profile({ session, profileUserId, onMessage }) {
     const premium = isPremiumActive(profile);
     const bioLimit = premium ? PREMIUM_BIO_LIMIT : FREE_BIO_LIMIT;
     const linkLimit = premium ? PREMIUM_BIO_LINK_LIMIT : FREE_BIO_LINK_LIMIT;
-    const bioWithoutLinks = bio.replace(/(?:https?:\/\/|www\.)[^\s]+/gi, '').replace(/\s{2,}/g, ' ').trim();
-    const combinedBio = [bioWithoutLinks, bioLinksText.trim()].filter(Boolean).join('\n');
+    const combinedBio = cleanBioText(bio);
 
     if (combinedBio.length > bioLimit) {
       setErrorMsg(`Your ${premium ? 'Premium' : 'Free'} plan allows a bio up to ${bioLimit} characters.`);
       return;
     }
-    if (countLinks(combinedBio) > linkLimit) {
+    if (bioLinks.length > linkLimit) {
       setErrorMsg(premium ? 'Premium bios can include up to 5 links.' : 'Free bios can include up to 2 links. Upgrade to Premium for up to 5 links.');
       return;
     }
@@ -1035,6 +1080,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
         full_name: fullName.trim(),
         username: cleanUsername,
         bio: combinedBio,
+        bio_links: bioLinks,
         avatar_url: avatarUrl,
         updated_at: new Date(),
       };
@@ -1060,6 +1106,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const textPosts = posts.filter(p => !p.media_url);
   const photoPosts = posts.filter(p => p.media_url && p.media_type !== 'video');
   const reelPosts = posts.filter(p => p.media_url && p.media_type === 'video');
+  const displayBioLinks = Array.isArray(profile?.bio_links) ? profile.bio_links : uniqueBioLinks(profile?.bio || '').map((url) => ({ url, title: '' }));
 
   // Render single post component - Click to open detail page
   function renderPost(post) {
@@ -1294,8 +1341,15 @@ export default function Profile({ session, profileUserId, onMessage }) {
                 )}
                 {profile.bio && (
                   <p className="text-sm text-slate-600 dark:text-slate-300 font-medium mt-1 break-words whitespace-normal leading-relaxed">
-                    <RenderFormattedText text={profile.bio} onViewProfile={(id) => { window.location.href = `/profile/${id}`; }} />
+                    <RenderFormattedText text={normalizeBio(profile.bio)} onViewProfile={(id) => { window.location.href = `/profile/${id}`; }} />
                   </p>
+                )}
+                {displayBioLinks.length > 0 && (
+                  <button type="button" onClick={() => setShowBioLinks(true)} className="mt-2 inline-flex max-w-full items-center gap-1.5 truncate text-sm font-semibold text-purple-600 hover:underline dark:text-purple-400">
+                    <LinkIcon className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{displayBioLinks[0].title || displayBioLinks[0].url}</span>
+                    {displayBioLinks.length > 1 && <span className="shrink-0">and {displayBioLinks.length - 1} more</span>}
+                  </button>
                 )}
               </div>
             </div>
@@ -1512,6 +1566,15 @@ export default function Profile({ session, profileUserId, onMessage }) {
       )}
 
       {/* EDIT PROFILE MODAL */}
+      {showBioLinks && (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 p-3 sm:items-center" onClick={() => setShowBioLinks(false)}>
+          <div className="w-full max-w-md rounded-3xl bg-white p-5 shadow-2xl dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between"><h3 className="text-lg font-black text-slate-800 dark:text-white">Profile links</h3><button type="button" onClick={() => setShowBioLinks(false)} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-5 w-5" /></button></div>
+            <div className="space-y-2">{displayBioLinks.map((link, index) => <a key={`${link.url}-${index}`} href={link.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3 hover:bg-purple-50 dark:border-slate-800 dark:hover:bg-slate-800"><LinkIcon className="h-5 w-5 shrink-0 text-purple-600" /><span className="min-w-0"><span className="block truncate text-sm font-bold text-slate-800 dark:text-white">{link.title || link.url}</span><span className="block truncate text-xs text-slate-400">{link.url}</span></span></a>)}</div>
+          </div>
+        </div>
+      )}
+
       {isEditing && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 w-full max-w-md space-y-4 relative shadow-2xl border border-slate-100 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
@@ -1600,28 +1663,34 @@ export default function Profile({ session, profileUserId, onMessage }) {
                   className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2 text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
                 />
                 <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400">
-                  <span>{countLinks(bio)}/{isPremiumActive(profile) ? PREMIUM_BIO_LINK_LIMIT : FREE_BIO_LINK_LIMIT} links in bio</span>
+                  <span>{bioLinks.length}/{isPremiumActive(profile) ? PREMIUM_BIO_LINK_LIMIT : FREE_BIO_LINK_LIMIT} links in bio</span>
                   <span>{bio.length}/{isPremiumActive(profile) ? PREMIUM_BIO_LIMIT : FREE_BIO_LIMIT}</span>
                 </div>
                 {profileLimitMessage && <p className="mt-1 text-xs font-semibold text-amber-600">{profileLimitMessage}</p>}
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">Bio links</label>
-                <textarea
-                  value={bioLinksText}
-                  onChange={(e) => {
-                    const premium = isPremiumActive(profile);
-                    const limit = premium ? PREMIUM_BIO_LINK_LIMIT : FREE_BIO_LINK_LIMIT;
-                    const links = countLinks(e.target.value);
-                    setBioLinksText(e.target.value);
-                    setProfileLimitMessage(links > limit ? (premium ? 'Premium allows up to 5 links.' : 'Free allows 2 links. Upgrade to Premium for up to 5.') : '');
-                  }}
-                  rows={2}
-                  placeholder="https://example.com (one link per line)"
-                  className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2 text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-                />
-                <p className="mt-1 flex justify-between text-[10px] text-slate-400"><span>Links will be visible and clickable on your profile.</span><span>{countLinks(bioLinksText)}/{isPremiumActive(profile) ? PREMIUM_BIO_LINK_LIMIT : FREE_BIO_LINK_LIMIT}</span></p>
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Bio links</label>
+                  <span className="text-[10px] font-semibold text-slate-400">{bioLinks.length}/{isPremiumActive(profile) ? PREMIUM_BIO_LINK_LIMIT : FREE_BIO_LINK_LIMIT}</span>
+                </div>
+                <div className="space-y-2">
+                  {bioLinks.map((link, index) => (
+                    <div key={`${link.url}-${index}`} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                      <LinkIcon className="h-4 w-4 shrink-0 text-purple-600" />
+                      <div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-slate-700 dark:text-slate-200">{link.title || link.url}</p><p className="truncate text-[10px] text-slate-400">{link.url}</p></div>
+                      <button type="button" onClick={() => setBioLinks((links) => links.filter((_, i) => i !== index))} className="rounded-full p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-500" aria-label="Remove link"><X className="h-4 w-4" /></button>
+                    </div>
+                  ))}
+                </div>
+                {isAddingBioLink ? (
+                  <div className="mt-2 space-y-2 rounded-xl border border-purple-200 bg-purple-50/50 p-3 dark:border-purple-900/50 dark:bg-purple-950/20">
+                    <input value={newBioLinkTitle} onChange={(e) => setNewBioLinkTitle(e.target.value)} placeholder="Title (optional)" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900" />
+                    <input value={newBioLinkUrl} onChange={(e) => setNewBioLinkUrl(e.target.value)} placeholder="https://example.com" autoFocus className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900" />
+                    <div className="flex gap-2"><button type="button" onClick={addBioLink} className="rounded-lg bg-purple-600 px-3 py-2 text-xs font-bold text-white">Add link</button><button type="button" onClick={() => { setIsAddingBioLink(false); setNewBioLinkUrl(''); setNewBioLinkTitle(''); }} className="rounded-lg px-3 py-2 text-xs font-semibold text-slate-500">Cancel</button></div>
+                  </div>
+                ) : <button type="button" onClick={() => { if (bioLinks.length >= (isPremiumActive(profile) ? PREMIUM_BIO_LINK_LIMIT : FREE_BIO_LINK_LIMIT)) { setProfileLimitMessage(isPremiumActive(profile) ? 'Premium allows maximum 5 links.' : 'Free tier allows maximum 2 links. Upgrade to Premium for 5 links!'); return; } setIsAddingBioLink(true); }} className="mt-2 inline-flex items-center gap-1.5 rounded-xl border border-dashed border-purple-300 px-3 py-2 text-xs font-bold text-purple-600 hover:bg-purple-50"><span className="text-base">+</span> Add Link</button>}
+                <p className="mt-1 text-[10px] text-slate-400">Links will be visible and clickable on your profile.</p>
               </div>
 
               <button 
