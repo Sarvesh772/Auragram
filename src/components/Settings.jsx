@@ -12,6 +12,7 @@ import {
 import HelpSupport from './HelpSupport';
 import About from './About';
 import Feedback from './Feedback';
+import { FREE_BIO_LIMIT, PREMIUM_BIO_LIMIT, FREE_BIO_LINK_LIMIT, PREMIUM_BIO_LINK_LIMIT, isPremiumActive, countLinks } from '../lib/subscriptionLimits';
 
 export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout }) {
   const [activeSubTab, setActiveSubTab] = useState(null);
@@ -28,6 +29,8 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
   const [supportModal, setSupportModal] = useState(null);
   const [downloadModal, setDownloadModal] = useState(false);
   const [subscription, setSubscription] = useState(null);
+  const [autoGreetingEnabled, setAutoGreetingEnabled] = useState(false);
+  const [autoGreeting, setAutoGreeting] = useState('');
 
   // Saved Posts State
   const [savedPosts, setSavedPosts] = useState([]);
@@ -77,7 +80,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
       setLoading(true);
       const { data, error } = await supabase
         .from('profiles')
-        .select('username, full_name, bio, avatar_url')
+        .select('username, full_name, bio, avatar_url, auto_greeting_enabled, auto_greeting')
         .eq('id', session.user.id)
         .single();
 
@@ -87,6 +90,8 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
         setFullName(data.full_name || '');
         setBio(data.bio || '');
         setAvatarUrl(data.avatar_url || '');
+        setAutoGreetingEnabled(Boolean(data.auto_greeting_enabled));
+        setAutoGreeting(data.auto_greeting || '');
       }
     } catch (error) {
       console.error('Error loading profile:', error.message);
@@ -114,6 +119,17 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
   async function handleUpdateProfile(e) {
     e.preventDefault();
     setMessage({ type: '', text: '' });
+    const premium = isPremiumActive(subscription);
+    const bioLimit = premium ? PREMIUM_BIO_LIMIT : FREE_BIO_LIMIT;
+    const linkLimit = premium ? PREMIUM_BIO_LINK_LIMIT : FREE_BIO_LINK_LIMIT;
+    if (bio.length > bioLimit) {
+      setMessage({ type: 'error', text: `${premium ? 'Premium' : 'Free'} plan bio limit is ${bioLimit} characters.` });
+      return;
+    }
+    if (countLinks(bio) > linkLimit) {
+      setMessage({ type: 'error', text: premium ? 'Premium allows up to 5 bio links.' : 'Free allows 2 bio links. Upgrade to Premium for up to 5.' });
+      return;
+    }
     setLoading(true);
 
     const { error } = await supabase
@@ -124,6 +140,8 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
         bio: bio,
         avatar_url: avatarUrl, 
         updated_at: new Date(),
+        auto_greeting_enabled: premium && autoGreetingEnabled,
+        auto_greeting: premium ? autoGreeting.trim() : '',
       })
       .eq('id', session.user.id);
 
@@ -681,11 +699,28 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
               <label className="block text-xs font-bold text-slate-400 mb-1.5">Bio</label>
               <textarea
                 value={bio}
+                maxLength={isPremiumActive(subscription) ? PREMIUM_BIO_LIMIT : FREE_BIO_LIMIT}
                 onChange={(e) => setBio(e.target.value)}
                 rows={3}
                 placeholder="Tell something about yourself..."
                 className="w-full text-sm px-4 py-3 rounded-2xl border bg-slate-50 border-slate-100 dark:bg-slate-800 dark:border-slate-700 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
               />
+              <div className="mt-1 flex justify-between text-[10px] text-slate-400">
+                <span>{countLinks(bio)}/{isPremiumActive(subscription) ? PREMIUM_BIO_LINK_LIMIT : FREE_BIO_LINK_LIMIT} links in bio</span>
+                <span>{bio.length}/{isPremiumActive(subscription) ? PREMIUM_BIO_LIMIT : FREE_BIO_LIMIT}</span>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-slate-800 dark:text-white">Automated greeting messages</p>
+                  <p className="text-[10px] text-slate-400">{isPremiumActive(subscription) ? 'Send a custom greeting to new connections.' : 'Upgrade to Premium to enable Auto-Greetings.'}</p>
+                </div>
+                {isPremiumActive(subscription) ? <button type="button" role="switch" aria-checked={autoGreetingEnabled} onClick={() => setAutoGreetingEnabled((value) => !value)} className={`relative h-6 w-11 rounded-full transition ${autoGreetingEnabled ? 'bg-purple-600' : 'bg-slate-300 dark:bg-slate-600'}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${autoGreetingEnabled ? 'left-6' : 'left-1'}`} /></button> : <Lock className="h-4 w-4 text-slate-400" title="Upgrade to Premium to enable Auto-Greetings" />}
+              </div>
+              <input type="text" value={autoGreeting} onChange={(e) => setAutoGreeting(e.target.value.slice(0, 150))} disabled={!isPremiumActive(subscription) || !autoGreetingEnabled} placeholder="e.g. Thanks for connecting!" className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white" />
+              {!isPremiumActive(subscription) && <a href="/premium" className="mt-2 inline-block text-[10px] font-bold text-purple-600 underline">Upgrade to Premium</a>}
             </div>
 
             <button

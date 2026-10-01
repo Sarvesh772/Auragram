@@ -44,7 +44,7 @@ export function RenderFormattedText({ text, onViewProfile }) {
 }
 
 // 2. Main Default Export for Auto-suggest Input Box
-export default function MentionInput({ value, onChange, placeholder, onSend, className, currentUserId, rows = 2, compact = false }) {
+export default function MentionInput({ value, onChange, placeholder, onSend, className, currentUserId, rows = 2, compact = false, maxLength }) {
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
@@ -105,7 +105,7 @@ export default function MentionInput({ value, onChange, placeholder, onSend, cla
     const newTextBefore = words.length > 0 ? words.join(' ') + ` @${username} ` : `@${username} `;
     const updatedText = newTextBefore + textAfterCursor;
 
-    onChange(updatedText);
+    onChange(maxLength ? updatedText.slice(0, maxLength) : updatedText);
     setShowSuggestions(false);
     setMentionQuery('');
     if (inputRef.current) inputRef.current.focus();
@@ -151,6 +151,7 @@ export default function MentionInput({ value, onChange, placeholder, onSend, cla
         rows={rows}
         value={value}
         onChange={handleChange}
+        maxLength={maxLength}
         placeholder={placeholder}
         className={`${className || ''} resize-none outline-none border-0 ring-0 focus:outline-none focus:ring-0 ${compact ? 'min-h-[2rem] max-h-24 leading-5' : 'min-h-[2.5rem] max-h-32 leading-6'} overflow-y-auto whitespace-pre-wrap`}
         onKeyDown={(e) => {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { uploadToR2 } from '../lib/r2Upload';
+import { FREE_BIO_LIMIT, PREMIUM_BIO_LIMIT, FREE_BIO_LINK_LIMIT, PREMIUM_BIO_LINK_LIMIT, isPremiumActive, countLinks } from '../lib/subscriptionLimits';
 import { 
   FileText, Image as ImageIcon, Film, Heart, MessageCircle, 
   Send, Bookmark, Edit3, X, Sparkles, Loader2, Camera, AlertCircle, 
@@ -682,6 +683,7 @@ export default function Profile({ session, profileUserId, onMessage }) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [profileLimitMessage, setProfileLimitMessage] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [followState, setFollowState] = useState('none');
   const [followersCount, setFollowersCount] = useState(0);
@@ -987,6 +989,18 @@ export default function Profile({ session, profileUserId, onMessage }) {
     setSuccessMsg('');
 
     const cleanUsername = username.trim().toLowerCase().replace(/\s+/g, '');
+    const premium = isPremiumActive(profile);
+    const bioLimit = premium ? PREMIUM_BIO_LIMIT : FREE_BIO_LIMIT;
+    const linkLimit = premium ? PREMIUM_BIO_LINK_LIMIT : FREE_BIO_LINK_LIMIT;
+
+    if (bio.length > bioLimit) {
+      setErrorMsg(`Your ${premium ? 'Premium' : 'Free'} plan allows a bio up to ${bioLimit} characters.`);
+      return;
+    }
+    if (countLinks(bio) > linkLimit) {
+      setErrorMsg(premium ? 'Premium bios can include up to 5 links.' : 'Free bios can include up to 2 links. Upgrade to Premium for up to 5 links.');
+      return;
+    }
 
     if (!cleanUsername) {
       setErrorMsg('Username cannot be empty');
@@ -1569,11 +1583,22 @@ export default function Profile({ session, profileUserId, onMessage }) {
                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">Bio</label>
                 <textarea 
                   value={bio} 
-                  onChange={(e) => setBio(e.target.value)}
+                  onChange={(e) => {
+                    const premium = isPremiumActive(profile);
+                    const next = e.target.value.slice(0, premium ? PREMIUM_BIO_LIMIT : FREE_BIO_LIMIT);
+                    setBio(next);
+                    const limit = premium ? PREMIUM_BIO_LINK_LIMIT : FREE_BIO_LINK_LIMIT;
+                    setProfileLimitMessage(countLinks(next) > limit ? (premium ? 'Premium allows up to 5 links in your bio.' : 'Free allows 2 bio links. Upgrade to Premium for up to 5.') : '');
+                  }}
                   rows={2}
                   placeholder="Tell something about yourself..."
                   className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2 text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
                 />
+                <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400">
+                  <span>{countLinks(bio)}/{isPremiumActive(profile) ? PREMIUM_BIO_LINK_LIMIT : FREE_BIO_LINK_LIMIT} links in bio</span>
+                  <span>{bio.length}/{isPremiumActive(profile) ? PREMIUM_BIO_LIMIT : FREE_BIO_LIMIT}</span>
+                </div>
+                {profileLimitMessage && <p className="mt-1 text-xs font-semibold text-amber-600">{profileLimitMessage}</p>}
               </div>
 
               <button 

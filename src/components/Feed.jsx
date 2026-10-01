@@ -6,6 +6,7 @@ import { Image as ImageIcon, MessageCircle, Send, Heart, Bookmark, X, Loader2, T
 import MentionInput, { RenderFormattedText } from './MentionInput';
 import PostCaption from './PostCaption';
 import { PostDetail } from './Profile';
+import { FREE_CAPTION_LIMIT, PREMIUM_CAPTION_LIMIT, isPremiumActive } from '../lib/subscriptionLimits';
 
 // Helper for @mentions
 async function processMentions(text, actorId, postId) {
@@ -153,7 +154,12 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
 
   // Auto-resize Textarea dynamically based on content
   const handleTextChange = (e) => {
-    setNewContent(e.target.value);
+    const maxLength = isPremiumActive(myProfile) ? PREMIUM_CAPTION_LIMIT : FREE_CAPTION_LIMIT;
+    const nextValue = e.target.value.slice(0, maxLength);
+    setNewContent(nextValue);
+    if (e.target.value.length > maxLength) {
+      setUploadNotice({ message: `Your ${isPremiumActive(myProfile) ? 'Premium' : 'Free'} plan allows up to ${maxLength} caption characters.`, upgrade: !isPremiumActive(myProfile) });
+    }
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
@@ -387,7 +393,8 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
     }
   }
 
-  const hasActivePremium = Boolean(myProfile?.is_verified && (!myProfile.verified_until || new Date(myProfile.verified_until) > new Date()));
+  const hasActivePremium = isPremiumActive(myProfile);
+  const captionLimit = hasActivePremium ? PREMIUM_CAPTION_LIMIT : FREE_CAPTION_LIMIT;
 
   function readVideoMetadata(file) {
     return new Promise((resolve, reject) => {
@@ -539,7 +546,11 @@ async function handleCreatePost() {
               rows={isComposerExpanded ? 6 : 1}
               currentUserId={session.user.id}
               className="w-full bg-transparent text-slate-700 dark:text-white placeholder-slate-400 text-sm font-medium"
+              maxLength={captionLimit}
             />
+            <span className={`absolute bottom-1 right-1 text-[10px] font-semibold ${newContent.length >= captionLimit ? 'text-rose-500' : 'text-slate-400'}`}>
+              {newContent.length}/{captionLimit}
+            </span>
 
             {/* Expand / Collapse Button */}
             <button
