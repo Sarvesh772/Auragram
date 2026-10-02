@@ -18,7 +18,7 @@ export default function DownloadApp({ onClose }) {
       number: 1,
       title: 'Download Official APK',
       description:
-        'Auragram ke download page par “Download Official APK (v1.5.3)” button par tap karein.',
+        'Auragram ke download page par “Download Official APK (v1.5.8)” button par tap karein.',
       image: '/auragram-install/step-1.jpg',
     },
     {
@@ -228,7 +228,7 @@ export default function DownloadApp({ onClose }) {
               <Download className="w-4 h-4" />
 
               <span>
-                Download Official APK (v1.5.3)
+                Download Official APK (v1.5.8)
               </span>
             </a>
 
