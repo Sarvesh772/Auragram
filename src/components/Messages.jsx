@@ -407,10 +407,7 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
     if (!pendingRequest || !activeUser) return;
     const { error: updateError } = await supabase.from('message_requests').update({ status: 'accepted', accepted_at: new Date().toISOString() }).eq('id', pendingRequest.id).eq('receiver_id', session.user.id);
     if (updateError) return setRequestNotice(updateError.message);
-    const rows = [{ sender_id: pendingRequest.sender_id, receiver_id: session.user.id, content: pendingRequest.content, is_automatic: false }];
-    if (activeUser.auto_greeting_enabled && activeUser.auto_greeting?.trim()) {
-      rows.push({ sender_id: session.user.id, receiver_id: pendingRequest.sender_id, content: activeUser.auto_greeting.trim(), is_automatic: true });
-    }
+    const rows = [{ sender_id: pendingRequest.sender_id, receiver_id: session.user.id, content: pendingRequest.content }];
     const { data } = await supabase.from('messages').insert(rows).select();
     setMessages(data || []);
     setPendingRequest(null);
@@ -1088,8 +1085,6 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
                             ) : (
                               <p className="leading-relaxed">{msg.content}</p>
                             )}
-
-                            {msg.is_automatic && <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[8px] font-bold ${isMe ? 'bg-purple-500/50 text-purple-100' : 'bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-300'}`}>Automatic greeting</span>}
 
                             <div className="flex items-center justify-end space-x-1">
                               <span className={`text-[9px] ${isMe ? 'text-purple-200' : 'text-slate-400'}`}>

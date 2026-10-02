@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { ArrowLeft, BadgeCheck, Check, Sparkles } from 'lucide-react';
 
-const rows = [['Profile badge','—','Blue verified badge'],['Video resolution','1080p','2K'],['Video duration','2 minutes','7 minutes'],['Bio links','2','5'],['Bio character limit','90','150'],['Caption character limit','500','1,500'],['Automated greeting messages','—','Included']];
+const rows = [['Profile badge','—','Blue verified badge'],['Video resolution','1080p','2K'],['Video duration','2 minutes','7 minutes'],['Bio links','2','5'],['Bio character limit','90','150'],['Caption character limit','500','1,500'],['Premium Support Access','Standard Support','Priority Support Access · Faster assistance for account & payment issues']];
 
 export default function Premium({ session }) {
   const [loading, setLoading] = useState(false);

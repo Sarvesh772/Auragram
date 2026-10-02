@@ -12,6 +12,7 @@ import {
 import HelpSupport from './HelpSupport';
 import About from './About';
 import Feedback from './Feedback';
+import SupportTickets from './SupportTickets';
 import { FREE_BIO_LIMIT, PREMIUM_BIO_LIMIT, FREE_BIO_LINK_LIMIT, PREMIUM_BIO_LINK_LIMIT, isPremiumActive, countLinks } from '../lib/subscriptionLimits';
 
 export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout }) {
@@ -29,8 +30,9 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
   const [supportModal, setSupportModal] = useState(null);
   const [downloadModal, setDownloadModal] = useState(false);
   const [subscription, setSubscription] = useState(null);
-  const [autoGreetingEnabled, setAutoGreetingEnabled] = useState(false);
-  const [autoGreeting, setAutoGreeting] = useState('');
+  const [premiumSupportOpen, setPremiumSupportOpen] = useState(false);
+  const [supportForm, setSupportForm] = useState({ subject: '', category: 'Payment Issue', message: '' });
+  const [supportSubmitting, setSupportSubmitting] = useState(false);
 
   // Saved Posts State
   const [savedPosts, setSavedPosts] = useState([]);
@@ -80,7 +82,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
       setLoading(true);
       const { data, error } = await supabase
         .from('profiles')
-        .select('username, full_name, bio, avatar_url, auto_greeting_enabled, auto_greeting')
+        .select('username, full_name, bio, avatar_url')
         .eq('id', session.user.id)
         .single();
 
@@ -90,8 +92,6 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
         setFullName(data.full_name || '');
         setBio(data.bio || '');
         setAvatarUrl(data.avatar_url || '');
-        setAutoGreetingEnabled(Boolean(data.auto_greeting_enabled));
-        setAutoGreeting(data.auto_greeting || '');
       }
     } catch (error) {
       console.error('Error loading profile:', error.message);
@@ -140,8 +140,6 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
         bio: bio,
         avatar_url: avatarUrl, 
         updated_at: new Date(),
-        auto_greeting_enabled: premium && autoGreetingEnabled,
-        auto_greeting: premium ? autoGreeting.trim() : '',
       })
       .eq('id', session.user.id);
 
@@ -153,6 +151,26 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
       setMessage({ type: 'success', text: 'Profile updated successfully!' });
       setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     }
+  }
+
+  async function submitPremiumSupport(e) {
+    e.preventDefault();
+    if (!supportForm.subject.trim() || !supportForm.message.trim()) {
+      setMessage({ type: 'error', text: 'Please enter a subject and describe your issue.' });
+      return;
+    }
+    setSupportSubmitting(true);
+    const description = supportForm.message.trim();
+    const { error } = await supabase.from('support_tickets').insert([{ user_id: session.user.id, tier: 'premium', category: supportForm.category, subject: supportForm.subject.trim(), description, message: description, status: 'open', updated_at: new Date().toISOString() }]);
+    setSupportSubmitting(false);
+    if (error) {
+      setMessage({ type: 'error', text: error.message });
+      return;
+    }
+    setPremiumSupportOpen(false);
+    setSupportForm({ subject: '', category: 'Payment Issue', message: '' });
+    setMessage({ type: 'success', text: 'Priority ticket submitted successfully! Our team will respond shortly.' });
+    setTimeout(() => setMessage({ type: '', text: '' }), 4000);
   }
 
   async function fetchStats() {
@@ -299,7 +317,21 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
       {supportModal === 'help' && <HelpSupport onClose={() => setSupportModal(null)} />}
       {supportModal === 'about' && <About onClose={() => setSupportModal(null)} />}
       {supportModal === 'feedback' && <Feedback session={session} onClose={() => setSupportModal(null)} />}
+      {supportModal === 'tickets' && <SupportTickets session={session} onClose={() => setSupportModal(null)} />}
       {downloadModal && <DownloadApp onClose={() => setDownloadModal(false)} />}
+      {premiumSupportOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" onClick={() => !supportSubmitting && setPremiumSupportOpen(false)}>
+          <form onSubmit={submitPremiumSupport} onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+            <div className="mb-5 flex items-start justify-between"><div><span className="inline-flex rounded-full bg-purple-600 px-3 py-1 text-[10px] font-black tracking-wider text-white">PRIORITY TICKET</span><h2 className="mt-3 text-xl font-black text-slate-800 dark:text-white">Contact Premium Support</h2><p className="mt-1 text-xs text-slate-400">Faster assistance for account & payment issues.</p></div><button type="button" onClick={() => setPremiumSupportOpen(false)} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-5 w-5" /></button></div>
+            <div className="space-y-4">
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400">Subject<input value={supportForm.subject} onChange={(e) => setSupportForm((form) => ({ ...form, subject: e.target.value }))} placeholder="What do you need help with?" className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-purple-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" /></label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400">Issue category<select value={supportForm.category} onChange={(e) => setSupportForm((form) => ({ ...form, category: e.target.value }))} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-purple-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"><option>Payment Issue</option><option>Account Query</option><option>Bug Report</option><option>Other</option></select></label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400">Message / Description<textarea value={supportForm.message} onChange={(e) => setSupportForm((form) => ({ ...form, message: e.target.value }))} rows={5} placeholder="Describe the issue..." className="mt-1.5 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-purple-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" /></label>
+            </div>
+            <button type="submit" disabled={supportSubmitting} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 py-3 text-sm font-bold text-white transition hover:bg-purple-700 disabled:opacity-50">{supportSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}Submit Priority Ticket</button>
+          </form>
+        </div>
+      )}
       
       {/* Toast Messages */}
       {message.text && (
@@ -439,6 +471,17 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
                   <div><h3 className="text-sm font-bold text-slate-800 dark:text-white">Help & Support</h3><p className="text-[10px] text-slate-400">Get help with Auragram</p></div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-400" />
+              </div>
+
+              {isPremiumActive(subscription) ? (
+                <button type="button" onClick={() => setPremiumSupportOpen(true)} className="flex w-full items-center justify-between rounded-xl border border-purple-200 bg-purple-50 p-3 text-left transition hover:bg-purple-100 dark:border-purple-900/50 dark:bg-purple-950/20 dark:hover:bg-purple-950/40">
+                  <div className="flex items-center space-x-3.5"><div className="rounded-xl bg-purple-600 p-2 text-white"><Mail className="h-4 w-4" /></div><div><h3 className="text-sm font-bold text-purple-700 dark:text-purple-300">Contact Premium Support</h3><p className="text-[10px] text-purple-600/80 dark:text-purple-300/80">Priority help for account & payment issues</p></div></div>
+                  <span className="rounded-full bg-purple-600 px-2 py-1 text-[9px] font-black text-white">PREMIUM</span>
+                </button>
+              ) : null}
+
+              <div onClick={() => setSupportModal('tickets')} className="flex cursor-pointer items-center justify-between rounded-xl p-3 transition hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                <div className="flex items-center space-x-3.5"><div className="rounded-xl bg-blue-50 p-2 text-blue-500 dark:bg-blue-900/30"><FileText className="h-4 w-4" /></div><div><h3 className="text-sm font-bold text-slate-800 dark:text-white">My Support Tickets</h3><p className="text-[10px] text-slate-400">View status and reply to your tickets</p></div></div><ChevronRight className="h-4 w-4 text-slate-400" />
               </div>
 
               <div onClick={() => setSupportModal('feedback')} className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl">
@@ -709,18 +752,6 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
                 <span>{countLinks(bio)}/{isPremiumActive(subscription) ? PREMIUM_BIO_LINK_LIMIT : FREE_BIO_LINK_LIMIT} links in bio</span>
                 <span>{bio.length}/{isPremiumActive(subscription) ? PREMIUM_BIO_LIMIT : FREE_BIO_LIMIT}</span>
               </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-bold text-slate-800 dark:text-white">Automated greeting messages</p>
-                  <p className="text-[10px] text-slate-400">{isPremiumActive(subscription) ? 'Send a custom greeting to new connections.' : 'Upgrade to Premium to enable Auto-Greetings.'}</p>
-                </div>
-                {isPremiumActive(subscription) ? <button type="button" role="switch" aria-checked={autoGreetingEnabled} onClick={() => setAutoGreetingEnabled((value) => !value)} className={`relative h-6 w-11 rounded-full transition ${autoGreetingEnabled ? 'bg-purple-600' : 'bg-slate-300 dark:bg-slate-600'}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${autoGreetingEnabled ? 'left-6' : 'left-1'}`} /></button> : <Lock className="h-4 w-4 text-slate-400" title="Upgrade to Premium to enable Auto-Greetings" />}
-              </div>
-              <input type="text" value={autoGreeting} onChange={(e) => setAutoGreeting(e.target.value.slice(0, 150))} disabled={!isPremiumActive(subscription) || !autoGreetingEnabled} placeholder="e.g. Thanks for connecting!" className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white" />
-              {!isPremiumActive(subscription) && <a href="/premium" className="mt-2 inline-block text-[10px] font-bold text-purple-600 underline">Upgrade to Premium</a>}
             </div>
 
             <button
