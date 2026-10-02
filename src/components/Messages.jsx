@@ -67,6 +67,7 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
   }, [initialUserId, conversations]);
 
   const messagesEndRef = useRef(null);
+  const messagesScrollRef = useRef(null);
   const presenceChannelRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
@@ -76,7 +77,8 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = messagesScrollRef.current;
+    if (container) container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
   };
 
   useEffect(() => {
@@ -685,7 +687,7 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
     : messages;
 
   return (
-    <div className="w-full h-[100dvh] overflow-hidden bg-slate-50 dark:bg-slate-950 md:p-2 pb-14 md:pb-2 font-sans select-none">
+    <div className="w-full h-full min-h-0 overflow-hidden bg-slate-50 dark:bg-slate-950 md:p-2 font-sans select-none">
       <div className="h-full grid grid-cols-1 md:grid-cols-12 gap-0 md:gap-4">
         
         {/* INBOX SIDEBAR */}
@@ -940,7 +942,7 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
               )}
 
               {/* MESSAGES FEED WITH SWIPE TO REPLY */}
-              <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-slate-50/50 dark:bg-slate-950/40">
+              <div ref={messagesScrollRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-slate-50/50 dark:bg-slate-950/40">
                 {filteredMessages.length === 0 ? (
                   <div className="text-center py-20 space-y-2">
                     <MessageSquare className="w-8 h-8 text-purple-300 dark:text-purple-800 mx-auto" />

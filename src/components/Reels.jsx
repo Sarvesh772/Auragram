@@ -58,6 +58,7 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
 
   // Refs for video elements
   const videoRefs = useRef({});
+  const reelsScrollRef = useRef(null);
 
   useEffect(() => {
     fetchReels();
@@ -67,7 +68,11 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
   useEffect(() => {
     if (initialReelId && reels.length) {
       const index = reels.findIndex((reel) => reel.id === initialReelId);
-      if (index >= 0) setTimeout(() => document.querySelector(`[data-reel-card="${initialReelId}"]`)?.scrollIntoView({ behavior: 'smooth' }), 100);
+      if (index >= 0) setTimeout(() => {
+        const container = reelsScrollRef.current;
+        const card = container?.querySelector(`[data-reel-card="${initialReelId}"]`);
+        if (container && card) container.scrollTo({ top: card.offsetTop, behavior: 'smooth' });
+      }, 100);
     }
   }, [initialReelId, reels]);
 
@@ -350,7 +355,7 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
   }, [reels]);
 
   return (
-    <div className="w-full h-[calc(100dvh-124px)] md:h-[100dvh] bg-black text-white overflow-hidden">
+    <div className="w-full h-full min-h-0 bg-black text-white overflow-hidden">
       {loading ? (
         <div className="flex flex-col items-center justify-center h-full space-y-4">
           <Loader2 className="w-10 h-10 animate-spin text-rose-500" />
@@ -365,7 +370,7 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
           <p className="text-sm text-slate-400 mt-1">Check back later for new reels!</p>
         </div>
       ) : (
-        <div className="w-full h-full overflow-y-scroll snap-y snap-mandatory no-scrollbar scroll-smooth">
+        <div ref={reelsScrollRef} className="w-full h-full min-h-0 overflow-y-scroll snap-y snap-mandatory no-scrollbar scroll-smooth">
           {reels.map((reel) => {
             const isOwnReel = reel.user_id === session.user.id ||
               (reel.profiles?.username && reel.profiles.username === session.user.user_metadata?.username);
@@ -377,7 +382,7 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
               <div 
                 key={reel.id} 
                 data-reel-card={reel.id}
-                className="w-full h-[calc(100dvh-124px)] md:h-[100dvh] snap-start snap-always relative flex-shrink-0 flex items-center justify-center bg-black"
+                className="w-full h-full min-h-full snap-start snap-always relative flex-shrink-0 flex items-center justify-center bg-black"
               >
                 {/* Video Player */}
                 <video

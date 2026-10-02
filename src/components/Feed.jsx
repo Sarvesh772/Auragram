@@ -423,14 +423,17 @@ export default function Feed({ session, onViewProfile, initialPostId }) {
         try {
           const { duration, width, height } = await readVideoMetadata(file);
           const maxDuration = hasActivePremium ? 7 * 60 : 2 * 60;
-          const maxWidth = hasActivePremium ? 2560 : 1920;
-          const maxHeight = hasActivePremium ? 1440 : 1080;
+          const isPortrait = height > width;
+          const maxWidth = hasActivePremium ? (isPortrait ? 1440 : 2560) : (isPortrait ? 1080 : 1920);
+          const maxHeight = hasActivePremium ? (isPortrait ? 2560 : 1440) : (isPortrait ? 1920 : 1080);
+          const maxAllowedPixels = hasActivePremium ? 3_686_400 : 2_073_600;
+          const totalPixels = width * height;
           if (duration > maxDuration + 0.5) {
             setUploadNotice({ message: hasActivePremium ? 'Premium plan allows up to 7-minute videos.' : 'Free plan allows up to 2-minute videos. Upgrade to Premium for up to 7-minute 2K videos!', upgrade: !hasActivePremium });
             continue;
           }
-          if (width > maxWidth || height > maxHeight) {
-            setUploadNotice({ message: hasActivePremium ? 'Premium videos can be up to 2K resolution (2560×1440).' : 'Free plan allows up to 1080p videos. Upgrade to Premium for 2K uploads!', upgrade: !hasActivePremium });
+          if (totalPixels > maxAllowedPixels) {
+            setUploadNotice({ message: hasActivePremium ? `Premium videos can be up to 2K (${maxWidth}×${maxHeight} max envelope).` : 'Free plan allows up to 1080p videos. Upgrade to Premium for 2K uploads!', upgrade: !hasActivePremium });
             continue;
           }
         } catch {
