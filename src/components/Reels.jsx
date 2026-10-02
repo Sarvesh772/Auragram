@@ -355,7 +355,7 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
   }, [reels]);
 
   return (
-    <div className="w-full h-full min-h-0 bg-black text-white overflow-hidden">
+    <div className="w-full h-[calc(100dvh-4.5rem)] min-h-0 bg-black text-white overflow-hidden md:h-full">
       {loading ? (
         <div className="flex flex-col items-center justify-center h-full space-y-4">
           <Loader2 className="w-10 h-10 animate-spin text-rose-500" />
@@ -424,7 +424,7 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
                 </div>
 
                 {/* Left Bottom User Info Overlay */}
-                <div className="absolute bottom-6 left-4 right-16 text-white space-y-3 z-10">
+                <div className="absolute bottom-20 md:bottom-6 left-4 right-16 text-white space-y-3 z-10">
                   <div className="flex items-center space-x-3">
                     <button onClick={() => onViewProfile?.(reel.user_id)} className="w-10 h-10 rounded-full bg-gradient-to-br from-rose-500 to-amber-500 border-2 border-white/80 flex items-center justify-center overflow-hidden font-bold text-sm flex-shrink-0 shadow-lg">
                       {reel.profiles?.avatar_url ? (
@@ -452,7 +452,7 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
                 </div>
 
                 {/* Right Floating Action Bar */}
-                <div className="absolute bottom-8 right-3 flex flex-col items-center space-y-4 z-10">
+                <div className="absolute bottom-24 md:bottom-8 right-3 flex flex-col items-center space-y-4 z-10">
                   {/* Like Button */}
                   <button 
                     onClick={() => handleToggleLike(reel)} 
@@ -513,7 +513,7 @@ export default function Reels({ session, onViewProfile, initialReelId }) {
 
                 {/* Bottom Comments Drawer Modal (Icon Only) */}
 {activeReelId === reel.id && (
-  <div className="absolute inset-x-0 bottom-0 bg-white dark:bg-gradient-to-t dark:from-[#0f0f0f] dark:via-[#1a1a1a] dark:to-[#1a1a1a]/95 backdrop-blur-xl text-slate-900 dark:text-white rounded-t-3xl p-0 z-30 max-h-[60%] md:max-h-[65%] flex flex-col shadow-2xl border-t border-slate-200 dark:border-white/10 animate-in slide-in-from-bottom duration-300">
+  <div className="absolute inset-x-0 bottom-16 md:bottom-0 bg-white dark:bg-gradient-to-t dark:from-[#0f0f0f] dark:via-[#1a1a1a] dark:to-[#1a1a1a]/95 backdrop-blur-xl text-slate-900 dark:text-white rounded-t-3xl p-0 z-30 max-h-[60%] md:max-h-[65%] flex flex-col shadow-2xl border-t border-slate-200 dark:border-white/10 animate-in slide-in-from-bottom duration-300">
     
     {/* Header */}
     <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-white/10 flex-shrink-0 bg-white dark:bg-[#1a1a1a]">

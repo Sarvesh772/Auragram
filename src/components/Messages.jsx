@@ -684,7 +684,7 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
     : messages;
 
   return (
-    <div className="w-full h-full min-h-0 overflow-hidden bg-slate-50 dark:bg-slate-950 md:p-2 font-sans select-none">
+    <div className="w-full h-[calc(100dvh-4.5rem)] min-h-0 overflow-hidden bg-slate-50 dark:bg-slate-950 md:h-full md:p-2 font-sans select-none">
       <div className="h-full grid grid-cols-1 md:grid-cols-12 gap-0 md:gap-4">
         
         {/* INBOX SIDEBAR */}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { uploadToR2 } from '../lib/r2Upload';
 import Story from './Story';
-import { Image as ImageIcon, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight, MoreVertical, Play, Maximize2, Minimize2, Clipboard, Check, Share2, BadgeCheck } from 'lucide-react';
+import { Image as ImageIcon, MessageCircle, Send, Heart, Bookmark, X, Loader2, Trash2, ChevronLeft, ChevronRight, MoreVertical, Play, Volume2, VolumeX, Maximize2, Minimize2, Clipboard, Check, Share2, BadgeCheck } from 'lucide-react';
 import MentionInput, { RenderFormattedText } from './MentionInput';
 import PostCaption from './PostCaption';
 import { PostDetail } from './Profile';
@@ -42,6 +42,7 @@ async function processMentions(text, actorId, postId) {
 function PostMediaCarousel({ mediaItems }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const videoRef = useRef(null);
 
   if (!mediaItems || mediaItems.length === 0) return null;
@@ -70,8 +71,9 @@ function PostMediaCarousel({ mediaItems }) {
     <div className="relative w-full max-h-[480px] bg-black flex items-center justify-center overflow-hidden group">
       {currentItem.type === 'video' ? (
         <div className="relative w-full flex items-center justify-center" onClick={togglePlayback}>
-          <video ref={videoRef} src={currentItem.url} playsInline muted onEnded={() => setPlaying(false)} className="w-full max-h-[480px] object-contain" />
+          <video ref={videoRef} src={currentItem.url} playsInline muted={isMuted} onEnded={() => setPlaying(false)} className="w-full max-h-[480px] object-contain" />
           {!playing && <button type="button" aria-label="Play video" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/65 p-4 text-white shadow-lg backdrop-blur-sm"><Play className="h-6 w-6 fill-current" /></button>}
+          <button type="button" aria-label={isMuted ? 'Unmute video' : 'Mute video'} onClick={(e) => { e.stopPropagation(); setIsMuted((muted) => !muted); }} className="absolute bottom-3 right-3 rounded-full bg-black/65 p-2 text-white shadow-lg backdrop-blur-sm">{isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}</button>
         </div>
       ) : (
         <img src={currentItem.url} alt={`Slide ${currentIndex + 1}`} className="w-full max-h-[480px] object-cover" />
