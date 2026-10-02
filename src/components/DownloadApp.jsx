@@ -494,7 +494,7 @@ export default function DownloadApp({ onClose }) {
 
           {/* Version */}
           <p className="text-center text-[10px] text-slate-400 pb-1">
-            Auragram Android APK • Version 1.5.3
+            Auragram Android APK • Version 1.5.8
           </p>
 
         </div>

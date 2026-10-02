@@ -23,7 +23,7 @@ import Premium from './components/Premium';
 
 import { Home, Compass, MessageCircle, Clapperboard, Bell, Settings as SettingsIcon, User } from 'lucide-react';
 
-const APP_VERSION = '1.5.3';
+const APP_VERSION = '1.5.8';
 
 // Wrapper to handle dynamic /profile/:username and default logged-in user profile
 function ProfileWrapper({ session }) {
