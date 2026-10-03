@@ -1,5 +1,12 @@
 {
   "appId": "com.auragram.app",
   "appName": "Auragram",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "LIGHT",
+      "backgroundColor": "#ffffff"
+    }
+  }
 }

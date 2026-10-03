@@ -684,7 +684,7 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
     : messages;
 
   return (
-    <div className="w-full h-[calc(100dvh-4.5rem)] min-h-0 overflow-hidden bg-slate-50 dark:bg-slate-950 md:h-full md:p-2 font-sans select-none">
+    <div className="w-full h-[calc(100dvh-4rem)] min-h-0 overflow-hidden bg-slate-50 dark:bg-slate-950 md:h-full md:p-2 font-sans select-none">
       <div className="h-full grid grid-cols-1 md:grid-cols-12 gap-0 md:gap-4">
         
         {/* INBOX SIDEBAR */}
@@ -1166,7 +1166,7 @@ export default function Messages({ session, onViewProfile, initialUserId }) {
               ) : (
                 <form
                   onSubmit={handleSendMessage}
-                  className="p-3 pb-2 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center space-x-2"
+                  className="p-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center space-x-2"
                 >
                   <label className="p-2 text-slate-400 hover:text-purple-600 cursor-pointer rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition">
                     <ImageIcon className="w-5 h-5" />

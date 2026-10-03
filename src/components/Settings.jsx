@@ -12,6 +12,7 @@ import {
 import HelpSupport from './HelpSupport';
 import About from './About';
 import Feedback from './Feedback';
+import SupportTickets from './SupportTickets';
 import { FREE_BIO_LIMIT, PREMIUM_BIO_LIMIT, FREE_BIO_LINK_LIMIT, PREMIUM_BIO_LINK_LIMIT, isPremiumActive, countLinks } from '../lib/subscriptionLimits';
 
 export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout }) {
@@ -316,6 +317,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
       {supportModal === 'help' && <HelpSupport onClose={() => setSupportModal(null)} />}
       {supportModal === 'about' && <About onClose={() => setSupportModal(null)} />}
       {supportModal === 'feedback' && <Feedback session={session} onClose={() => setSupportModal(null)} />}
+      {supportModal === 'tickets' && <SupportTickets session={session} onClose={() => setSupportModal(null)} />}
       {downloadModal && <DownloadApp onClose={() => setDownloadModal(false)} />}
       {premiumSupportOpen && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" onClick={() => !supportSubmitting && setPremiumSupportOpen(false)}>
@@ -477,6 +479,10 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
                   <span className="rounded-full bg-purple-600 px-2 py-1 text-[9px] font-black text-white">PREMIUM</span>
                 </button>
               ) : null}
+
+              {isPremiumActive(subscription) && <div onClick={() => setSupportModal('tickets')} className="flex cursor-pointer items-center justify-between rounded-xl p-3 transition hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                <div className="flex items-center space-x-3.5"><div className="rounded-xl bg-blue-50 p-2 text-blue-500 dark:bg-blue-900/30"><MessageCircle className="h-4 w-4" /></div><div><h3 className="text-sm font-bold text-slate-800 dark:text-white">My Support Tickets</h3><p className="text-[10px] text-slate-400">View status and chat with support</p></div></div><span className="rounded-full bg-purple-100 px-2 py-1 text-[9px] font-black text-purple-700 dark:bg-purple-950/40 dark:text-purple-300">PRIORITY</span>
+              </div>}
 
               <div onClick={() => setSupportModal('feedback')} className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl">
                 <div className="flex items-center space-x-3.5">
