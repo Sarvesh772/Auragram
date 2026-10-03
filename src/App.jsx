@@ -229,7 +229,7 @@ export default function App() {
   }
 
   if (!session || isPasswordRecovery) {
-    return <Auth isResetting={isPasswordRecovery} />;
+    return <div className="min-h-screen bg-slate-50 dark:bg-slate-950"><Auth isResetting={isPasswordRecovery} /><Footer /></div>;
   }
   if (location.pathname === '/premium') return <Premium session={session} />;
 
