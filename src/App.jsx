@@ -87,6 +87,10 @@ export default function App() {
 
   const navigate = useNavigate();
   const location = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    document.querySelector('main')?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.pathname]);
   const isPublicLegalPath = ['/about', '/privacy', '/terms', '/refund-cancellation', '/contact'].includes(location.pathname);
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
