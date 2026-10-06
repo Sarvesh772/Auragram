@@ -20,6 +20,7 @@ import Footer from './components/Footer';
 import RightPanel from './components/RightPanel';
 import Admin from './components/Admin';
 import Premium from './components/Premium';
+import GlobalUploadProgress from './components/GlobalUploadProgress';
 
 import { Home, Compass, MessageCircle, Clapperboard, Bell, Settings as SettingsIcon, User } from 'lucide-react';
 
@@ -270,6 +271,7 @@ export default function App() {
 
   return (
     <div className={`min-h-screen flex justify-center transition-colors ${isDarkMode ? 'dark bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
+      <GlobalUploadProgress />
       {deletionRequest && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/75 p-4">
           <div className="w-full max-w-md rounded-3xl bg-white p-7 text-slate-900 shadow-2xl dark:bg-slate-900 dark:text-white">

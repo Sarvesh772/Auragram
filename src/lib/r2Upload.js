@@ -2,10 +2,18 @@ const BASE_URL = (typeof window !== 'undefined' && (window.location.protocol ===
   ? 'https://www.auragram.in'
   : '';
 import { supabase } from '../supabaseClient';
+import { uploadStore } from './uploadStore';
 
 export async function uploadToR2(file, folder = 'posts', target = 'media') {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) throw new Error('Please sign in again before uploading.');
+  uploadStore.start(file);
+  let session;
+  try {
+    ({ data: { session } } = await supabase.auth.getSession());
+  } catch {
+    uploadStore.fail('Please sign in again before uploading.');
+    throw new Error('Please sign in again before uploading.');
+  }
+  if (!session?.access_token) { uploadStore.fail('Please sign in again before uploading.'); throw new Error('Please sign in again before uploading.'); }
   const cleanFolder = folder.replace(/\/+$/, '');
   const key = `${cleanFolder}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
 
@@ -17,6 +25,7 @@ export async function uploadToR2(file, folder = 'posts', target = 'media') {
       body: JSON.stringify({ key, contentType: file.type, target })
     });
   } catch (error) {
+    uploadStore.fail(error.message);
     throw new Error('R2 upload API is unavailable.');
   }
 
@@ -26,26 +35,36 @@ export async function uploadToR2(file, folder = 'posts', target = 'media') {
     try { 
       data = JSON.parse(rawText); 
     } catch {
+      uploadStore.fail(`R2 upload API returned an invalid response (${response.status}).`);
       throw new Error(`R2 upload API returned an invalid response (${response.status}).`);
     }
   }
 
   if (!response.ok) {
-    throw new Error(data?.error || `Could not prepare upload (${response.status})`);
+    const message = data?.error || `Could not prepare upload (${response.status})`;
+    uploadStore.fail(message);
+    throw new Error(message);
   }
 
   let upload;
   try {
-    upload = await fetch(data.uploadUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': file.type },
-      body: file
+    upload = await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', data.uploadUrl);
+      xhr.setRequestHeader('Content-Type', file.type);
+      xhr.upload.onprogress = (event) => { if (event.lengthComputable) uploadStore.progress(event.loaded, event.total); };
+      xhr.onload = () => resolve(xhr);
+      xhr.onerror = () => reject(new Error('upload_failed'));
+      xhr.onabort = () => reject(new Error('upload_cancelled'));
+      xhr.send(file);
     });
   } catch {
     const bucketType = target === 'avatar' || target === 'profile' ? 'avatar bucket' : 'R2 bucket';
+    uploadStore.fail(`R2 ${bucketType} upload failed.`);
     throw new Error(`R2 ${bucketType} blocked the APK upload. Add capacitor://localhost to that bucket's CORS Allowed Origins.`);
   }
-  
-  if (!upload.ok) throw new Error('R2 upload failed');
+  if (upload.status < 200 || upload.status >= 300) { uploadStore.fail('R2 upload failed'); throw new Error('R2 upload failed'); }
+  uploadStore.progress(file.size, file.size);
+  uploadStore.finish();
   return data.publicUrl;
 }
