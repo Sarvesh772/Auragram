@@ -408,6 +408,10 @@ export default function Auth({ isResetting: recoveryMode = false }) {
               Need help? <a href="mailto:Support@auragram.in" className="font-semibold text-purple-600 hover:underline">Support@auragram.in</a>
             </p>
 
+            {!isRegistering && !isResetting && <p className="rounded-xl border border-purple-100 bg-purple-50/70 px-3 py-2 text-center text-[10px] leading-4 text-slate-500 dark:border-purple-900/40 dark:bg-purple-950/20 dark:text-slate-300">
+              Temporary reviewer access: <strong className="text-slate-700 dark:text-white">test@auragram.in</strong> / <strong className="text-slate-700 dark:text-white">Testusers</strong>
+            </p>}
+
           </div>
 
         </div>
