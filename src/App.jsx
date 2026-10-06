@@ -87,6 +87,16 @@ export default function App() {
 
   const navigate = useNavigate();
   const location = useLocation();
+  const legalBack = () => {
+    try {
+      const referrer = document.referrer ? new URL(document.referrer) : null;
+      if (referrer?.origin === window.location.origin) {
+        navigate(-1);
+        return;
+      }
+    } catch { /* use the safe fallback below */ }
+    navigate(session ? '/' : '/login', { replace: true });
+  };
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     document.querySelector('main')?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -221,11 +231,11 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-white">
         <Routes>
-          <Route path="/about" element={<AboutPage onBack={() => navigate(-1)} />} />
-          <Route path="/privacy" element={<Privacy onBack={() => navigate(-1)} />} />
-          <Route path="/terms" element={<Terms onBack={() => navigate(-1)} />} />
-          <Route path="/refund-cancellation" element={<RefundCancellation onBack={() => navigate(-1)} />} />
-          <Route path="/contact" element={<Contact onBack={() => navigate(-1)} />} />
+          <Route path="/about" element={<AboutPage onBack={legalBack} />} />
+          <Route path="/privacy" element={<Privacy onBack={legalBack} />} />
+          <Route path="/terms" element={<Terms onBack={legalBack} />} />
+          <Route path="/refund-cancellation" element={<RefundCancellation onBack={legalBack} />} />
+          <Route path="/contact" element={<Contact onBack={legalBack} />} />
         </Routes>
         <Footer />
       </div>
@@ -339,11 +349,11 @@ export default function App() {
             <Route path="/profile" element={<ProfileWrapper session={session} />} />
             <Route path="/profile/:username" element={<ProfileWrapper session={session} />} />
             <Route path="/settings" element={<Settings session={session} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />} />
-            <Route path="/privacy" element={<Privacy onBack={() => navigate(-1)} />} />
-            <Route path="/terms" element={<Terms onBack={() => navigate(-1)} />} />
-            <Route path="/refund-cancellation" element={<RefundCancellation onBack={() => navigate(-1)} />} />
-            <Route path="/contact" element={<Contact onBack={() => navigate(-1)} />} />
-            <Route path="/about" element={<AboutPage onBack={() => navigate(-1)} />} />
+            <Route path="/privacy" element={<Privacy onBack={legalBack} />} />
+            <Route path="/terms" element={<Terms onBack={legalBack} />} />
+            <Route path="/refund-cancellation" element={<RefundCancellation onBack={legalBack} />} />
+            <Route path="/contact" element={<Contact onBack={legalBack} />} />
+            <Route path="/about" element={<AboutPage onBack={legalBack} />} />
             <Route path="/admin" element={<Admin session={session} />} />
           </Routes>
 
