@@ -313,7 +313,7 @@ export default function App() {
           
           {/* MOBILE HEADER */}
           {showMobileTopBar && (
-            <header className={`md:hidden flex justify-between items-center px-4 py-3 border-b sticky top-0 backdrop-blur-md z-20 ${
+            <header style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: '0.75rem' }} className={`md:hidden flex justify-between items-center px-4 border-b sticky top-0 backdrop-blur-md z-20 ${
               isDarkMode ? 'border-slate-800 bg-slate-900/90' : 'border-slate-100 bg-white/90'
             }`}>
               <h1 className="text-2xl font-black text-purple-600 tracking-tight cursor-pointer" onClick={() => navigate('/')}>Auragram</h1>
