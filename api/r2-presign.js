@@ -1,5 +1,6 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { requireUser } from './_auth.js';
 
 const client = new S3Client({ 
   region: 'auto', 
@@ -17,6 +18,8 @@ export default async function handler(req, res) {
 
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const user = await requireUser(req);
+  if (!user) return res.status(401).json({ error: 'Authentication required' });
   
   try {
     const { key, contentType, target = 'media' } = req.body || {};
@@ -35,7 +38,7 @@ export default async function handler(req, res) {
 
     // Prefix validation match
     const allowedPrefix = isChat ? 'chat/' : isStory ? 'stories/' : isAvatar ? 'avatars/' : 'posts/';
-    if (!key.startsWith(allowedPrefix)) {
+    if (!key.startsWith(`${allowedPrefix}${user.id}/`)) {
       return res.status(400).json({ error: `Invalid upload folder. Key must start with ${allowedPrefix}` });
     }
 

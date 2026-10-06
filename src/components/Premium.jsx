@@ -23,7 +23,8 @@ export default function Premium({ session }) {
     if (!userId) return;
     setLoading(true);
     try {
-      const response = await fetch('/api/pay/phonepe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount: plan === 'yearly' ? 499 : 49, planType: plan, userId, userEmail: session.user.email }) });
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const response = await fetch('/api/pay/phonepe', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${currentSession?.access_token || session.access_token}` }, body: JSON.stringify({ planType: plan }) });
       const raw = await response.text(); let data = {};
       try { data = raw ? JSON.parse(raw) : {}; } catch { /* invalid gateway response */ }
       if (!response.ok || !data.url) throw new Error(data.error || data.message || 'PhonePe payment unavailable');

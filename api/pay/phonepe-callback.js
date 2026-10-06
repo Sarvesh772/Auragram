@@ -1,4 +1,5 @@
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://gpebgfjgoeujomrqxhir.supabase.co';
+import crypto from 'node:crypto';
 
 function redirectToProfile(res, status) {
   return res.redirect(302, `https://www.auragram.in/profile?payment=${status}`);
@@ -11,8 +12,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { user_id: userId, plan = 'monthly', order_id: orderId } = req.query || {};
+    const { user_id: userId, plan = 'monthly', order_id: orderId, sig } = req.query || {};
     if (!userId || !orderId) return redirectToProfile(res, 'failed');
+    const expectedSig = crypto.createHmac('sha256', process.env.PHONEPE_CLIENT_SECRET).update(`${userId}|${plan}|${orderId}`).digest('hex');
+    const providedSig = Buffer.from(String(sig || ''));
+    const expectedSignature = Buffer.from(expectedSig);
+    if (!sig || providedSig.length !== expectedSignature.length || !crypto.timingSafeEqual(providedSig, expectedSignature)) return redirectToProfile(res, 'failed');
 
     const hostUrl = process.env.PHONEPE_HOST_URL || 'https://api-preprod.phonepe.com/apis/pg-sandbox';
     const tokenResponse = await fetch(`${hostUrl}/v1/oauth/token`, {

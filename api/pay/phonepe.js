@@ -1,3 +1,6 @@
+import { requireUser } from '../_auth.js';
+import crypto from 'node:crypto';
+
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -8,9 +11,15 @@ export default async function handler(req, res) {
   setCors(res);
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const user = await requireUser(req);
+  if (!user) return res.status(401).json({ error: 'Authentication required' });
 
   try {
-    const { amount, userId } = req.body || {};
+    const { planType } = req.body || {};
+    const userId = user.id;
+    const plan = planType === 'yearly' ? 'yearly' : planType === 'monthly' ? 'monthly' : null;
+    if (!plan) return res.status(400).json({ error: 'Invalid subscription plan' });
+    const amount = plan === 'yearly' ? 499 : 49;
     const clientId = process.env.PHONEPE_CLIENT_ID;
     const clientSecret = process.env.PHONEPE_CLIENT_SECRET;
     const clientVersion = process.env.PHONEPE_CLIENT_VERSION;
@@ -43,11 +52,11 @@ export default async function handler(req, res) {
     }
 
     const merchantOrderId = `MT${Date.now()}`;
-    const plan = Number(amount) >= 499 ? 'yearly' : 'monthly';
     const callbackUrl = new URL('https://www.auragram.in/api/pay/phonepe-callback');
     callbackUrl.searchParams.set('user_id', userId || '');
     callbackUrl.searchParams.set('plan', plan);
     callbackUrl.searchParams.set('order_id', merchantOrderId);
+    callbackUrl.searchParams.set('sig', crypto.createHmac('sha256', clientSecret).update(`${userId}|${plan}|${merchantOrderId}`).digest('hex'));
 
     const paymentResponse = await fetch(`${hostUrl}/checkout/v2/pay`, {
       method: 'POST',
@@ -71,8 +80,6 @@ export default async function handler(req, res) {
     });
     const data = await paymentResponse.json();
     const url = data.redirectUrl || data.data?.redirectUrl;
-    console.log('PhonePe Raw Response:', data);
-
     if (paymentResponse.ok && url) {
       return res.status(200).json({ success: true, url });
     }

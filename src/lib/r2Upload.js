@@ -1,8 +1,11 @@
 const BASE_URL = (typeof window !== 'undefined' && (window.location.protocol === 'capacitor:' || window.location.hostname === 'localhost'))
   ? 'https://www.auragram.in'
   : '';
+import { supabase } from '../supabaseClient';
 
 export async function uploadToR2(file, folder = 'posts', target = 'media') {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Please sign in again before uploading.');
   const cleanFolder = folder.replace(/\/+$/, '');
   const key = `${cleanFolder}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
 
@@ -10,7 +13,7 @@ export async function uploadToR2(file, folder = 'posts', target = 'media') {
   try {
     response = await fetch(`${BASE_URL}/api/r2-presign`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ key, contentType: file.type, target })
     });
   } catch (error) {
