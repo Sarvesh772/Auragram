@@ -10,9 +10,9 @@ export default function Auth({ isResetting: recoveryMode = false }) {
   // Form States
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
-  const [identifier, setIdentifier] = useState(''); // Email or Username for Login
+  const [identifier, setIdentifier] = useState('test@auragram.in'); // Email or Username for Login
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState('Testusers');
   const [showPassword, setShowPassword] = useState(false);
 
   // UI Feedback States
@@ -183,14 +183,16 @@ export default function Auth({ isResetting: recoveryMode = false }) {
   }
 
   const toggleAuthMode = () => {
-    setIsRegistering(!isRegistering);
+    const nextIsRegistering = !isRegistering;
+    setIsRegistering(nextIsRegistering);
     setErrorMsg('');
     setSuccessMsg('');
     setFullName('');
     setUsername('');
     setEmail('');
     setIdentifier('');
-    setPassword('');
+    setPassword(nextIsRegistering ? '' : 'Testusers');
+    setIdentifier(nextIsRegistering ? '' : 'test@auragram.in');
     setUsernameStatus(null);
   };
 
