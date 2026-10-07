@@ -1,5 +1,5 @@
 import React from 'react';
-import { HelpCircle, Mail, ShieldCheck, X, MessageCircle, BookOpen, ChevronRight, ExternalLink } from 'lucide-react';
+import { HelpCircle, Mail, ShieldCheck, X, MessageCircle, BookOpen, ChevronRight, ExternalLink, Sparkles } from 'lucide-react';
 
 export default function HelpSupport({ onClose }) {
   const faqs = [
@@ -67,6 +67,27 @@ export default function HelpSupport({ onClose }) {
               support@auragram.in
               <ExternalLink className="h-3.5 w-3.5 opacity-70" />
             </a>
+          </div>
+
+          {/* Latest updates */}
+          <div className="rounded-2xl border border-purple-100 bg-white p-5 shadow-sm dark:border-purple-900/40 dark:bg-slate-900">
+            <div className="mb-3 flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-purple-600" />
+              <h3 className="font-bold text-slate-800 dark:text-white">Latest updates</h3>
+            </div>
+            <div className="space-y-3">
+              {[
+                ['Premium membership', 'View your plan, start date and expiry from Settings.'],
+                ['Support tickets', 'Premium members can submit priority tickets and reply in chat.'],
+                ['Background uploads', 'Photo and video uploads now show live progress while you browse.'],
+                ['Mobile experience', 'Improved full-screen layouts for Reels and Messages.'],
+              ].map(([title, description]) => (
+                <div key={title} className="flex gap-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
+                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-purple-500" />
+                  <div><p className="text-sm font-bold text-slate-700 dark:text-slate-200">{title}</p><p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{description}</p></div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* FAQs */}
