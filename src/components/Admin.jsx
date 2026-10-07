@@ -487,7 +487,7 @@ export default function Admin({ session }) {
         </main>
 
         {/* Footer */}
-        <div className="text-center text-xs text-slate-400 dark:text-slate-500 py-2">
+        <div className="hidden text-center text-xs text-slate-400 dark:text-slate-500 py-2">
           Auragram Admin Panel v1.0 • {new Date().getFullYear()}
         </div>
       </div>

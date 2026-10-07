@@ -359,7 +359,7 @@ export default function App() {
             <Route path="/admin" element={<Admin session={session} />} />
           </Routes>
 
-          {!isFullWidthPage && <Footer />}
+          {!isFullWidthPage && !isAdminPage && <Footer />}
           
         </main>
 
