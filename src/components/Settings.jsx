@@ -74,7 +74,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
   useEffect(() => {
     getProfile();
     fetchStats();
-    supabase.from('profiles').select('is_verified, verified_until, subscription_plan, subscription_started_at').eq('id', session.user.id).maybeSingle().then(({ data }) => setSubscription(data || null));
+    supabase.from('profiles').select('is_verified, verified_until, subscription_plan, subscription_started_at, created_at').eq('id', session.user.id).maybeSingle().then(({ data }) => setSubscription(data || null));
   }, [session]);
 
   async function getProfile() {
@@ -406,9 +406,9 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
                 </div>
               </div>
 
-              <div onClick={() => { if (!subscription?.is_verified) window.location.href = '/premium'; }} className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl">
+              <div onClick={() => { if (isPremiumActive(subscription)) setActiveSubTab('subscription'); else window.location.href = '/premium'; }} className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl">
                 <div className="flex items-center space-x-3.5"><div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-900/30 text-purple-600"><Award className="w-4 h-4" /></div><div><h3 className="text-sm font-bold text-slate-800 dark:text-white">Subscription & Membership</h3><p className="text-[10px] text-slate-400">{subscription?.is_verified ? `Active ${subscription.subscription_plan === 'yearly' ? '₹499/year' : '₹49/month'} · Expires ${subscription.verified_until ? new Date(subscription.verified_until).toLocaleDateString() : '—'}` : 'Upgrade to Premium and get your blue badge'}</p></div></div>
-                {!subscription?.is_verified && <span className="rounded-full bg-purple-600 px-3 py-1.5 text-[10px] font-bold text-white">Upgrade</span>}
+                {isPremiumActive(subscription) ? <ChevronRight className="w-4 h-4 text-slate-400" /> : <span className="rounded-full bg-purple-600 px-3 py-1.5 text-[10px] font-bold text-white">Upgrade</span>}
               </div>
 
             </div>
@@ -452,7 +452,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
                 <ChevronRight className="w-4 h-4 text-slate-400" />
               </div>
 
-              <div className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl">
+              <div onClick={() => setMessage({ type: 'success', text: 'Privacy Settings are coming soon.' })} className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition rounded-xl">
                 <div className="flex items-center space-x-3.5">
                   <div className="p-2 rounded-xl bg-cyan-50 dark:bg-cyan-900/30 text-cyan-500"><Globe className="w-4 h-4" /></div>
                   <div><h3 className="text-sm font-bold text-slate-800 dark:text-white">Privacy Settings</h3><p className="text-[10px] text-slate-400">Control who can see your content</p></div>
@@ -836,6 +836,25 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
                 <Sun className="w-6 h-6 text-amber-500 mx-auto mb-2" />
                 <p className="text-xs font-bold text-center text-slate-700 dark:text-white">Light</p>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUBSCRIPTION VIEW */}
+      {activeSubTab === 'subscription' && (
+        <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+          <RenderHeader title="Subscription & Membership" />
+          <div className="rounded-2xl border border-purple-100 bg-purple-50 p-5 dark:border-purple-900/50 dark:bg-purple-950/20">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-purple-600 p-2 text-white"><Award className="h-5 w-5" /></div>
+              <div><p className="text-xs font-black uppercase tracking-wide text-purple-600">Premium active</p><h3 className="text-lg font-black text-slate-800 dark:text-white">Auragram Premium</h3></div>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl bg-white/80 p-3 dark:bg-slate-900/60"><p className="text-[10px] font-bold uppercase text-slate-400">Plan</p><p className="mt-1 text-sm font-black text-slate-800 dark:text-white">{subscription.subscription_plan === 'yearly' ? '₹499 / Year' : '₹49 / Month'}</p></div>
+              <div className="rounded-xl bg-white/80 p-3 dark:bg-slate-900/60"><p className="text-[10px] font-bold uppercase text-slate-400">Start date</p><p className="mt-1 text-sm font-black text-slate-800 dark:text-white">{subscription.subscription_started_at || subscription.created_at ? new Date(subscription.subscription_started_at || subscription.created_at).toLocaleDateString() : '—'}</p></div>
+              <div className="rounded-xl bg-white/80 p-3 dark:bg-slate-900/60"><p className="text-[10px] font-bold uppercase text-slate-400">End date</p><p className="mt-1 text-sm font-black text-slate-800 dark:text-white">{subscription.verified_until ? new Date(subscription.verified_until).toLocaleDateString() : '—'}</p></div>
+              <div className="rounded-xl bg-white/80 p-3 dark:bg-slate-900/60"><p className="text-[10px] font-bold uppercase text-slate-400">Benefits</p><p className="mt-1 text-sm font-black text-slate-800 dark:text-white">Blue badge · 2K video · Priority support</p></div>
             </div>
           </div>
         </div>
