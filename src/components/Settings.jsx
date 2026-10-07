@@ -7,7 +7,7 @@ import {
   Loader2, ChevronRight, ArrowLeft, Palette, Bookmark, Trash2, X, Eye,
   Bell, Shield, HelpCircle, MessageCircle, Download, Smartphone,
   Globe, Users, Heart, Award, Zap, Share2, UserCheck,
-  Settings as SettingsIcon, TrendingUp, Mail, Image, Camera 
+  Settings as SettingsIcon, TrendingUp, Mail, Image, Camera, Paperclip 
 } from 'lucide-react';
 import HelpSupport from './HelpSupport';
 import About from './About';
@@ -32,6 +32,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
   const [subscription, setSubscription] = useState(null);
   const [premiumSupportOpen, setPremiumSupportOpen] = useState(false);
   const [supportForm, setSupportForm] = useState({ subject: '', category: 'Payment Issue', message: '' });
+  const [supportAttachment, setSupportAttachment] = useState(null);
   const [supportSubmitting, setSupportSubmitting] = useState(false);
 
   // Saved Posts State
@@ -161,7 +162,15 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
     }
     setSupportSubmitting(true);
     const description = supportForm.message.trim();
-    const { error } = await supabase.from('support_tickets').insert([{ user_id: session.user.id, tier: 'premium', category: supportForm.category, subject: supportForm.subject.trim(), description, message: description, status: 'open', updated_at: new Date().toISOString() }]);
+    let attachmentUrl = null;
+    try {
+      if (supportAttachment) attachmentUrl = await uploadToR2(supportAttachment, `posts/${session.user.id}`, 'media');
+    } catch (error) {
+      setSupportSubmitting(false);
+      setMessage({ type: 'error', text: `Screenshot upload failed: ${error.message}` });
+      return;
+    }
+    const { error } = await supabase.from('support_tickets').insert([{ user_id: session.user.id, tier: 'premium', category: supportForm.category, subject: supportForm.subject.trim(), description, message: description, attachment_url: attachmentUrl, attachment_name: supportAttachment?.name || null, status: 'open', updated_at: new Date().toISOString() }]);
     setSupportSubmitting(false);
     if (error) {
       setMessage({ type: 'error', text: error.message });
@@ -169,6 +178,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
     }
     setPremiumSupportOpen(false);
     setSupportForm({ subject: '', category: 'Payment Issue', message: '' });
+    setSupportAttachment(null);
     setMessage({ type: 'success', text: 'Priority ticket submitted successfully! Our team will respond shortly.' });
     setTimeout(() => setMessage({ type: '', text: '' }), 4000);
   }
@@ -328,6 +338,7 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400">Issue category<select value={supportForm.category} onChange={(e) => setSupportForm((form) => ({ ...form, category: e.target.value }))} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-purple-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"><option>Payment Issue</option><option>Account Query</option><option>Bug Report</option><option>Other</option></select></label>
               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400">Message / Description<textarea value={supportForm.message} onChange={(e) => setSupportForm((form) => ({ ...form, message: e.target.value }))} rows={5} placeholder="Describe the issue..." className="mt-1.5 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-purple-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" /></label>
             </div>
+            <label className="mt-4 flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-purple-200 bg-purple-50/60 px-3 py-3 text-xs font-bold text-purple-700 transition hover:bg-purple-100 dark:border-purple-900/50 dark:bg-purple-950/20 dark:text-purple-300"><Paperclip className="h-4 w-4" /><span>{supportAttachment ? supportAttachment.name : 'Attach screenshot (optional, max 5 MB)'}</span><input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 5 * 1024 * 1024) { setMessage({ type: 'error', text: 'Screenshot must be 5 MB or smaller.' }); return; } setSupportAttachment(file); }} /></label>
             <button type="submit" disabled={supportSubmitting} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 py-3 text-sm font-bold text-white transition hover:bg-purple-700 disabled:opacity-50">{supportSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}Submit Priority Ticket</button>
           </form>
         </div>
