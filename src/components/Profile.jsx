@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import { getActiveFollowStats } from '../utils/activeFollowStats';
 import { uploadToR2 } from '../lib/r2Upload';
 import { FREE_BIO_LIMIT, PREMIUM_BIO_LIMIT, FREE_BIO_LINK_LIMIT, PREMIUM_BIO_LINK_LIMIT, isPremiumActive, countLinks } from '../lib/subscriptionLimits';
 import { 
@@ -778,12 +779,9 @@ export default function Profile({ session, profileUserId, onMessage }) {
     if (!followProfileId) return undefined;
 
     const refreshFollowStats = async () => {
-      const [{ count: followers }, { count: following }] = await Promise.all([
-        supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', followProfileId),
-        supabase.from('follows').select('following_id', { count: 'exact', head: true }).eq('follower_id', followProfileId)
-      ]);
-      setFollowersCount(followers || 0);
-      setFollowingCount(following || 0);
+      const { followers, following } = await getActiveFollowStats(supabase, followProfileId);
+      setFollowersCount(followers);
+      setFollowingCount(following);
       if (followProfileId !== session.user.id) {
         const { data: relation } = await supabase.from('follows').select('follower_id').or(`and(follower_id.eq.${session.user.id},following_id.eq.${followProfileId}),and(follower_id.eq.${followProfileId},following_id.eq.${session.user.id})`);
         const followingMe = (relation || []).some((r) => r.follower_id === followProfileId);
@@ -889,12 +887,9 @@ export default function Profile({ session, profileUserId, onMessage }) {
       setBioLinks(Array.isArray(profileData.bio_links) ? profileData.bio_links : uniqueBioLinks(profileData.bio || '').map((url) => ({ url, title: '' })));
       setBioLinksText((profileData.bio || '').match(/(?:https?:\/\/|www\.)[^\s]+/gi)?.join('\n') || '');
       setAvatarUrl(profileData.avatar_url || '');
-      const [{ count: followers }, { count: following }] = await Promise.all([
-        supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', targetId),
-        supabase.from('follows').select('following_id', { count: 'exact', head: true }).eq('follower_id', targetId)
-      ]);
-      setFollowersCount(followers || 0);
-      setFollowingCount(following || 0);
+      const { followers, following } = await getActiveFollowStats(supabase, targetId);
+      setFollowersCount(followers);
+      setFollowingCount(following);
       if (targetId !== session.user.id) {
         const { data: relation } = await supabase.from('follows').select('follower_id, following_id').or(`and(follower_id.eq.${session.user.id},following_id.eq.${targetId}),and(follower_id.eq.${targetId},following_id.eq.${session.user.id})`);
         const following = (relation || []).some((r) => r.follower_id === session.user.id);
@@ -1857,12 +1852,9 @@ export default function Profile({ session, profileUserId, onMessage }) {
                               .eq('follower_id', session.user.id)
                               .eq('following_id', person.id);
                           }
-                          const [{ count: followers }, { count: following }] = await Promise.all([
-                            supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', followProfileId),
-                            supabase.from('follows').select('following_id', { count: 'exact', head: true }).eq('follower_id', followProfileId)
-                          ]);
-                          setFollowersCount(followers || 0);
-                          setFollowingCount(following || 0);
+                          const { followers, following } = await getActiveFollowStats(supabase, followProfileId);
+                          setFollowersCount(followers);
+                          setFollowingCount(following);
                         }}
                         className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all hover:scale-105 ${
                           person.isFollowing 

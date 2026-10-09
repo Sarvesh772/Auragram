@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { getActiveFollowStats } from '../utils/activeFollowStats';
 import DownloadApp from './DownloadApp';
 import { uploadToR2 } from '../lib/r2Upload';
 import { 
@@ -184,17 +185,16 @@ export default function Settings({ session, isDarkMode, setIsDarkMode, onLogout 
   }
 
   async function fetchStats() {
-    const [postsRes, followersRes, followingRes, likesRes] = await Promise.all([
+    const [postsRes, followStats, likesRes] = await Promise.all([
       supabase.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', session.user.id),
-      supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', session.user.id),
-      supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', session.user.id),
+      getActiveFollowStats(supabase, session.user.id),
       supabase.from('likes').select('id', { count: 'exact', head: true }).eq('user_id', session.user.id)
     ]);
 
     setStats({
       posts: postsRes.count || 0,
-      followers: followersRes.count || 0,
-      following: followingRes.count || 0,
+      followers: followStats.followers,
+      following: followStats.following,
       totalLikes: likesRes.count || 0
     });
   }
