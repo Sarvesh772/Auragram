@@ -9,12 +9,14 @@ import { supabase } from '../supabaseClient';
 import AdminUsers from './AdminUsers';
 import AdminFeedback from './AdminFeedback';
 import AdminPriorityTickets from './AdminPriorityTickets';
+import AdminPayments from './AdminPayments';
 
 const TABS = [
   ['reports', 'Reports', AlertCircle],
   ['users', 'Users', Users],
   ['feedback', 'Feedback', MessageSquare],
   ['support', 'Support Tickets', MessageSquare],
+  ['payments', 'Payments', ShieldCheck],
   ['deletions', 'Deletions', Trash2]
 /*
   ['reports', 'Reports', '📋'],
@@ -342,6 +344,9 @@ export default function Admin({ session }) {
 
       case 'support':
         return <AdminPriorityTickets />;
+
+      case 'payments':
+        return <AdminPayments session={session} />;
 
       case 'deletions':
         return (

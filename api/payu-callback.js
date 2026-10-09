@@ -28,6 +28,12 @@ export default async function handler(req, res) {
   console.log('[PayU callback] calculatedHash:', calculatedHash);
   const valid = Boolean(salt && receivedHash && receivedHash === calculatedHash);
   let success = valid && String(data.status).toLowerCase() === 'success';
+  const paymentStatus = success ? 'success' : 'failed';
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY && data.udf1) {
+    const auditClient = createClient(process.env.VITE_SUPABASE_URL || 'https://gpebgfjgoeujomrqxhir.supabase.co', process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
+    const { error: auditError } = await auditClient.from('payments').insert([{ user_id: data.udf1, email: data.email || null, txnid: data.txnid || null, payu_mihpayid: data.mihpayid || null, amount: Number(data.amount) || 0, status: paymentStatus }]);
+    if (auditError) console.error('[PayU callback] audit log failed:', auditError.message);
+  }
   if (success && (!data.udf1 || !process.env.SUPABASE_SERVICE_ROLE_KEY)) {
     console.error('[PayU callback] cannot activate subscription: missing user id or Supabase service role key');
     success = false;
