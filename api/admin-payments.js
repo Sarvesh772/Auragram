@@ -8,13 +8,20 @@ function getAdminClient() {
   );
 }
 
+function getUserClient(token) {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://gpebgfjgoeujomrqxhir.supabase.co';
+  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwZWJnZmpnb2V1am9tcnF4aGlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ0NzY0NjYsImV4cCI6MjEwMDA1MjQ2Nn0.Yp4XUjBMkkf36tjs2ahQFxaJJZ8Y0d0E9bzgLSRE-DQ';
+  return createClient(url, anonKey, { global: { headers: { Authorization: `Bearer ${token}` } } });
+}
+
 async function authorize(req) {
   const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
   if (!token || !process.env.SUPABASE_SERVICE_ROLE_KEY) return { error: 'Unauthorized', status: 401 };
   const adminClient = getAdminClient();
-  const { data: userData, error: userError } = await adminClient.auth.getUser(token);
+  const userClient = getUserClient(token);
+  const { data: userData, error: userError } = await userClient.auth.getUser(token);
   if (userError || !userData.user) return { error: 'Unauthorized', status: 401 };
-  const { data: adminRow, error: adminError } = await adminClient
+  const { data: adminRow, error: adminError } = await userClient
     .from('admin_users').select('role').eq('user_id', userData.user.id).maybeSingle();
   if (adminError || !adminRow) return { error: 'Forbidden', status: 403 };
   return { client: adminClient };
