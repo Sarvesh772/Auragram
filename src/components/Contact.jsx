@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Clock3, LifeBuoy, Mail, MapPin } from 'lucide-react';
+import { ArrowLeft, Clock3, LifeBuoy, Mail, MapPin, Phone } from 'lucide-react';
 import { REGISTERED_BUSINESS_ADDRESS } from './Footer';
 
 export default function Contact({ onBack }) {
@@ -12,6 +12,7 @@ export default function Contact({ onBack }) {
         <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">{hindi ? 'खाते, privacy, payment, safety और product से जुड़े सवालों में हम आपकी मदद करेंगे।' : 'We are here to help with account access, privacy requests, payments, safety reports and product questions.'}</p>
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           <a href="mailto:support@auragram.in" className="flex items-start gap-3 rounded-2xl border border-slate-200 p-4 hover:border-purple-300 dark:border-slate-700 dark:hover:border-purple-500"><Mail className="mt-0.5 h-5 w-5 text-purple-600" /><span><strong className="block text-sm">Official email</strong><span className="text-sm text-purple-600">support@auragram.in</span></span></a>
+          <a href="tel:+916307728381" className="flex items-start gap-3 rounded-2xl border border-slate-200 p-4 hover:border-purple-300 dark:border-slate-700 dark:hover:border-purple-500"><Phone className="mt-0.5 h-5 w-5 text-purple-600" /><span><strong className="block text-sm">Contact phone</strong><span className="text-sm text-purple-600">+91 6307728381</span></span></a>
           <div className="flex items-start gap-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700"><MapPin className="mt-0.5 h-5 w-5 text-purple-600" /><span><strong className="block text-sm">Registered business address</strong><span className="text-sm text-slate-600 dark:text-slate-300">{REGISTERED_BUSINESS_ADDRESS}</span></span></div>
           <div className="flex items-start gap-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700"><Clock3 className="mt-0.5 h-5 w-5 text-purple-600" /><span><strong className="block text-sm">Response time</strong><span className="text-sm text-slate-600 dark:text-slate-300">We aim to acknowledge requests within 2 business days. Premium priority requests are handled faster where reasonably possible.</span></span></div>
           <div className="flex items-start gap-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700"><LifeBuoy className="mt-0.5 h-5 w-5 text-purple-600" /><span><strong className="block text-sm">Support topics</strong><span className="text-sm text-slate-600 dark:text-slate-300">Account, privacy, payment, safety and technical assistance.</span></span></div>
